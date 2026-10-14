@@ -364,6 +364,15 @@ export class AudioEngine {
   }
   paws(pos, n = 10) { for (let i = 0; i < n; i++) this.noise({ dur: 0.03, type: 'bandpass', freq: 2200 + Math.random() * 800, q: 2, gain: 0.08, when: i * 0.09, pos }); }
 
+  rats(pos) {
+    this.paws(pos, 16);
+    for (let i = 0; i < 3; i++) this.tone({ freq: 3800 + Math.random() * 1500, freqTo: 3000, dur: 0.06, type: 'sine', gain: 0.05, when: 0.3 + i * 0.13 + Math.random() * 0.1, pos });
+    this.noise({ dur: 0.5, type: 'bandpass', freq: 3500, q: 3, gain: 0.05, when: 0.1, pos });
+  }
+  rustle(pos) { for (let i = 0; i < 7; i++) this.noise({ dur: 0.06 + Math.random() * 0.08, type: 'bandpass', freq: 2500 + Math.random() * 2500, q: 1.5, gain: 0.07, when: i * (0.05 + Math.random() * 0.1), pos }); }
+  metalGroan(pos) { this.tone({ freq: 90, freqTo: 70, dur: 1.6, type: 'sawtooth', gain: 0.05, filter: 400, vib: [3, 6], pos }); this.tone({ freq: 340, freqTo: 300, dur: 1.2, type: 'triangle', gain: 0.02, filter: 900, pos, when: 0.2 }); }
+  thump(pos) { this.noise({ dur: 0.3, type: 'lowpass', freq: 220, gain: 0.5, pos, brown: true }); this.tone({ freq: 60, freqTo: 40, dur: 0.25, gain: 0.3, pos }); }
+
   // ---------- adaptive music ----------
   update(dt, st) {
     if (!this.ctx) return;

@@ -1,8 +1,8 @@
 // LEVEL 1 — PART B: Hammerline Depot after dark.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792003108';
-import { tex, textTex, rng } from './textures.js?v=1792003108';
-import { makeHumanoid, makeCharacter, makeVehicle, animateWalk, makeBeam, makeGlow, std } from './models.js?v=1792003108';
+import { Grid } from './grid.js?v=1792003125';
+import { tex, textTex, rng } from './textures.js?v=1792003125';
+import { makeHumanoid, makeCharacter, makeVehicle, animateWalk, makeBeam, makeGlow, std } from './models.js?v=1792003125';
 
 const VO = {
   out: { id: 'sr_out', who: 'Agent (radio)', text: 'Back door\'s locked down. He\'s inside. Nobody leaves this building.', radio: true, agent: true },
@@ -895,7 +895,6 @@ export function createStore(G, checkpoint = 0) {
     if (ambient.catT != null) {
       ambient.catT += dt; const t = Math.min(1, ambient.catT / 1.3);
       cat.position.set(38 + t * 4, Math.max(0, 2.6 - ambient.catT * 8), 3.5 + t * 9); cat.rotation.y = 0.4;
-      if (ambient.catT > 0.6 && !ambient.catSaid) { ambient.catSaid = true; ui.say([VO.mcat]); }
       if (t >= 1) { cat.visible = false; ambient.catT = null; }
     }
     // shopping cart rolls out on its own near the checkouts
@@ -904,13 +903,17 @@ export function createStore(G, checkpoint = 0) {
     // ambient false scares: sounds with nothing behind them
     ambient.t -= dt;
     if (ambient.t <= 0 && stage < 6) {
-      ambient.t = 30 + r() * 40;
-      const k = (r() * 6) | 0, ang = r() * Math.PI * 2, rx = P.pos.x + Math.cos(ang) * 9, rz = P.pos.z + Math.sin(ang) * 9;
+      ambient.t = 14 + r() * 20;
+      const k = (r() * 10) | 0, ang = r() * Math.PI * 2, rx = P.pos.x + Math.cos(ang) * 9, rz = P.pos.z + Math.sin(ang) * 9;
       if (k === 0) audio.chains({ x: 31.5, y: 1.2, z: 45.5 });
       else if (k === 1) audio.bark({ x: 31 + (r() - 0.5) * 30, y: 1, z: 55 });
       else if (k === 2) audio.can({ x: rx, y: 1.5, z: rz });
       else if (k === 3) { for (let i = 0; i < 4; i++) audio.boot({ x: rx, y: 0.2, z: rz }, 0.3); } // footsteps that stop
       else if (k === 4) audio.radio({ x: rx, y: 1.5, z: rz }, 0.4);
+      else if (k === 6) audio.rats({ x: rx, y: 0.2, z: rz });
+      else if (k === 7) audio.rustle({ x: P.pos.x + (r() - 0.5) * 5, y: 1 + r() * 3, z: P.pos.z + (r() - 0.5) * 5 });
+      else if (k === 8) audio.metalGroan({ x: rx, y: 4, z: rz });
+      else if (k === 9) audio.thump({ x: rx, y: 3, z: rz });
       else { audio.thunder(0.2 + r() * 0.4); ui.flash(0.03); }
     }
     updateCats(dt); updateArrows(dt); updateDrops(dt); strangerUpdate(dt);
