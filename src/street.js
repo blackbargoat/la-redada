@@ -1,8 +1,8 @@
 // LEVEL 1 — PART A: "The Walk Home". Calm walk with Rafa → blackout → raid → run.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1791999580';
-import { tex, textTex, facadeTex, rng } from './textures.js?v=1791999580';
-import { makeHumanoid, makeCharacter, makeVehicle, animateWalk, makeBeam, makeGlow, makeCar, makeTree, std } from './models.js?v=1791999580';
+import { Grid } from './grid.js?v=1791999607';
+import { tex, textTex, facadeTex, rng } from './textures.js?v=1791999607';
+import { makeHumanoid, makeCharacter, makeVehicle, animateWalk, makeBeam, makeGlow, makeCar, makeTree, std } from './models.js?v=1791999607';
 
 const LINES = {
   news: { id: 'st_news', who: 'Radio', text: '...and in Boyle Heights tonight, residents are reporting unmarked vehicles along Whittier Boulevard. Federal officials have not confirmed any enforcement operation...', radio: true },
@@ -34,8 +34,8 @@ export const STREET_VO = Object.values(LINES).map((l) => l.id);
 export function createStreet(G, opts = {}) {
   const { audio, ui, P, game, flash } = G;
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x070a0b);
-  scene.fog = new THREE.FogExp2(0x161d1e, 0.05);
+  scene.background = new THREE.Color(0x0c1514);
+  scene.fog = new THREE.FogExp2(0x1a2826, 0.045);
   const grid = new Grid(80, 140, -25, -125);
   grid.fillAll(1, 1);
   grid.rect(-9, -120, 8, 12, 0, 0);       // road + sidewalks
@@ -45,8 +45,8 @@ export function createStreet(G, opts = {}) {
   const r = rng(4242);
 
   // ---- lighting ----
-  const hemi = new THREE.HemisphereLight(0x4a6670, 0x0c0c0c, 0.35); scene.add(hemi);
-  const moon = new THREE.DirectionalLight(0x7f9aa8, 0.25); moon.position.set(-20, 40, 10); scene.add(moon);
+  const hemi = new THREE.HemisphereLight(0x5a8078, 0x0a0f0e, 0.4); scene.add(hemi);
+  const moon = new THREE.DirectionalLight(0x8ab0a8, 0.3); moon.position.set(-20, 40, 10); scene.add(moon);
 
   // ---- ground ----
   const asph = std(0xffffff, { map: tex('asphalt', [3, 40]), roughnessMap: tex('wetRough', [4, 50], false), roughness: 0.55, metalness: 0.1 });
@@ -157,11 +157,11 @@ export function createStreet(G, opts = {}) {
     const side = i % 2 ? -1 : 1, x = side * 7.8;
     const p = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.13, 6.4, 6), std(0x2a2d2e, { metalness: 0.6, roughness: 0.5 })); p.position.set(x, 3.2, z); scene.add(p);
     const arm = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.08, 0.08), std(0x2a2d2e)); arm.position.set(x - side * 0.9, 6.3, z); scene.add(arm);
-    const headM = std(0x222222, { emissive: 0xffb070, emissiveIntensity: 2.5 });
+    const headM = std(0x222222, { emissive: 0xe0f4e4, emissiveIntensity: 2.5 });
     const head = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.18, 0.35), headM); head.position.set(x - side * 1.7, 6.2, z); scene.add(head);
-    const light = new THREE.PointLight(0xffa860, 46, 28, 1.4); light.position.set(x - side * 1.7, 5.9, z); scene.add(light);
-    const glow = makeGlow(0xffb070, 3.2, 0.85); glow.position.set(x - side * 1.7, 6.0, z); scene.add(glow);
-    const cone = makeBeam(6.2, 3.2, 0xffc890, 0.09); cone.position.set(x - side * 1.7, 6.1, z); cone.rotation.x = Math.PI / 2; scene.add(cone);
+    const light = new THREE.PointLight(0xd6f0dc, 46, 28, 1.4); light.position.set(x - side * 1.7, 5.9, z); scene.add(light);
+    const glow = makeGlow(0xd8f4e0, 3.2, 0.85); glow.position.set(x - side * 1.7, 6.0, z); scene.add(glow);
+    const cone = makeBeam(6.2, 3.2, 0xd0eedc, 0.09); cone.position.set(x - side * 1.7, 6.1, z); cone.rotation.x = Math.PI / 2; scene.add(cone);
     lamps.push({ light, headM, glow, cone, z, on: true, x: x - side * 1.7, flick: i === 2 || i === 4, f: 1 });
   });
   // telephone poles + wires
@@ -190,7 +190,7 @@ export function createStreet(G, opts = {}) {
   const busSign = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.45), std(0xffffff, { map: busT })); busSign.position.set(7.1, 2.2, 9.6); busSign.rotation.y = -Math.PI / 2; scene.add(busSign);
 
   // ---- sky glow + rain ----
-  const sky = new THREE.Mesh(new THREE.SphereGeometry(300, 16, 8), new THREE.MeshBasicMaterial({ color: 0x0c1213, side: THREE.BackSide, fog: false })); scene.add(sky);
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(300, 16, 8), new THREE.MeshBasicMaterial({ color: 0x15211f, side: THREE.BackSide, fog: false })); scene.add(sky);
   const RAIN = 2600, rainPos = new Float32Array(RAIN * 6);
   for (let i = 0; i < RAIN; i++) { const x = (Math.random() - 0.5) * 40, y = Math.random() * 18, z = (Math.random() - 0.5) * 40; rainPos.set([x, y, z, x + 0.03, y - 0.45, z], i * 6); }
   const rainGeo = new THREE.BufferGeometry(); rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));

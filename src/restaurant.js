@@ -1,8 +1,8 @@
 // PROLOGUE — "La Cocina de Rosa". A warm afternoon at Doña Rosa's taquería before everything goes wrong.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1791999580';
-import { tex, textTex, rng } from './textures.js?v=1791999580';
-import { makeCharacter, animateWalk, makeGlow, makeCar, makeBeam, std } from './models.js?v=1791999580';
+import { Grid } from './grid.js?v=1791999607';
+import { tex, textTex, rng } from './textures.js?v=1791999607';
+import { makeCharacter, animateWalk, makeGlow, makeCar, makeBeam, std } from './models.js?v=1791999607';
 
 const VO = {
   rosa1: { id: 'p_rosa1', who: 'Doña Rosa', text: '¡Ay, mijo, por fin! Luz has been waiting all afternoon. Go, go say hi to your daughter.' },
@@ -61,7 +61,7 @@ export function createRestaurant(G) {
   const r = rng(909);
 
   // warm daylight grade
-  ui.post.sat.value = 0.8; ui.post.contrast.value = 1.06; ui.post.tint.value.set(1.06, 1.0, 0.9); ui.post.levels.value = 30;
+  ui.post.sat.value = 0.8; ui.post.contrast.value = 1.06; ui.post.tint.value.set(1.06, 1.0, 0.9); ui.post.lift.value.set(0, 0, 0); ui.post.levels.value = 30;
 
   // ---------------- materials ----------------
   const tileT = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'); for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { x.fillStyle = (i + j) % 2 ? '#8a3a22' : '#b0582e'; x.fillRect(i * 32, j * 32, 32, 32); x.fillStyle = 'rgba(0,0,0,0.06)'; x.fillRect(i * 32 + 3, j * 32 + 3, 26, 26); } x.strokeStyle = '#5a2a18'; x.lineWidth = 2; for (let k = 0; k <= 4; k++) { x.beginPath(); x.moveTo(k * 32, 0); x.lineTo(k * 32, 128); x.stroke(); x.beginPath(); x.moveTo(0, k * 32); x.lineTo(128, k * 32); x.stroke(); } const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(12, 12); return t; })();

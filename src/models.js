@@ -1,6 +1,6 @@
 // Low-poly (PS3-era) procedural models.
 import * as THREE from 'three';
-import { jacketTex } from './textures.js?v=1791999580';
+import { jacketTex } from './textures.js?v=1791999607';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 

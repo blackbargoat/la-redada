@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { AudioEngine } from './audio.js?v=1791999580';
-import { createStreet } from './street.js?v=1791999580';
-import { createRestaurant } from './restaurant.js?v=1791999580';
-import { createStore } from './store.js?v=1791999580';
-import { modelsReady } from './models.js?v=1791999580';
+import { AudioEngine } from './audio.js?v=1791999607';
+import { createStreet } from './street.js?v=1791999607';
+import { createRestaurant } from './restaurant.js?v=1791999607';
+import { createStore } from './store.js?v=1791999607';
+import { modelsReady } from './models.js?v=1791999607';
 
 const $ = (id) => document.getElementById(id);
 const PIX = 3; // render at 1/3 resolution, upscale with nearest-neighbour for the chunky pixel look
@@ -23,12 +23,12 @@ const post = new THREE.ShaderMaterial({
   depthTest: false, depthWrite: false,
   uniforms: {
     tDiffuse: { value: rt.texture }, res: { value: new THREE.Vector2(1, 1) }, time: { value: 0 },
-    sat: { value: 0.28 }, exposure: { value: 1.0 }, contrast: { value: 1.18 }, flash: { value: 0 }, red: { value: 0 },
-    tint: { value: new THREE.Vector3(0.94, 1.0, 0.98) }, levels: { value: 26 }, blackout: { value: 0 }, bright: { value: 1.3 },
+    sat: { value: 0.45 }, exposure: { value: 1.0 }, contrast: { value: 1.18 }, flash: { value: 0 }, red: { value: 0 },
+    tint: { value: new THREE.Vector3(0.82, 0.98, 0.97) }, lift: { value: new THREE.Vector3(0.0, 0.018, 0.022) }, levels: { value: 26 }, blackout: { value: 0 }, bright: { value: 1.3 },
   },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
   fragmentShader: `
-    uniform sampler2D tDiffuse; uniform vec2 res; uniform float time, sat, exposure, contrast, flash, red, levels, blackout, bright; uniform vec3 tint;
+    uniform sampler2D tDiffuse; uniform vec2 res; uniform float time, sat, exposure, contrast, flash, red, levels, blackout, bright; uniform vec3 tint, lift;
     varying vec2 vUv;
     vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14), 0.0, 1.0); }
     float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
@@ -39,6 +39,7 @@ const post = new THREE.ShaderMaterial({
       c = pow(c, vec3(1.0/(2.2*bright)));
       float l = dot(c, vec3(0.299, 0.587, 0.114));
       c = mix(vec3(l), c, sat) * tint;
+      c += lift * (1.0 - smoothstep(0.0, 0.5, l)); // tint the shadows
       c = (c - 0.5) * contrast + 0.5;
       vec2 q = vUv - 0.5; c *= 1.0 - dot(q, q) * 1.5;
       c += (hash(vUv * res + fract(time) * 91.7) - 0.5) * 0.085;
@@ -210,7 +211,7 @@ function loadLevel(make) {
   audio.stopAll(); audio.muffle(false, 0.05); ui.cancelSay();
   Object.assign(P, { frozen: false, reading: false, hidden: null, crouch: false, stamina: 1, exhausted: false, breath: 1, pitch: 0, eye: 1.62 });
   $('hideView').className = 'layer'; $('breathM').style.display = 'none';
-  ui.post.sat.value = 0.28; ui.post.contrast.value = 1.18; ui.post.tint.value.set(0.94, 1.0, 0.98); ui.post.levels.value = 26;
+  ui.post.sat.value = 0.45; ui.post.contrast.value = 1.14; ui.post.tint.value.set(0.82, 0.98, 0.97); ui.post.lift.value.set(0.0, 0.018, 0.022); ui.post.levels.value = 28;
   level = make(G);
   level.scene.add(camera);
   mode = 'play'; paused = false;

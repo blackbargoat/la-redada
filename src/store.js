@@ -1,8 +1,8 @@
 // LEVEL 1 — PART B: Hammerline Depot after dark.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1791999580';
-import { tex, textTex, rng } from './textures.js?v=1791999580';
-import { makeHumanoid, makeCharacter, animateWalk, makeBeam, makeGlow, std } from './models.js?v=1791999580';
+import { Grid } from './grid.js?v=1791999607';
+import { tex, textTex, rng } from './textures.js?v=1791999607';
+import { makeHumanoid, makeCharacter, animateWalk, makeBeam, makeGlow, std } from './models.js?v=1791999607';
 
 const VO = {
   out: { id: 'sr_out', who: 'Agent (radio)', text: 'Back door\'s locked down. He\'s inside. Nobody leaves this building.', radio: true, agent: true },
@@ -238,7 +238,7 @@ export function createStore(G, checkpoint = 0) {
   cat.position.set(38, 2.6, 3.5); scene.add(cat);
 
   // ---------------- lights ----------------
-  const hemi = new THREE.HemisphereLight(0x5a6a80, 0x100a08, 0.12); scene.add(hemi);
+  const hemi = new THREE.HemisphereLight(0x5a8078, 0x0a0e0d, 0.12); scene.add(hemi);
   const overhead = [[16, 18], [48, 18], [16, 31], [48, 31]].map(([x, z]) => { const l = new THREE.PointLight(0xe8f0ff, 0, 45, 1); l.position.set(x, 8, z); scene.add(l); return l; });
   const EM = [[6, 3.0, 10.4], [28.5, 3.0, 10.4], [54.5, 4.6, 1.5], [31.5, 4.6, 44.2], [61.6, 4.4, 40.5], [32, 6.5, 23.5]];
   const emerg = EM.map(([x, y, z]) => {
