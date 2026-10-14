@@ -1,8 +1,8 @@
 // PROLOGUE — "La Cocina de Rosa". A warm afternoon at Doña Rosa's taquería before everything goes wrong.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792000125';
-import { tex, textTex, rng } from './textures.js?v=1792000125';
-import { makeCharacter, makeVehicle, animateWalk, makeGlow, makeCar, makeBeam, std } from './models.js?v=1792000125';
+import { Grid } from './grid.js?v=1792002959';
+import { tex, textTex, rng } from './textures.js?v=1792002959';
+import { makeCharacter, makeVehicle, makeStatic, animateWalk, makeGlow, makeCar, makeBeam, std } from './models.js?v=1792002959';
 
 const VO = {
   rosa1: { id: 'p_rosa1', who: 'Doña Rosa', text: '¡Ay, mijo, por fin! Luz has been waiting all afternoon. Go, go say hi to your daughter.' },
@@ -106,7 +106,11 @@ export function createRestaurant(G) {
   for (let i = 0; i < 7; i++) { const h = 6 + r() * 6; const b = box(10 + r() * 4, h, 8, std([0xc8a878, 0x8aa0a0, 0xb07a5a, 0xd0c8b0][i % 4], { map: tex('stucco', [3, 2]) }), -24 + i * 12, h / 2, 46, false); }
   const parked = makeVehicle('suv', 4.3, 0x5a3434, 0.3) || makeCar(0x6b1f1f); parked.position.set(4, 0, 30.5); parked.rotation.y = Math.PI / 2; scene.add(parked);
   const parked2 = makeVehicle('suv', 4.3, 0x6a6a66, 0.3) || makeCar(0x8a8478); parked2.position.set(19, 0, 30.5); parked2.rotation.y = Math.PI / 2; scene.add(parked2);
-  const truck = makeVehicle('suv', 4.8, 0x161616, 0.6) || makeCar(0x0a0b0c, true); truck.position.set(-40, 0, 34); truck.rotation.y = Math.PI / 2; scene.add(truck);
+  const truck = makeVehicle('suv', 4.8, 0x161616, 0.6) || makeCar(0x0a0b0c, true); truck.position.set(7, 0, 33.5); truck.rotation.y = Math.PI / 2; scene.add(truck);
+  // the watcher: cap, sunglasses, windbreaker, staring in from beside the van
+  const watcher = makeStatic('watcher', 1.82) || makeCharacter('agent', { shirt: 0x1a2030, pants: 0x222222, hat: 'cap' }, 1.82);
+  const wg = watcher.group || watcher; wg.position.set(9.6, 0, 31.6); wg.rotation.y = Math.PI; scene.add(wg);
+  let watchState = 'watching', watchT = 0;
 
   // ---------------- kitchen ----------------
   // counter with the pass window
@@ -207,8 +211,8 @@ export function createRestaurant(G) {
   LOT.forEach(([name, col], i) => {
     const t = textTex(96, 140, '#f6efe0', [{ text: String(i + 1), size: 14, color: '#222', x: 12, y: 14 }, { text: name, size: 12, color: '#222', y: 126 }], { border: '#2a2a2a', borderW: 4 });
     const cv = t.image.getContext('2d'); cv.fillStyle = col; cv.beginPath(); cv.arc(48, 66, 26, 0, 7); cv.fill(); t.needsUpdate = true;
-    const card = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.5), std(0xffffff, { map: t })); card.position.set(3 + i * 1.6, 2.35, 22.82); card.rotation.y = Math.PI; scene.add(card);
-    const fr = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.56), std(0x2a1a10)); fr.position.set(3 + i * 1.6, 2.35, 22.83); fr.rotation.y = Math.PI; scene.add(fr);
+    const card = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.5), std(0xffffff, { map: t })); card.position.set(22.8, 2.35, 16.2 + i * 0.55); card.rotation.y = -Math.PI / 2; scene.add(card);
+    const fr = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.56), std(0x2a1a10)); fr.position.set(22.81, 2.35, 16.2 + i * 0.55); fr.rotation.y = -Math.PI / 2; scene.add(fr);
   });
   // TV on the east wall
   const tvC = document.createElement('canvas'); tvC.width = 256; tvC.height = 144; const tvX = tvC.getContext('2d');
@@ -318,10 +322,7 @@ export function createRestaurant(G) {
   at(1.2, () => say('rosa1').then(() => setStage(1)));
   G.phone.reset(); G.phone.state.battery = 0.88;
   G.phone.history('Gus', [[false, 'site at 3. bring rafa'], [true, 'ok']]);
-  at(20, () => G.phone.receive('Rafa', 'on my way. save me a quesadilla', 0, 1.5).then(() => G.phone.replies('Rafa', [
-    { text: 'too late. Luz ate it', then: () => G.phone.receive('Rafa', 'NOOO. traicion', 2, 1.2) },
-    { text: 'hurry up, Gus is gonna be mad', then: () => G.phone.receive('Rafa', 'gus is always mad', 2, 1.2) },
-  ])));
+  at(20, () => G.phone.receive('Rafa', 'on my way. save me a quesadilla', 0, 0));
 
   const it = (o) => { L.interactables.push(o); return o; };
   it({ x: 5.4, z: 10.9, r: 1.9, label: 'Talk to Luz', enabled: () => stage === 1, action: () => {
@@ -374,6 +375,7 @@ export function createRestaurant(G) {
     say('rafa1').then(() => say('rafa2', 'rosa6')).then(() => { P.frozen = false; sitT = -2; P.crouch = false; setStage(7); });
   }
 
+  const tmpDir = new THREE.Vector3(), tmpCam = new THREE.Vector3();
   L.update = (dt) => {
     tl += dt;
     for (let i = events.length - 1; i >= 0; i--) if (tl >= events[i].t) { const e = events[i]; events.splice(i, 1); e.fn(); }
@@ -402,8 +404,22 @@ export function createRestaurant(G) {
     }
     // Rosa works the grill when not talking
     if (stage !== 1 && stage !== 5) rosa.baseYaw = Math.sin(tl * 0.3) > 0 ? Math.PI : 0;
-    // the black truck crawling past the windows
-    if (truck.userData.go) { truck.position.x += dt * 3.2; if (truck.position.x > 70) truck.userData.go = false; }
+    // the watcher notices you noticing him, gets in the van, and it pulls away
+    if (watchState === 'watching') {
+      const dx = wg.position.x - P.pos.x, dz = wg.position.z - P.pos.z, d = Math.hypot(dx, dz);
+      tmpDir.set(dx, 1.6 - P.eye, dz).normalize();
+      if ((P.pos.z > 19 && d < 14 && tmpDir.dot(G.camera.getWorldDirection(tmpCam)) > 0.93) || truck.userData.go) {
+        watchState = 'leaving'; watchT = 0; truck.userData.go = false;
+        audio.hit(0.25);
+      }
+    } else if (watchState === 'leaving') {
+      watchT += dt;
+      if (watchT < 1.2) wg.rotation.y += (Math.PI / 2 - wg.rotation.y) * dt * 3;
+      else if (watchT < 1.5) { wg.visible = false; }
+      if (watchT > 1.3 && watchT < 1.4) audio.carDoor({ x: 8, y: 1, z: 33 });
+      if (watchT > 2.2) { truck.position.x += dt * Math.min(9, (watchT - 2.2) * 4); if (watchT > 2.25 && watchT < 2.3) audio.tone({ freq: 50, freqTo: 110, dur: 3, type: 'sawtooth', gain: 0.12, filter: 500, pos: { x: 8, y: 1, z: 33 } }); }
+      if (truck.position.x > 80) watchState = 'gone';
+    }
     // pantry: Canela jumps when you step in with the light
     if (stage === 4 && catT < 0 && P.pos.x > 17.6 && P.pos.z < 6.5) {
       catT = 0; audio.catScreech({ x: 19.2, y: 1.8, z: 1.3 }); audio.can({ x: 19.2, y: 1.8, z: 1.3 }); audio.hit(0.45); ui.shake(0.04, 0.35);

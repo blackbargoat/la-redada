@@ -1,6 +1,6 @@
 // Low-poly (PS3-era) procedural models.
 import * as THREE from 'three';
-import { jacketTex } from './textures.js?v=1792000125';
+import { jacketTex } from './textures.js?v=1792002959';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
@@ -8,7 +8,7 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 const GLB = {};
 export const modelsReady = (async () => {
   const loader = new GLTFLoader();
-  await Promise.all(['rafa', 'agent', 'rosa', 'luz', 'gus', 'elena', 'rafa_run', 'agent_run', 'suv', 'cat'].map(async (k) => {
+  await Promise.all(['rafa', 'agent', 'rosa', 'luz', 'gus', 'elena', 'rafa_run', 'agent_run', 'suv', 'cat', 'watcher'].map(async (k) => {
     try {
       const g = await loader.loadAsync(`assets/models/${k}.glb`);
       // strip root motion: keep the hips' vertical bob, pin x/z to the first frame
@@ -20,6 +20,15 @@ export const modelsReady = (async () => {
   }));
 })();
 const pixCache = new Map();
+// static (unrigged) figure scaled to a height
+export function makeStatic(kind, height = 1.8) {
+  const src = GLB[kind]; if (!src) return null;
+  const obj = src.scene.clone(true);
+  const box = new THREE.Box3().setFromObject(obj), s = height / Math.max(0.01, box.max.y - box.min.y), c = box.getCenter(new THREE.Vector3());
+  obj.scale.setScalar(s); obj.position.set(-c.x * s, -box.min.y * s, -c.z * s);
+  obj.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; if (m.material) { m.material = m.material.clone(); m.material.roughness = 0.85; m.material.metalness = 0; } } });
+  const g = new THREE.Group(); g.add(obj); return g;
+}
 export function makeVehicle(kind, length = 5.2, tint = null, rough = 0.35) {
   const src = GLB[kind]; if (!src) return null;
   const obj = src.scene.clone(true);

@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import { AudioEngine } from './audio.js?v=1792000125';
-import { createStreet } from './street.js?v=1792000125';
-import { createRestaurant } from './restaurant.js?v=1792000125';
-import { createStore } from './store.js?v=1792000125';
-import { createPhone } from './phone.js?v=1792000125';
-import { modelsReady } from './models.js?v=1792000125';
+import { AudioEngine } from './audio.js?v=1792002959';
+import { createStreet } from './street.js?v=1792002959';
+import { createRestaurant } from './restaurant.js?v=1792002959';
+import { createStore } from './store.js?v=1792002959';
+import { createPhone } from './phone.js?v=1792002959';
+import { modelsReady } from './models.js?v=1792002959';
 
 const $ = (id) => document.getElementById(id);
 const PIX = 3; // render at 1/3 resolution, upscale with nearest-neighbour for the chunky pixel look
@@ -75,8 +75,8 @@ flash.shadow.camera.near = 0.3; flash.shadow.camera.far = 32; flash.shadow.bias 
 const audio = new AudioEngine();
 const keys = new Set();
 // rebindable controls
-const DEFAULT_BINDS = { forward: 'KeyW', back: 'KeyS', left: 'KeyA', right: 'KeyD', sprint: 'ShiftLeft', crouch: 'KeyC', flashlight: 'KeyF', interact: 'KeyE', breath: 'Space', map: 'Tab', phone: 'KeyP' };
-const BIND_NAMES = { forward: 'Move forward', back: 'Move back', left: 'Move left', right: 'Move right', sprint: 'Sprint', crouch: 'Crouch', flashlight: 'Flashlight', interact: 'Interact / hide', breath: 'Hold breath', map: 'Store map', phone: 'Phone' };
+const DEFAULT_BINDS = { forward: 'KeyW', back: 'KeyS', left: 'KeyA', right: 'KeyD', sprint: 'ShiftLeft', crouch: 'KeyC', flashlight: 'KeyF', interact: 'KeyE', breath: 'Space', map: 'Tab' };
+const BIND_NAMES = { forward: 'Move forward', back: 'Move back', left: 'Move left', right: 'Move right', sprint: 'Sprint', crouch: 'Crouch', flashlight: 'Flashlight', interact: 'Interact / hide', breath: 'Hold breath', map: 'Store map' };
 let BINDS = { ...DEFAULT_BINDS };
 try { Object.assign(BINDS, JSON.parse(localStorage.getItem('lr_binds') || '{}')); } catch (e) { }
 const held = (a) => keys.has(BINDS[a]);
@@ -170,7 +170,8 @@ const game = {
     phone.close();
     mode = 'caught'; caughtT = 0; caughtRig = rig; caughtShown = false;
     ui.cancelSay(); ui.prompt(''); ui.bigHint('');
-    audio.muffle(true, 0.05); audio.impact(); audio.tinnitus(); ui.shake(0.12, 0.45); flashV = 0.7;
+    audio.hit(1.2); audio.stinger(0.9); ui.shake(0.16, 0.5); flashV = 0.95;
+    setTimeout(() => { audio.muffle(true, 0.05); audio.impact(); audio.tinnitus(); }, 550);
     caughtRoll = 0; caughtEye = P.eye; caughtYaw = P.yaw;
     $('caughtSub').textContent = sub || 'Luz waited up all night.';
     level.onCaught?.();
@@ -192,9 +193,9 @@ const game = {
     await ui.cards([
       'Mateo ran until the sirens were behind him. Then he kept running.',
       'At 3:10 AM he climbed the stairs of his building on Soto Street.\nLuz was asleep on the couch, still holding the card she made.',
-      'Inside, in purple crayon:\n"PARA MI PAPI, QUE CONSTRUYE CASAS."\nFor my dad, who builds houses.',
+      'He carried her to bed. He lay down on the floor next to her and listened to the street until the sky turned grey.',
       'Rafa did not come home.',
-      'NIGHT 1 SURVIVED.\n\nNight 2 — The Fields — coming soon.',
+      'NIGHT 1 SURVIVED.\n\nDAY 2 — The Fields — coming next.',
     ]);
     audio.stopAll(); toTitle();
   },
@@ -233,6 +234,7 @@ function toTitle() {
 // ---------------- input ----------------
 function lockPointer() { const c = renderer.domElement; if (document.pointerLockElement !== c) c.requestPointerLock?.(); }
 renderer.domElement.addEventListener('click', () => { if (mode === 'play') lockPointer(); });
+renderer.domElement.addEventListener('mousedown', () => { if (mode === 'play' && !paused) level?.onKey?.('Mouse', BINDS); });
 document.addEventListener('pointerlockchange', () => {
   const locked = document.pointerLockElement === renderer.domElement;
   if (!locked && mode === 'play' && !P.reading && !phone.isOpen) { paused = true; $('pause').classList.add('on'); }
@@ -256,12 +258,7 @@ addEventListener('keydown', (e) => {
   if (e.repeat) return;
   keys.add(e.code);
   if (mode !== 'play' || paused) return;
-  if (is(e, 'phone') && !P.hidden) {
-    if (phone.isOpen) { phone.close(); lockPointer(); }
-    else if (phone.open()) { phoneMode = true; document.exitPointerLock?.(); audio.click(); }
-    else ui.toast('NO PHONE');
-    return;
-  }
+  if (level?.onKey?.(e.code, BINDS)) return;
   if (is(e, 'interact')) {
     if (ui._noteClose) { ui._noteClose(); return; }
     if (P.hidden) { game.unhide(); return; }
@@ -279,8 +276,8 @@ addEventListener('blur', () => keys.clear());
 
 // ---------------- chapters ----------------
 const CHAPTERS = [
-  { key: 'prologue', name: 'PROLOGUE — La Cocina de Rosa', hud: 'DAY', cards: ['PROLOGUE\nLa Cocina de Rosa', 'Tuesday. 2:20 PM.\nBoyle Heights, Los Angeles.'], make: createRestaurant },
-  { key: 'night1', name: 'NIGHT 1 — The Walk Home', hud: 'NIGHT', cards: ['Eight hours later.', 'NIGHT 1\nThe Walk Home\n11:40 PM'], make: createStreet },
+  { key: 'day1', name: 'DAY 1 — La Cocina de Rosa', hud: 'DAY', cards: ['DAY 1\nLa Cocina de Rosa', 'Tuesday. 2:20 PM.\nBoyle Heights, Los Angeles.'], make: createRestaurant },
+  { key: 'night1', name: 'NIGHT 1 — The Walk Home', hud: 'NIGHT', cards: ['Eight hours of drywall later.', 'NIGHT 1\nThe Walk Home\n11:40 PM'], make: createStreet },
   { key: 'store', name: 'NIGHT 1 — Hammerline Depot', hud: 'NIGHT', cards: ['HAMMERLINE DEPOT\nStore #0417 — Boyle Heights\n11:58 PM'], make: (g) => createStore(g, 0) },
 ];
 let chapterI = 0;
@@ -445,7 +442,7 @@ function updateInteract(dt) {
 function updateFlashlight(dt) {
   const on = P.flashlight && level?.allowFlashlight && !P.hidden && P.battery > 0;
   if (on && !level.noDrain) {
-    P.battery = Math.max(0, P.battery - dt / (P.lens ? 330 : 420));
+    P.battery = Math.max(0, P.battery - dt / (P.lens ? 140 : 180));
     if (P.battery <= 0) { P.flashlight = false; audio.click(); audio.hit(0.5); ui.toast('BATTERY DEAD'); }
   }
   let k = on ? 1 : 0;
@@ -464,16 +461,24 @@ function updateCaught(dt) {
   // realistic takedown: shout, you're tackled to the wet floor, a light in your face, cuffs
   caughtT += dt;
   const g = caughtRig.group;
-  const k = Math.min(1, caughtT / 0.45);
-  P.eye = caughtEye + (0.28 - caughtEye) * (k * k);
-  caughtRoll = -1.15 * k;
-  P.pitch += (0.55 - P.pitch) * Math.min(1, dt * 6);
   const fx = -Math.sin(caughtYaw), fz = -Math.cos(caughtYaw);
-  g.position.set(P.pos.x + fx * 1.0, 0, P.pos.z + fz * 1.0);
-  g.rotation.y = Math.atan2(-fx, -fz);
-  g.rotation.x = 0.35; // leaning over you
+  if (caughtT < 0.55) {
+    // the lunge: his masked face fills the screen
+    const d = Math.max(0.38, 1.4 - caughtT * 4);
+    g.position.set(P.pos.x + fx * d, P.eye - 1.72, P.pos.z + fz * d);
+    g.rotation.set(0, Math.atan2(-fx, -fz), 0);
+    P.pitch += (0.04 - P.pitch) * Math.min(1, dt * 14);
+    flashV = Math.max(flashV, 0.55 + Math.random() * 0.3);
+  } else {
+    const k = Math.min(1, (caughtT - 0.55) / 0.45);
+    P.eye = caughtEye + (0.28 - caughtEye) * (k * k);
+    caughtRoll = -1.15 * k;
+    P.pitch += (0.55 - P.pitch) * Math.min(1, dt * 6);
+    g.position.set(P.pos.x + fx * 1.0, 0, P.pos.z + fz * 1.0);
+    g.rotation.set(0.35, Math.atan2(-fx, -fz), 0); // leaning over you
+  }
   if (caughtRig.armL) { caughtRig.armL.rotation.x = -1.3; caughtRig.armR.rotation.x = -1.0; }
-  if (caughtT > 0.45 && caughtT - dt <= 0.45) { audio.impact(); ui.shake(0.06, 0.3); }
+  if (caughtT > 1.0 && caughtT - dt <= 1.0) { audio.impact(); ui.shake(0.06, 0.3); }
   if (caughtT > 1.0 && caughtT - dt <= 1.0) audio.heartbeat(0.9);
   if (caughtT > 2.2 && caughtT - dt <= 2.2) audio.heartbeat(0.7);
   flashV = Math.max(flashV, caughtT > 0.5 ? 0.25 + Math.sin(caughtT * 9) * 0.08 : 0);

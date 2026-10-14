@@ -1,8 +1,8 @@
 // LEVEL 1 — PART B: Hammerline Depot after dark.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792000125';
-import { tex, textTex, rng } from './textures.js?v=1792000125';
-import { makeHumanoid, makeCharacter, makeVehicle, animateWalk, makeBeam, makeGlow, std } from './models.js?v=1792000125';
+import { Grid } from './grid.js?v=1792002959';
+import { tex, textTex, rng } from './textures.js?v=1792002959';
+import { makeHumanoid, makeCharacter, makeVehicle, animateWalk, makeBeam, makeGlow, std } from './models.js?v=1792002959';
 
 const VO = {
   out: { id: 'sr_out', who: 'Agent (radio)', text: 'Back door\'s locked down. He\'s inside. Nobody leaves this building.', radio: true, agent: true },
@@ -41,7 +41,7 @@ const STAGE_OBJ = {
 };
 const savedBattery = {};
 // difficulty presets (Normal for now; Easy/Hard later)
-const DIFF = { notice: 0.85 };
+const DIFF = { notice: 0.5, maxAgents: 2, chaseMul: 0.85, giveUp: 4.5 };
 
 export function createStore(G, checkpoint = 0) {
   const { audio, ui, P, game, flash } = G;
@@ -306,7 +306,7 @@ export function createStore(G, checkpoint = 0) {
   const agents = DEFS.map((def, i) => {
     const h = makeCharacter('agent', { agent: true, flashlight: true, hat: 'cap', gloves: true, skin: def.skin }, 1.85);
     h.group.visible = false; scene.add(h.group);
-    const beam = makeBeam(10, 2.0, 0xe6eeff, 0.13); h.group.add(beam); beam.position.set(0.3, 1.45, 0.4); beam.rotation.x = 0.1;
+    const beam = makeBeam(10, 2.0, 0xe6eeff, 0.055); h.group.add(beam); beam.position.set(0.3, 1.45, 0.4); beam.rotation.x = 0.1;
     return { def, h, g: h.group, sl: AL[i], beam, active: false, state: 'idle', path: null, pi: 0, dest: null, repath: 0, speed: 0, phase: 0, stepAcc: 0, wait: 0, look: 0, baseH: 0, aware: 0, lastKnown: null, lost: 0, sawHide: null, inspect: null, inspT: 0, found: 0, routeI: 0, lightOff: false, listenT: 0, radioCD: 0, barkCD: 0, idx: i };
   });
   function spawn(a, x, z) {
@@ -385,7 +385,7 @@ export function createStore(G, checkpoint = 0) {
     let dn = 99, chasing = false;
     for (const a of agents) if (a.active) { dn = Math.min(dn, Math.hypot(a.g.position.x - P.pos.x, a.g.position.z - P.pos.z)); if (a.state === 'chase') chasing = true; }
     if (chasing || dn < 10) { director.stress += dt * (chasing ? 2 : 1); director.calm = 0; } else director.calm += dt;
-    if (director.calm > 26) {
+    if (DIFF.maxAgents > 2 && director.calm > 26) {
       director.calm = 0;
       director.hunterTarget = [P.pos.x + (r() - 0.5) * 12, P.pos.z + (r() - 0.5) * 12];
       // build-up: the nearest emergency light stutters, a radio crackles somewhere close
@@ -401,7 +401,7 @@ export function createStore(G, checkpoint = 0) {
     }
     // gatekeeper checks hiding spots near his post
     director.inspectCD -= dt;
-    const gk = agents[3];
+    const gk = DIFF.maxAgents > 3 ? agents[3] : { active: false };
     if (gk.active && gk.state === 'patrol' && director.inspectCD <= 0) {
       director.inspectCD = 18 + r() * 10;
       const sp = nearestHiddenSpotTo(gk.g.position.x, gk.g.position.z, 10);
@@ -420,7 +420,13 @@ export function createStore(G, checkpoint = 0) {
       if (a.aware >= 1) startChase(a);
       else if (a.aware > 0.6 && (a.state === 'patrol' || a.state === 'listen')) { a.state = 'investigate'; a.invSpeed = 1.8; a.lightOff = false; goTo(a, P.pos.x, P.pos.z); bark(a, 'hear'); }
     } else if (a.state !== 'chase') a.aware = Math.max(0, a.aware - dt * 0.2);
-    if (dP < 1.3 && !P.hidden && a.state !== 'chase') startChase(a); // bumped into him
+    if (dP < 1.1 && !P.hidden && a.state !== 'chase') startChase(a); // bumped into him
+    // ambush: a dark, listening agent flips his light on right in your face
+    if (a.lightOff && !P.hidden && dP < 4.5 && see === false && grid.los(g.x, g.z, P.pos.x, P.pos.z) && !a.ambushed) {
+      a.ambushed = true; a.lightOff = false; a.state = 'chase'; a.aware = 1; a.lastKnown = [P.pos.x, P.pos.z]; a.lost = 0; a.repath = 0;
+      turnTo(a, Math.atan2(P.pos.x - g.x, P.pos.z - g.z), 1);
+      audio.hit(1); audio.stinger(0.7); ui.flash(0.35); ui.shake(0.06, 0.5); audio.radio({ x: g.x, y: 1.5, z: g.z }, 1);
+    }
 
     switch (a.state) {
       case 'patrol': {
@@ -445,7 +451,7 @@ export function createStore(G, checkpoint = 0) {
         if (!a.path || stepPath(a, a.invSpeed || 2.1, dt)) {
           a.baseH = a.g.rotation.y; a.look = 0; a.path = [];
           const sp = nearestHiddenSpotTo(g.x, g.z, 6);
-          if (sp && r() < 0.35) beginInspect(a, sp); else a.wait = 4;
+          if (sp && r() < 0.2) beginInspect(a, sp); else a.wait = 4;
         }
         break;
       }
@@ -454,13 +460,13 @@ export function createStore(G, checkpoint = 0) {
         if (see) { a.lastKnown = [P.pos.x, P.pos.z]; a.lost = 0; }
         else a.lost += dt;
         if (a.repath <= 0) { a.repath = 0.35; goTo(a, a.lastKnown[0], a.lastKnown[1]); }
-        const sp = a.def.chase * (L.power ? 1.06 : 1);
+        const sp = a.def.chase * DIFF.chaseMul * (L.power ? 1.06 : 1);
         const done = stepPath(a, sp, dt);
-        if (!P.hidden && dP < 0.95) { game.caught(a.h); return; }
-        if ((done && !see) || a.lost > 7) {
+        if (!P.hidden && dP < 0.8) { game.caught(a.h); return; }
+        if ((done && !see) || a.lost > DIFF.giveUp) {
           // lost him
           bark(a, 'lost'); a.aware = 0.3;
-          if (P.hidden && (a.sawHide === P.hidden || Math.hypot(P.hidden.ex - g.x, P.hidden.ez - g.z) < 7) && (a.sawHide === P.hidden || r() < 0.55)) beginInspect(a, P.hidden);
+          if (P.hidden && (a.sawHide === P.hidden || Math.hypot(P.hidden.ex - g.x, P.hidden.ez - g.z) < 7) && (a.sawHide === P.hidden || r() < 0.3)) beginInspect(a, P.hidden);
           else { a.state = 'investigate'; a.wait = 5; a.baseH = a.g.rotation.y; a.look = 0; }
         }
         break;
@@ -555,19 +561,8 @@ export function createStore(G, checkpoint = 0) {
   function lockerPhone() {
     return new Promise((res) => {
       ph.state.hasPhone = true; ph.state.battery = 0.34;
-      ph.voicemail('Luz', '9:14 PM', 'Papi, are you coming home soon? Mami says I can stay up until you get here. I made you a card. Don\'t look at it until Saturday, okay? Te quiero mucho.');
-      ph.open('messages', 'Chuy'); document.exitPointerLock?.();
-      ph.receive('Chuy', 'they took rafa. i saw from the bus', 0.4, 0.8)
-        .then(() => ph.receive('Chuy', 'they have the front and the dock', 0, 1.0))
-        .then(() => ph.receive('Chuy', 'garden center gate nobody is watching. its on the electric lock, needs power', 0, 1.4))
-        .then(() => ph.receive('Chuy', 'breaker blew last week dale never fixed it. fuse is 30 amp aisle 7', 0, 1.3))
-        .then(() => ph.receive('Chuy', 'gate key is in dales desk', 0, 0.9))
-        .then(() => ph.receive('Chuy', 'corre carnal', 0, 0.6))
-        .then(() => ph.replies('Chuy', [
-          { text: 'where are you??', then: () => ph.receive('Chuy', 'bus bench across the street. they cant see me. GO', 1, 1.5) },
-          { text: 'is rafa ok', then: () => ph.receive('Chuy', 'they put him in the van. lo siento carnal', 1, 2) },
-        ]));
-      ph.state.onClose = res;
+            ui.note('<h3>VOICEMAIL — LUZ — 9:14 PM</h3>"Papi, are you coming home soon? Mami says I can stay up until you get here. I made you a card. Don\'t look at it until Saturday, okay? Te quiero mucho."\n\n<h3>CHUY — 11:59 PM</h3>they took rafa. i saw from the bus\nthey have the front and the dock\ngarden center gate nobody is watching it. its on the electric lock, needs power\nbreaker blew last week dale never fixed it. fuse is 30 amp aisle 7\ngate key is in dales desk\ncorre carnal', 'phone').then(res);
+
     });
   }
 
@@ -581,7 +576,7 @@ export function createStore(G, checkpoint = 0) {
       setStage(2);
       // fake-out: someone in the doorway
       ghost = makeCharacter('agent', { agent: true, hat: 'cap', gloves: true }, 1.85); ghost.group.position.set(6, 0, 17); ghost.group.rotation.y = Math.PI; scene.add(ghost.group); ghostT = 0;
-      at(6, () => { if (!agents[2].active) { spawnFar(agents[2]); radio(VO.kowal, null, 0.5); } });
+      if (DIFF.maxAgents > 2) at(6, () => { if (!agents[2].active) { spawnFar(agents[2]); radio(VO.kowal, null, 0.5); } });
     });
   } });
   it({ x: 18.2, z: 5.5, label: 'Take the gate key', enabled: () => stage === 2, action: () => {
@@ -590,12 +585,12 @@ export function createStore(G, checkpoint = 0) {
     L.onNoise(26, 17.5, 4, 'loud');
     mon.material.emissive.setHex(0x99aabb);
     setStage(3);
-    setTimeout(() => ph.receive('Luz', 'papi?? the news says police by hammerline. are you ok', 0, 2).then(() => ph.replies('Luz', [{ text: 'Im ok mija. Stay with Rosa. Lock the door.', then: () => ph.receive('Luz', 'ok. te quiero papi', 2, 2) }, { text: 'Go to sleep mija. Im coming.', then: () => ph.receive('Luz', 'promise?', 2, 1.5).then(() => ph.replies('Luz', [{ text: 'I promise.' }])) }])), 20000);
+    setTimeout(() => ph.receive('Luz', 'papi?? the news says police by hammerline. are you ok', 0, 0), 20000);
     ui.note('<h3>HAMMERLINE DEPOT #0417 — PRINTOUT ON DALE\'S DESK</h3>TIP CONFIRMATION — submitted 10/13, 4:52 PM\nLocation: Hammerline Depot #0417, loading entrance\nIndividuals: 3–4, night stocking crew (paid cash)\nNotes: crew on site after 11 PM\nSubmitted by: D. Pruitt, Store Manager\n\n<i>A sticky note on the corner: "nights payroll = $0 if nobody\'s here to collect."</i>').then(() => ui.say([VO.m2]));
   } });
   it({ x: 42.5, z: 30.5, label: 'Take the 30-amp fuse', enabled: () => stage === 3, action: () => {
     audio.pickup(); fuseMesh.visible = false; fuseGlow.visible = false; setStage(4); ui.toast('GOT THE FUSE');
-    at(5, () => { if (!agents[3].active) { spawnFar(agents[3]); radio(VO.price, null, 0.4); } });
+    if (DIFF.maxAgents > 3) at(5, () => { if (!agents[3].active) { spawnFar(agents[3]); radio(VO.price, null, 0.4); } });
   } });
   const lensIt = it({ x: 42.5, z: 27.5, label: 'Take the LED lens kit (brighter light, drains faster)', enabled: () => !P.lens, action: () => { P.lens = 1; audio.pickup(); ui.toast('FLASHLIGHT UPGRADED: LED LENS'); lensMesh.visible = false; } });
   const fuseMesh = box(0.25, 0.08, 0.08, std(0xc8b070, { metalness: 0.6 }), 41.85, 1.62, 30.5, false);
@@ -652,8 +647,8 @@ export function createStore(G, checkpoint = 0) {
     setStage(stage); ui.clock('12:2' + stage + ' AM');
     police.forEach((l) => (l.userData.on = true));
     spawnFar(agents[0]); spawnFar(agents[1]);
-    if (stage >= 2) spawnFar(agents[2]);
-    if (stage >= 4) spawnFar(agents[3]);
+    if (stage >= 2 && DIFF.maxAgents > 2) spawnFar(agents[2]);
+    if (stage >= 4 && DIFF.maxAgents > 3) spawnFar(agents[3]);
     if (stage >= 5) agents.forEach((a) => { if (a.active) { a.state = 'investigate'; goTo(a, 28.5, 11); a.invSpeed = 3; } });
   }
 
@@ -767,6 +762,74 @@ export function createStore(G, checkpoint = 0) {
     }
   }
 
+  // ---------------- the stranger in the stockroom (scare + struggle) ----------------
+  const CR = {
+    1: { id: 'cr_1', who: '???', text: 'This is MY spot. My spot. They can\'t have it.' },
+    2: { id: 'cr_2', who: '???', text: 'You brought them here! You brought them!' },
+    3: { id: 'cr_3', who: '???', text: 'Agh... go. Go before they hear you.' },
+    4: { id: 'cr_4', who: '???', text: 'Mine. All mine.' },
+  };
+  audio.preloadVo(['cr_1', 'cr_2', 'cr_3', 'cr_4']);
+  const stranger = makeCharacter('rafa', { shirt: 0x2a2a2a, pants: 0x2a2a2a, skin: 0x7a5a42 }, 1.72);
+  stranger.group.traverse((m) => { if (m.isMesh && m.material) m.material.color.multiplyScalar(0.35); });
+  stranger.group.visible = false; scene.add(stranger.group);
+  const cr = { state: checkpoint <= 2 ? 'wait' : 'gone', t: 0, power: 0, said: 0, phase: 0 };
+  function strangerUpdate(dt) {
+    const g = stranger.group;
+    if (cr.state === 'wait') {
+      if (stage >= 1 && !P.hidden && !P.frozen && Math.hypot(P.pos.x - 44.5, P.pos.z - 8.5) < 3.2) {
+        cr.state = 'lunge'; cr.t = 0; g.visible = true; g.position.set(42.3, 0, 5.6);
+        audio.hit(1.1); audio.stinger(0.8); ui.flash(0.3); ui.shake(0.1, 0.6); P.frozen = true; P.flashlight = P.flashlight;
+        ui.bark(CR[1]);
+      }
+      return;
+    }
+    if (cr.state === 'lunge' || cr.state === 'struggle') {
+      cr.t += dt;
+      const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw);
+      const want = new THREE.Vector3(P.pos.x + fx * 0.7, 0, P.pos.z + fz * 0.7);
+      g.position.lerp(want, Math.min(1, dt * (cr.state === 'lunge' ? 10 : 6)));
+      g.rotation.y = Math.atan2(P.pos.x - g.position.x, P.pos.z - g.position.z);
+      g.position.y = Math.sin(cr.t * 18) * 0.03;
+      ui.shake(0.025, 0.1);
+      if (cr.state === 'lunge' && cr.t > 0.4) { cr.state = 'struggle'; cr.t = 0; ui.bigHint('MASH <kbd>E</kbd> — FIGHT HIM OFF<small>OR CLICK FAST</small>'); }
+      if (cr.state === 'struggle') {
+        cr.power = Math.max(0, cr.power - dt * 0.32);
+        document.getElementById('bigHint').querySelector('small').textContent = '█'.repeat(Math.round(cr.power * 12)).padEnd(12, '·');
+        if (cr.t > 1.6 && cr.said < 2) { cr.said = 2; ui.bark(CR[2]); }
+        if (Math.random() < dt * 3) audio.noise({ dur: 0.2, type: 'lowpass', freq: 500, gain: 0.35 });
+        if (cr.power >= 1) {
+          cr.state = 'shoved'; cr.t = 0; ui.bigHint(''); P.frozen = false;
+          audio.impact(); audio.boxCrash({ x: g.position.x, y: 1, z: g.position.z }); ui.shake(0.08, 0.4);
+          L.onNoise(16, g.position.x, g.position.z, 'loud'); setTimeout(() => ui.bark(CR[3]), 900);
+        } else if (cr.t > 5) {
+          cr.state = 'fled'; cr.t = 0; ui.bigHint(''); P.frozen = false;
+          audio.impact(); ui.shake(0.12, 0.5); ui.flash(0.2); P.stamina = 0; P.exhausted = true;
+          P.battery = Math.max(0, P.battery - 0.15); ui.toast('HE KNOCKED YOU DOWN — FLASHLIGHT DAMAGED');
+          ui.bark(CR[4]); L.onNoise(10, P.pos.x, P.pos.z, 'loud');
+        }
+      }
+      animateWalk(stranger, cr.t * 12, 1, false, 4);
+      return;
+    }
+    if (cr.state === 'shoved') {
+      cr.t += dt; const k = Math.min(1, cr.t / 0.5);
+      const bx = Math.sin(g.rotation.y), bz = Math.cos(g.rotation.y);
+      if (k < 1) { g.position.x -= bx * dt * 5; g.position.z -= bz * dt * 5; }
+      g.rotation.x = -k * 1.45; g.position.y = 0;
+      if (cr.t > 12) { g.visible = false; cr.state = 'gone'; }
+    } else if (cr.state === 'fled') {
+      cr.t += dt; const bx = Math.sin(g.rotation.y), bz = Math.cos(g.rotation.y);
+      g.position.x -= bx * dt * 5; g.position.z -= bz * dt * 5; cr.phase += dt * 10; animateWalk(stranger, cr.phase, 1, false, 5);
+      if (cr.t > 2.5) { g.visible = false; cr.state = 'gone'; }
+    }
+  }
+  L.onKey = (code, B) => {
+    if (cr.state !== 'struggle') return false;
+    if (code === B.interact || code === 'Mouse' || code === 'Space') { cr.power = Math.min(1, cr.power + 0.11); audio.noise({ dur: 0.08, type: 'lowpass', freq: 700, gain: 0.3 }); return true; }
+    return false;
+  };
+
   // ---------------- update ----------------
   L.update = (dt) => {
     tl += dt;
@@ -850,7 +913,7 @@ export function createStore(G, checkpoint = 0) {
       else if (k === 4) audio.radio({ x: rx, y: 1.5, z: rz }, 0.4);
       else { audio.thunder(0.2 + r() * 0.4); ui.flash(0.03); }
     }
-    updateCats(dt); updateArrows(dt); updateDrops(dt);
+    updateCats(dt); updateArrows(dt); updateDrops(dt); strangerUpdate(dt);
     { const gl = GOALS[Math.floor(stage)]; objGlow.visible = !!gl && stage < 6; if (gl) { objGlow.position.set(gl[0], 1.5 + Math.sin(tl * 2) * 0.1, gl[1]); objGlow.material.opacity = 0.45 + Math.sin(tl * 3) * 0.2; } }
     for (const g of eas) { g.cd -= dt; if (g.cd <= 0 && Math.abs(P.pos.x - g.x) < 0.8 && Math.abs(P.pos.z - g.z) < 0.5) { g.cd = 6; audio.easBeep({ x: g.x, y: 1, z: g.z }); L.onNoise(28, g.x, g.z, 'loud'); ui.toast('SECURITY GATE ALARM'); } }
     for (const n of nightLights) { if (n.l.intensity === 0 && L.power) continue; if (n.flick) { n.f = Math.random() < 0.05 ? Math.random() * 0.2 : Math.min(1, n.f + dt * 4); } n.l.intensity = L.power ? 0 : n.base * n.f; n.tube.visible = !L.power && n.f > 0.5; }

@@ -91,7 +91,7 @@ export function createPhone(audio) {
     get isOpen() { return state.open; },
     state,
     open(app = 'home', thread = null) {
-      if (!state.hasPhone) { return false; }
+      return false; // handheld phone removed; texts show as notifications only
       state.open = true; state.app = app; state.thread = thread; el.classList.add('on'); render(); return true;
     },
     close() { state.open = false; el.classList.remove('on'); const cb = state.onClose; state.onClose = null; cb && cb(); },
@@ -115,7 +115,7 @@ export function createPhone(audio) {
     photo(src, cap) { state.photos.unshift({ src, cap }); },
     objective(t) { state.objective = t; render(); },
     banner(k, text) {
-      const b = $('phoneBanner'); b.innerHTML = `<b>${CONTACTS[k].name}</b> ${esc(text).slice(0, 70)}<small>P — open phone</small>`; b.classList.add('on');
+      const b = $('phoneBanner'); b.innerHTML = `<b>${CONTACTS[k].name}</b> ${esc(text).slice(0, 70)}`; b.classList.add('on');
       clearTimeout(b._t); b._t = setTimeout(() => b.classList.remove('on'), 5000);
     },
     reset() {

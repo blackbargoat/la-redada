@@ -1,8 +1,8 @@
 // LEVEL 1 — PART A: "The Walk Home". Calm walk with Rafa → blackout → raid → run.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792000125';
-import { tex, textTex, facadeTex, rng } from './textures.js?v=1792000125';
-import { makeHumanoid, makeCharacter, makeVehicle, animateWalk, makeBeam, makeGlow, makeCar, makeTree, std } from './models.js?v=1792000125';
+import { Grid } from './grid.js?v=1792002959';
+import { tex, textTex, facadeTex, rng } from './textures.js?v=1792002959';
+import { makeHumanoid, makeCharacter, makeVehicle, animateWalk, makeBeam, makeGlow, makeCar, makeTree, std } from './models.js?v=1792002959';
 
 const LINES = {
   news: { id: 'st_news', who: 'Radio', text: '...and in Boyle Heights tonight, residents are reporting unmarked vehicles along Whittier Boulevard. Federal officials have not confirmed any enforcement operation...', radio: true },
@@ -248,6 +248,10 @@ export function createStreet(G, opts = {}) {
   const suv2L = [-1, 1].map((sx) => { const sl = new THREE.SpotLight(0xf0f4ff, 0, 60, 0.35, 0.4, 1.1); scene.add(sl); scene.add(sl.target); return sl; });
   let suv2T = -1, suv2Stop = 0;
 
+  // ---- helicopter searchlight (jumpscare during the run) ----
+  const heli = new THREE.SpotLight(0xf4f8ff, 0, 90, 0.16, 0.3, 1.0); heli.position.set(20, 45, -40); scene.add(heli); scene.add(heli.target);
+  const heliBeam = makeBeam(48, 7, 0xe8f0ff, 0.06); heliBeam.visible = false; scene.add(heliBeam);
+  let heliT = -1;
   // ---- objective marker over Rafa ----
   const mk = document.createElement('canvas'); mk.width = mk.height = 32; const mx = mk.getContext('2d');
   mx.fillStyle = '#e9dcc0'; mx.beginPath(); mx.moveTo(8, 6); mx.lineTo(24, 6); mx.lineTo(16, 20); mx.closePath(); mx.fill();
@@ -308,7 +312,6 @@ export function createStreet(G, opts = {}) {
       ui.bark(LINES.r7); rafaState = 'flee';
       phase = 'run'; L.allowSprint = true; L.speedMul = 1; darkT = 0;
       ui.objective('RUN. Down the driveway past the Hammerline sign, to the loading dock.');
-      G.phone.close(); G.phone.state.hasPhone = false; setTimeout(() => { audio.noise({ dur: 0.1, type: 'highpass', freq: 3000, gain: 0.3 }); ui.toast('YOU DROPPED YOUR PHONE'); }, 1500);
       agents.forEach((a) => { if (a.role === 'chase') a.role = 'chaseGo'; });
     });
     at(tDark + 11.0, () => { ui.bark(LINES.a2); });
@@ -331,10 +334,7 @@ export function createStreet(G, opts = {}) {
     at(13.0, () => { audio.vibrate(); ui.toast('INCOMING CALL — DOÑA ROSA'); });
     at(14.5, () => { audio.vibrate(); });
     at(16.0, () => { lines('rosa1', 'mp1', 'rosa2', 'mp2', 'r0', 'rfollow').then(() => { if (phase === 'intro') { phase = 'walk'; ui.objective('Follow Rafa home down Whittier. Stay close to him.'); lines('r1', 'm1');
-        G.phone.receive('Luz', 'papi mami said i can stay up til you get home', 14, 1.5).then(() => G.phone.replies('Luz', [
-          { text: 'Almost home mija. Go brush your teeth.', then: () => G.phone.receive('Luz', 'ok!! te quiero papi', 2, 1.5) },
-          { text: 'With tio Rafa. 10 min.', then: () => G.phone.receive('Luz', 'tell tio rafa he owes me a quesadilla', 2, 2) },
-        ]));
+        G.phone.receive('Luz', 'papi mami said i can stay up til you get home', 14, 0).then(() => G.phone.receive('Luz', 'te quiero papi. hurry!!', 6, 0));
       } }); });
   }
   const triggers = [
@@ -463,9 +463,9 @@ export function createStreet(G, opts = {}) {
         }
       } else if (a.role === 'chaseGo') {
         darkT += dt;
-        const sp = darkT < 1.5 ? 0 : 3.5 + Math.min(0.8, darkT * 0.05);
+        const sp = darkT < 2.0 ? 0 : 3.1 + Math.min(0.6, darkT * 0.04);
         if (sp > 0) moveAgent(a, P.pos.x, P.pos.z, sp, dt); else a.speed = 0;
-        if (Math.hypot(P.pos.x - g.x, P.pos.z - g.z) < 1.0) game.caught(a.h, 'They took both of you.');
+        if (Math.hypot(P.pos.x - g.x, P.pos.z - g.z) < 0.85) game.caught(a.h, 'They took both of you.');
       }
       if (a.speed > 0) {
         a.phase += a.speed * dt * 2.6; animateWalk(a.h, a.phase, Math.min(1, a.speed / 3), true, a.speed);
@@ -476,6 +476,17 @@ export function createStreet(G, opts = {}) {
       a.sl.target.position.set(g.x + Math.sin(ry) * 9, 0.4, g.z + Math.cos(ry) * 9);
     }
 
+    // the searchlight finds you in the driveway
+    if (phase === 'run' && heliT < 0 && P.pos.x > 14) { heliT = 0; audio.tone({ freq: 22, dur: 9, type: 'sawtooth', gain: 0.5, filter: 160, vib: [11, 4] }); audio.noise({ dur: 9, type: 'lowpass', freq: 300, gain: 0.4, attack: 1.2, brown: true }); }
+    if (heliT >= 0 && heliT < 9) {
+      heliT += dt;
+      const lock = heliT > 1.6 && heliT < 4.5;
+      const tx = lock ? P.pos.x : P.pos.x + 14 - heliT * 9, tz = lock ? P.pos.z : P.pos.z + 6;
+      heli.intensity = 260; heli.target.position.set(tx, 0, tz); heli.position.set(tx + 6, 45, tz - 10);
+      heliBeam.visible = true; heliBeam.position.copy(heli.position); heliBeam.lookAt(tx, 0, tz);
+      if (lock && heliT - dt <= 1.6) { audio.hit(1); audio.stinger(0.8); ui.flash(0.6); ui.shake(0.07, 0.6); }
+      if (heliT >= 9) { heli.intensity = 0; heliBeam.visible = false; }
+    }
     // reaching the dock
     if (phase === 'run' && P.pos.z < -64.2 && P.pos.x > 37.5) { phase = 'done'; game.toStore(); }
   };
