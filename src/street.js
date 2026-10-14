@@ -1,8 +1,8 @@
 // LEVEL 1 — PART A: "The Walk Home". Calm walk with Rafa → blackout → raid → run.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1791999171';
-import { tex, textTex, facadeTex, rng } from './textures.js?v=1791999171';
-import { makeHumanoid, makeCharacter, animateWalk, makeBeam, makeGlow, makeCar, makeTree, std } from './models.js?v=1791999171';
+import { Grid } from './grid.js?v=1791999580';
+import { tex, textTex, facadeTex, rng } from './textures.js?v=1791999580';
+import { makeHumanoid, makeCharacter, makeVehicle, animateWalk, makeBeam, makeGlow, makeCar, makeTree, std } from './models.js?v=1791999580';
 
 const LINES = {
   news: { id: 'st_news', who: 'Radio', text: '...and in Boyle Heights tonight, residents are reporting unmarked vehicles along Whittier Boulevard. Federal officials have not confirmed any enforcement operation...', radio: true },
@@ -130,8 +130,18 @@ export function createStreet(G, opts = {}) {
     const c = makeCar(carCols[(r() * carCols.length) | 0]); c.position.set(x, 0, z); c.rotation.y = x < 0 ? 0 : Math.PI; scene.add(c);
     grid.rect(Math.floor(x - 1), Math.floor(z - 2.3), Math.floor(x + 0.9), Math.floor(z + 2.2), 1, 0);
   }
+  // ICE vehicles: textured GLB SUV (falls back to the box car)
+  const iceLights = [];
+  function makeICE() {
+    const v = makeVehicle('suv', 5.3);
+    if (!v) return makeCar(0x0a0b0c, true);
+    const hl = [];
+    for (const sx of [-0.72, 0.72]) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.12, 0.04), std(0x222222, { emissive: 0x000000 })); m.position.set(sx, 1.05, 2.62); v.add(m); hl.push(m); }
+    for (const [sx, col] of [[-0.3, 0x2040ff], [0.3, 0xff2020]]) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.05, 0.03), new THREE.MeshBasicMaterial({ color: 0x111111 })); m.position.set(sx, 0.95, 2.64); m.userData.col = col; v.add(m); iceLights.push(m); }
+    v.userData.headlights = hl; return v;
+  }
   // the SUV
-  const suv = makeCar(0x0a0b0c, true); suv.position.set(-3.7, 0, -80); scene.add(suv);
+  const suv = makeICE(); suv.position.set(-3.7, 0, -80); scene.add(suv);
   grid.rect(-5, -83, -3, -78, 1, 0);
   const headL = [];
   for (const s of [-1, 1]) {
@@ -225,7 +235,7 @@ export function createStreet(G, opts = {}) {
   let trafficT = 4;
 
   // ---- the second SUV that roars in from behind ----
-  const suv2 = makeCar(0x0a0b0c, true); suv2.visible = false; scene.add(suv2);
+  const suv2 = makeICE(); suv2.visible = false; scene.add(suv2);
   const suv2L = [-1, 1].map((sx) => { const sl = new THREE.SpotLight(0xf0f4ff, 0, 60, 0.35, 0.4, 1.1); scene.add(sl); scene.add(sl.target); return sl; });
   let suv2T = -1, suv2Stop = 0;
 
@@ -239,6 +249,7 @@ export function createStreet(G, opts = {}) {
   const lines = (...k) => ui.say(k.map((x) => LINES[x]));
   let phase = opts.blackout ? 'dark' : 'intro', tl = 0, darkT = 0, waitCD = 0;
   const events = [];
+  const amb = { light: 10, flashT: 0, drip: 1, wind: 6 };
   const at = (t, fn) => events.push({ t: tl + t, fn });
   P.pos.set(6.4, 0, 6); P.yaw = 0.15; P.pitch = -0.02;
   ui.objective('');
@@ -259,7 +270,7 @@ export function createStreet(G, opts = {}) {
   function startBlackout(fast) {
     phase = 'blackout'; tl = 0; events.length = 0;
     ui.objective(''); marker.visible = false;
-    traffic.forEach((t) => scene.remove(t.c)); traffic.length = 0;
+    traffic.forEach((t) => scene.remove(t.c)); traffic.length = 0; rain.visible = false;
     const order = [...lamps].sort((a, b) => a.z - b.z); // farthest first
     const step = fast ? 0.12 : 0.5;
     if (!fast) at(0.2, () => audio.powerDown({ x: 0, y: 5, z: P.pos.z - 30 }));
@@ -293,6 +304,7 @@ export function createStreet(G, opts = {}) {
   }
 
   if (opts.blackout) {
+    rain.visible = false;
     P.pos.set(6.4, 0, -53); rafa.group.position.set(7.0, 0.15, -55); ri = route.length;
     lamps.forEach((lp) => killLamp(lp, false));
     phase = 'walk'; startBlackout(true);
@@ -337,7 +349,15 @@ export function createStreet(G, opts = {}) {
     const rp = rainGeo.attributes.position.array;
     for (let i = 0; i < RAIN; i++) { const k = i * 6; let y = rp[k + 1] - dt * 19; if (y < 0) y += 18; rp[k + 1] = y; rp[k + 4] = y - 0.45; }
     rainGeo.attributes.position.needsUpdate = true;
-    if ((phase === 'walk' || phase === 'intro') && Math.random() < dt * 0.02) { ui.flash(0.1); setTimeout(() => audio.thunder(), 1500); }
+    amb.light -= dt; amb.drip -= dt; amb.wind -= dt;
+    if (amb.light <= 0 && phase !== 'blackout' && phase !== 'run') {
+      amb.light = 16 + Math.random() * 26; const near = Math.random();
+      amb.flashT = 0.35; ui.flash(0.06 + near * 0.12);
+      setTimeout(() => audio.thunder(near), (1 - near) * 3500 + 200);
+    }
+    if (amb.flashT > 0) { amb.flashT -= dt; const on = (amb.flashT > 0.25 || (amb.flashT > 0.05 && amb.flashT < 0.15)); hemi.intensity = on ? 1.6 : (phase === 'walk' || phase === 'intro' ? 0.35 : 0.07); }
+    if (amb.drip <= 0) { amb.drip = 0.4 + Math.random() * 1.6; audio.drip({ x: P.pos.x + (Math.random() - 0.5) * 8, y: 2 + Math.random() * 2, z: P.pos.z + (Math.random() - 0.5) * 8 }); }
+    if (amb.wind <= 0) { amb.wind = 12 + Math.random() * 15; audio.wind(); }
     // flickering streetlights
     for (const lp of lamps) if (lp.on && lp.flick) {
       lp.f = Math.random() < 0.04 ? Math.random() * 0.25 : Math.min(1, lp.f + dt * 5);
@@ -345,7 +365,7 @@ export function createStreet(G, opts = {}) {
       if (lp.f < 0.3 && Math.random() < 0.3 && Math.hypot(lp.x - P.pos.x, lp.z - P.pos.z) < 25) audio.tone({ freq: 120, dur: 0.08, type: 'sawtooth', gain: 0.03, filter: 900, pos: { x: lp.x, y: 6, z: lp.z } });
     }
     // traffic
-    if (phase === 'intro' || phase === 'walk') { trafficT -= dt; if (trafficT <= 0) { trafficT = 9 + Math.random() * 10; spawnTraffic(); } }
+    
     for (let i = traffic.length - 1; i >= 0; i--) {
       const t = traffic[i]; t.c.position.z += t.dir * t.v * dt;
       if (!t.passed && Math.abs(t.c.position.z - P.pos.z) < 14) { t.passed = true; audio.noise({ dur: 2.2, type: 'bandpass', freq: 700, freqTo: 300, q: 0.8, gain: 0.35, attack: 0.8, pos: { x: t.c.position.x, y: 0.5, z: P.pos.z } }); audio.noise({ dur: 1.6, type: 'highpass', freq: 3000, gain: 0.12, attack: 0.6, pos: { x: t.c.position.x, y: 0.3, z: P.pos.z } }); }
@@ -369,6 +389,7 @@ export function createStreet(G, opts = {}) {
       });
     }
 
+    if (phase === 'run' || (phase === 'blackout' && suv2.visible)) { const on = Math.floor(tl * 8) % 2; iceLights.forEach((m, i) => m.material.color.setHex((i % 2) === on ? m.userData.col : 0x111111)); }
     tl += dt;
     for (let i = events.length - 1; i >= 0; i--) if (tl >= events[i].t) { const e = events[i]; events.splice(i, 1); e.fn(); }
 
@@ -393,7 +414,7 @@ export function createStreet(G, opts = {}) {
       rafaPhase += sp * dt * 3.2; animateWalk(rafa, rafaPhase, Math.min(1, sp / 1.6), false);
       marker.visible = phase === 'walk' && dPl > 8; marker.position.set(rg.x, 2.35, rg.z);
     } else if (rafaState === 'flee') {
-      rg.x -= dt * 3.2; rg.z += dt * 0.6; rafaPhase += dt * 12; animateWalk(rafa, rafaPhase, 1, false);
+      rg.x -= dt * 3.2; rg.z += dt * 0.6; rafaPhase += dt * 10; animateWalk(rafa, rafaPhase, 1, false, 4.5);
       rafa.group.rotation.y = -Math.PI / 2;
     } else if (rafaState === 'down') {
       rafaFall = Math.min(1, rafaFall + dt * 3);
@@ -425,12 +446,12 @@ export function createStreet(G, opts = {}) {
         }
       } else if (a.role === 'chaseGo') {
         darkT += dt;
-        const sp = darkT < 1.2 ? 0 : 4.0 + Math.min(1.2, darkT * 0.08);
+        const sp = darkT < 1.5 ? 0 : 3.5 + Math.min(0.8, darkT * 0.05);
         if (sp > 0) moveAgent(a, P.pos.x, P.pos.z, sp, dt); else a.speed = 0;
         if (Math.hypot(P.pos.x - g.x, P.pos.z - g.z) < 1.0) game.caught(a.h, 'They took both of you.');
       }
       if (a.speed > 0) {
-        a.phase += a.speed * dt * 3; animateWalk(a.h, a.phase, Math.min(1, a.speed / 3), true);
+        a.phase += a.speed * dt * 2.6; animateWalk(a.h, a.phase, Math.min(1, a.speed / 3), true, a.speed);
         a.stepAcc += a.speed * dt; if (a.stepAcc > 0.8) { a.stepAcc = 0; audio.boot({ x: g.x, y: 0.2, z: g.z }, 0.45); }
       }
       const ry = a.h.group.rotation.y;

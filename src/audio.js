@@ -99,8 +99,12 @@ export class AudioEngine {
       const s = this.noiseSrc(ctx); const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 900;
       const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 7000;
       const s2 = this.noiseSrc(ctx, true); const lp2 = ctx.createBiquadFilter(); lp2.type = 'lowpass'; lp2.frequency.value = 400; const g2 = ctx.createGain(); g2.gain.value = 0.5;
-      s.connect(hp); hp.connect(lp); lp.connect(g); s2.connect(lp2); lp2.connect(g2); g2.connect(g); g.connect(this.amb);
-      s.start(); s2.start(); return [s, s2];
+      const gust = ctx.createGain(); gust.gain.value = 1;
+      const l1 = ctx.createOscillator(); l1.frequency.value = 0.055; const l1g = ctx.createGain(); l1g.gain.value = 0.35; l1.connect(l1g); l1g.connect(gust.gain);
+      const l2 = ctx.createOscillator(); l2.frequency.value = 0.13; const l2g = ctx.createGain(); l2g.gain.value = 0.15; l2.connect(l2g); l2g.connect(gust.gain);
+      const l3 = ctx.createOscillator(); l3.frequency.value = 0.031; const l3g = ctx.createGain(); l3g.gain.value = 1500; l3.connect(l3g); l3g.connect(lp.frequency);
+      s.connect(hp); hp.connect(lp); lp.connect(gust); s2.connect(lp2); lp2.connect(g2); g2.connect(gust); gust.connect(g); g.connect(this.amb);
+      [s, s2, l1, l2, l3].forEach((n) => n.start()); return [s, s2, l1, l2, l3];
     });
   }
   cityBed() { // distant traffic, hum
@@ -262,10 +266,19 @@ export class AudioEngine {
   gasp() { this.noise({ dur: 0.6, type: 'bandpass', freq: 1700, freqTo: 600, q: 1, gain: 0.45, attack: 0.03 }); }
   pickup() { this.tone({ freq: 660, dur: 0.12, gain: 0.08 }); this.tone({ freq: 990, dur: 0.18, gain: 0.06, when: 0.08 }); }
   click() { this.noise({ dur: 0.03, type: 'highpass', freq: 3000, gain: 0.2 }); this.tone({ freq: 1800, dur: 0.02, type: 'square', gain: 0.03 }); }
-  thunder() {
-    this.noise({ dur: 4, type: 'lowpass', freq: 300, freqTo: 60, gain: 0.7, attack: 0.3, brown: true, dest: this.sfx });
-    this.noise({ dur: 1.0, type: 'lowpass', freq: 1500, freqTo: 200, gain: 0.3, attack: 0.02 });
+  thunder(near = Math.random()) {
+    // near: sharp crack and crackle, far: long low roll
+    const len = 3 + Math.random() * 4;
+    if (near > 0.6) {
+      this.noise({ dur: 0.25, type: 'highpass', freq: 1200, gain: 0.55 * near, attack: 0.003, dest: this.amb });
+      for (let i = 0; i < 9; i++) this.noise({ dur: 0.08, type: 'bandpass', freq: 600 + Math.random() * 1400, q: 1, gain: 0.25 * near, when: 0.05 + i * (0.04 + Math.random() * 0.08), dest: this.amb });
+    }
+    this.noise({ dur: len, type: 'lowpass', freq: 220 + near * 300, freqTo: 50, gain: 0.35 + near * 0.5, attack: near > 0.6 ? 0.05 : 0.6, brown: true, dest: this.amb });
+    for (let i = 0; i < 3; i++) this.noise({ dur: 1.5 + Math.random() * 2, type: 'lowpass', freq: 160, freqTo: 40, gain: 0.25 + near * 0.2, attack: 0.3, when: 0.6 + i * (0.8 + Math.random()), brown: true, dest: this.amb });
   }
+  drip(pos) { this.tone({ freq: 1800 + Math.random() * 1500, freqTo: 900, dur: 0.07, type: 'sine', gain: 0.05, pos }); }
+  wind() { this.noise({ dur: 4 + Math.random() * 3, type: 'bandpass', freq: 400, freqTo: 900, q: 0.7, gain: 0.12, attack: 1.5, dest: this.amb }); }
+  siren(pos, dur = 6) { this.tone({ freq: 700, dur, type: 'sawtooth', gain: 0.025, pos, filter: 1400, vib: [0.5, 260] }); }
   carDoor(pos) { this.noise({ dur: 0.25, type: 'lowpass', freq: 700, gain: 0.8, pos }); this.tone({ freq: 90, freqTo: 50, dur: 0.25, gain: 0.5, pos }); }
   tackle(pos) { this.noise({ dur: 0.4, type: 'lowpass', freq: 400, gain: 1, pos }); this.noise({ dur: 0.5, type: 'bandpass', freq: 1500, gain: 0.3, pos, when: 0.05 }); }
   ziptie(pos) { for (let i = 0; i < 9; i++) this.noise({ dur: 0.02, type: 'highpass', freq: 4000, gain: 0.15, pos, when: i * 0.035 }); }

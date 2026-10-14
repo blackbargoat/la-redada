@@ -1,6 +1,6 @@
 // Low-poly (PS3-era) procedural models.
 import * as THREE from 'three';
-import { jacketTex } from './textures.js?v=1791999171';
+import { jacketTex } from './textures.js?v=1791999580';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
@@ -8,7 +8,7 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 const GLB = {};
 export const modelsReady = (async () => {
   const loader = new GLTFLoader();
-  await Promise.all(['rafa', 'agent', 'rosa', 'luz', 'gus', 'elena'].map(async (k) => {
+  await Promise.all(['rafa', 'agent', 'rosa', 'luz', 'gus', 'elena', 'rafa_run', 'agent_run', 'suv'].map(async (k) => {
     try {
       const g = await loader.loadAsync(`assets/models/${k}.glb`);
       // strip root motion: keep the hips' vertical bob, pin x/z to the first frame
@@ -19,6 +19,20 @@ export const modelsReady = (async () => {
     } catch (e) { console.warn('model load failed', k, e); }
   }));
 })();
+export function makeVehicle(kind, length = 5.2) {
+  const src = GLB[kind]; if (!src) return null;
+  const obj = src.scene.clone(true);
+  const box = new THREE.Box3().setFromObject(obj), size = box.getSize(new THREE.Vector3());
+  const alongX = size.x > size.z;
+  const s = length / Math.max(size.x, size.z);
+  obj.scale.setScalar(s);
+  const c = box.getCenter(new THREE.Vector3());
+  obj.position.set(-c.x * s, -box.min.y * s, -c.z * s);
+  const pivot = new THREE.Group(); pivot.add(obj); if (alongX) pivot.rotation.y = Math.PI / 2;
+  obj.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; if (m.material) { m.material = m.material.clone(); m.material.roughness = 0.35; m.material.metalness = 0.4; } } });
+  const g = new THREE.Group(); g.add(pivot); g.userData.pivot = pivot;
+  return g;
+}
 export function makeCharacter(kind, fallbackOpts = {}, height = 1.75) {
   const src = GLB[kind];
   if (!src) return makeHumanoid(fallbackOpts);
@@ -39,12 +53,15 @@ export function makeCharacter(kind, fallbackOpts = {}, height = 1.75) {
   const clip = src.animations[0];
   const action = clip ? mixer.clipAction(clip) : null;
   if (action) { action.play(); action.paused = true; }
+  const runClip = GLB[kind + '_run']?.animations[0];
+  const runAction = runClip ? mixer.clipAction(runClip) : null;
+  if (runAction) { runAction.play(); runAction.paused = true; runAction.weight = 0; }
   let hand = null; obj.traverse((b) => { if (!hand && /righthand/i.test(b.name)) hand = b; });
   if (kind === 'agent' && hand) {
     const fl = new THREE.Mesh(new THREE.CylinderGeometry(0.025 / s, 0.035 / s, 0.26 / s, 8), std(0x111111, { metalness: 0.5, roughness: 0.4 }));
     fl.rotation.x = Math.PI / 2; hand.add(fl);
   }
-  return { group, mixer, action, clipDur: clip ? clip.duration : 1, isGLB: true, model: obj };
+  return { group, mixer, action, runAction, runDur: runClip ? runClip.duration : 1, clipDur: clip ? clip.duration : 1, isGLB: true, model: obj };
 }
 
 export const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0, ...o });
@@ -130,11 +147,16 @@ export function makeHumanoid(o = {}) {
   return { group: g, legL, legR, armL, armR, head, torso };
 }
 
-export function animateWalk(h, phase, amt, holdLight) {
+export function animateWalk(h, phase, amt, holdLight, speed = 0) {
   if (h.isGLB) {
     if (!h.action) return;
-    const t = amt > 0.05 ? ((phase / (Math.PI * 2)) * h.clipDur) % h.clipDur : h.clipDur * 0.02;
-    h.mixer.setTime(t);
+    const running = h.runAction && speed > 3.0 && amt > 0.05;
+    const cyc = phase / (Math.PI * 2);
+    h.action.weight = running ? 0 : 1;
+    if (h.runAction) h.runAction.weight = running ? 1 : 0;
+    if (running) h.runAction.time = (cyc * h.runDur) % h.runDur;
+    else h.action.time = amt > 0.05 ? (cyc * h.clipDur) % h.clipDur : h.clipDur * 0.02;
+    h.mixer.update(0);
     return;
   }
   const s = Math.sin(phase) * amt;

@@ -1,8 +1,8 @@
 // LEVEL 1 — PART B: Hammerline Depot after dark.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1791999171';
-import { tex, textTex, rng } from './textures.js?v=1791999171';
-import { makeHumanoid, makeCharacter, animateWalk, makeBeam, makeGlow, std } from './models.js?v=1791999171';
+import { Grid } from './grid.js?v=1791999580';
+import { tex, textTex, rng } from './textures.js?v=1791999580';
+import { makeHumanoid, makeCharacter, animateWalk, makeBeam, makeGlow, std } from './models.js?v=1791999580';
 
 const VO = {
   out: { id: 'sr_out', who: 'Agent (radio)', text: 'Back door\'s locked down. He\'s inside. Nobody leaves this building.', radio: true, agent: true },
@@ -32,11 +32,11 @@ const PAL = {
   8: [0xb8a080, 0x6a4a30, 0xd0c0a0], 9: [0x3a6a3a, 0x8a6a4a, 0x2a4a2a], 10: [0x5a6a7a, 0x8a8a8a, 0x4a4a4a],
 };
 const STAGE_OBJ = {
-  1: 'Get your phone. It\'s charging in your locker, Break Room (back left corner).',
-  2: 'Get the gate key from Dale\'s desk. Manager\'s Office (back wall, next to the Break Room).',
-  3: 'Find a 30-amp fuse. Aisle 7, Electrical.',
-  4: 'Replace the blown fuse. Breaker Room (back wall, middle).',
-  5: 'Open the garden-center gate. East wall, past the sheds. Hold E.',
+  1: '(1/5) Get your phone. It\'s charging in your locker, Break Room (back left corner).',
+  2: '(2/5) Get the gate key from Dale\'s desk. Manager\'s Office (back wall, next to the Break Room).',
+  3: '(3/5) Find a 30-amp fuse. Aisle 7, Electrical.',
+  4: '(4/5) Replace the blown fuse. Breaker Room (back wall, middle).',
+  5: '(5/5) Open the garden-center gate. East wall, past the sheds. Hold E.',
   6: 'GO.',
 };
 const savedBattery = {};
@@ -253,7 +253,7 @@ export function createStore(G, checkpoint = 0) {
     const tube = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.08, 2.2), new THREE.MeshBasicMaterial({ color: 0xdfeef0 })); tube.position.set(x, 8.2, z); scene.add(tube);
     return { l, tube, base: 7, flick, f: 1 };
   });
-  const AL = [0, 1, 2, 3].map(() => { const s = new THREE.SpotLight(0xdde8ff, 0, 22, 0.34, 0.5, 1.1); s.position.set(0, -50, 0); s.castShadow = true; s.shadow.mapSize.set(512, 512); s.shadow.camera.near = 0.4; s.shadow.camera.far = 24; s.shadow.bias = -0.001; scene.add(s); scene.add(s.target); return s; });
+  const AL = [0, 1, 2, 3].map(() => { const s = new THREE.SpotLight(0xdde8ff, 0, 22, 0.34, 0.5, 1.1); s.position.set(0, -50, 0); s.castShadow = true; s.shadow.mapSize.set(512, 512); s.shadow.camera.near = 0.4; s.shadow.camera.far = 24; s.shadow.bias = -0.0005; s.shadow.normalBias = 0.04; scene.add(s); scene.add(s.target); return s; });
 
   function setPower(on) {
     L.power = on;
@@ -284,10 +284,10 @@ export function createStore(G, checkpoint = 0) {
 
   // ---------------- agents ----------------
   const DEFS = [
-    { name: 'Hollis', role: 'sweeper', speed: 1.5, chase: 4.3, vision: 10, hear: 1.0, skin: 0x9a7a62, intro: 'hollis' },
-    { name: 'Dunn', role: 'listener', speed: 1.9, chase: 4.4, vision: 7, hear: 1.6, skin: 0x5a3a2a, intro: 'dunn' },
-    { name: 'Kowalski', role: 'hunter', speed: 2.3, chase: 4.8, vision: 8.5, hear: 1.2, skin: 0xa88a72, intro: 'kowal' },
-    { name: 'Price', role: 'gatekeeper', speed: 1.8, chase: 4.4, vision: 8.5, hear: 1.1, skin: 0x8a6a52, intro: 'price' },
+    { name: 'Hollis', role: 'sweeper', speed: 1.3, chase: 3.7, vision: 10, hear: 1.0, skin: 0x9a7a62, intro: 'hollis' },
+    { name: 'Dunn', role: 'listener', speed: 1.6, chase: 3.8, vision: 7, hear: 1.6, skin: 0x5a3a2a, intro: 'dunn' },
+    { name: 'Kowalski', role: 'hunter', speed: 1.9, chase: 4.0, vision: 8.5, hear: 1.2, skin: 0xa88a72, intro: 'kowal' },
+    { name: 'Price', role: 'gatekeeper', speed: 1.5, chase: 3.8, vision: 8.5, hear: 1.1, skin: 0x8a6a52, intro: 'price' },
   ];
   // sweep route: snake through aisles 1..9
   const sweepRoute = [];
@@ -361,7 +361,7 @@ export function createStore(G, checkpoint = 0) {
     // radio the others: they converge on the area
     for (const o of agents) if (o !== a && o.active && o.state !== 'chase' && o.state !== 'inspect') {
       const d = Math.hypot(o.g.position.x - P.pos.x, o.g.position.z - P.pos.z);
-      if (d < 38) { o.state = 'investigate'; o.lightOff = false; goTo(o, P.pos.x + (r() - 0.5) * 6, P.pos.z + (r() - 0.5) * 6); o.invSpeed = 3.1; o.wait = 0; }
+      if (d < 38) { o.state = 'investigate'; o.lightOff = false; goTo(o, P.pos.x + (r() - 0.5) * 6, P.pos.z + (r() - 0.5) * 6); o.invSpeed = 2.6; o.wait = 0; }
     }
   }
   function nearestHiddenSpotTo(x, z, maxD) {
@@ -418,7 +418,7 @@ export function createStore(G, checkpoint = 0) {
       const rate = DIFF.notice / (0.35 + dP * 0.12) * (P.crouch ? 0.6 : 1) * (flash.intensity > 0 ? 1.5 : 1) * (L.power ? 1.6 : 1);
       a.aware += rate * dt;
       if (a.aware >= 1) startChase(a);
-      else if (a.aware > 0.6 && (a.state === 'patrol' || a.state === 'listen')) { a.state = 'investigate'; a.invSpeed = 2.2; a.lightOff = false; goTo(a, P.pos.x, P.pos.z); bark(a, 'hear'); }
+      else if (a.aware > 0.6 && (a.state === 'patrol' || a.state === 'listen')) { a.state = 'investigate'; a.invSpeed = 1.8; a.lightOff = false; goTo(a, P.pos.x, P.pos.z); bark(a, 'hear'); }
     } else if (a.state !== 'chase') a.aware = Math.max(0, a.aware - dt * 0.2);
     if (dP < 1.3 && !P.hidden && a.state !== 'chase') startChase(a); // bumped into him
 
@@ -442,7 +442,7 @@ export function createStore(G, checkpoint = 0) {
       }
       case 'investigate': {
         if (a.wait > 0) { a.wait -= dt; a.speed = 0; a.look += dt; a.g.rotation.y = a.baseH + Math.sin(a.look * 1.6) * 1.2; if (a.wait <= 0) { a.state = 'patrol'; patrolNext(a); } break; }
-        if (!a.path || stepPath(a, a.invSpeed || 2.4, dt)) {
+        if (!a.path || stepPath(a, a.invSpeed || 2.1, dt)) {
           a.baseH = a.g.rotation.y; a.look = 0; a.path = [];
           const sp = nearestHiddenSpotTo(g.x, g.z, 6);
           if (sp && r() < 0.35) beginInspect(a, sp); else a.wait = 4;
@@ -467,7 +467,7 @@ export function createStore(G, checkpoint = 0) {
       }
       case 'inspect': {
         const sp = a.inspect;
-        if (a.path && a.path.length && !stepPath(a, a.sawHide === sp ? 3.5 : 2.2, dt)) break;
+        if (a.path && a.path.length && !stepPath(a, a.sawHide === sp ? 2.8 : 1.9, dt)) break;
         a.path = []; a.speed = 0;
         turnTo(a, Math.atan2(sp.ix - g.x, sp.iz - g.z), dt * 6);
         a.inspT += dt; sp.agentNear = true;
@@ -482,7 +482,7 @@ export function createStore(G, checkpoint = 0) {
     }
     // animation + footsteps
     if (a.speed > 0) {
-      a.phase += a.speed * dt * 3; animateWalk(a.h, a.phase, Math.min(1, a.speed / 2.5), true);
+      a.phase += a.speed * dt * (a.speed > 3 ? 2.6 : 3); animateWalk(a.h, a.phase, Math.min(1, a.speed / 2.5), true, a.speed);
       a.stepAcc += a.speed * dt;
       if (a.stepAcc > (a.speed > 3 ? 0.95 : 0.75)) { a.stepAcc = 0; if (dP < 30) audio.boot({ x: g.x, y: 0.2, z: g.z }, a.speed > 3 ? 0.6 : 0.4); }
     } else animateWalk(a.h, a.phase, 0, !a.lightOff);
@@ -508,7 +508,7 @@ export function createStore(G, checkpoint = 0) {
       const d = Math.hypot(a.g.position.x - x, a.g.position.z - z);
       if (d < radius * mul) {
         const wasIdle = a.state !== 'investigate';
-        a.state = 'investigate'; a.lightOff = false; a.invSpeed = a.def.role === 'listener' ? 3.4 : 2.5; a.wait = 0;
+        a.state = 'investigate'; a.lightOff = false; a.invSpeed = a.def.role === 'listener' ? 2.8 : 2.1; a.wait = 0;
         goTo(a, x + (r() - 0.5) * 2, z + (r() - 0.5) * 2);
         if (wasIdle && kind !== 'loud') bark(a, 'hear');
       }
@@ -521,7 +521,7 @@ export function createStore(G, checkpoint = 0) {
   L.onCaught = () => { audio.stopLoop('motor', 0.1); };
 
   // ---------------- story beats ----------------
-  const events = []; let tl = 0;
+  const events = []; let tl = 0, lockT = 0;
   const at = (t, fn) => events.push({ t: tl + t, fn });
   let ghost = null, ghostT = 0, skelDone = false, catDone = false, cartDone = false, gateOpen = false, gateProg = 0, darkLine = false;
   const ambient = { t: 25 + r() * 20 };
@@ -612,7 +612,11 @@ export function createStore(G, checkpoint = 0) {
     at(2.6, () => { audio.radio({ x: 54.5, y: 1.5, z: -1.5 }); ui.bark({ ...VO.out, pos: { x: 54.5, y: 1.5, z: -1.5 } }); });
     at(7.5, () => { ui.say([VO.m1]); });
     at(9.0, () => { P.frozen = false; setStage(1); ui.bigHint('PRESS <kbd>F</kbd> FLASHLIGHT<small>ONE BATTERY. IT HAS TO LAST ALL NIGHT. TURN IT OFF TO SAVE IT.</small>'); document.getElementById('bigHint').dataset.k = 'F'; });
-    at(20, breach);
+    lockT = 120;
+    at(25, () => { audio.radio({ x: 31.5, y: 1.5, z: 48 }, 0.6); ui.bark({ id: 'sr_wait1', who: 'Agent (radio, outside)', text: 'Entry team\'s on the way. Nobody goes in till they\'re here.', radio: true, agent: true }); });
+    at(90, () => { audio.radio({ x: 31.5, y: 1.5, z: 48 }, 0.6); ui.bark({ id: 'sr_wait2', who: 'Agent (radio, outside)', text: 'Thirty seconds. Cut the chains on my mark.', radio: true, agent: true }); });
+    at(110, () => { audio.chains({ x: 31.5, y: 1.2, z: 45.5 }); });
+    at(120, () => { lockT = 0; breach(); document.getElementById('timer').textContent = ''; });
   } else {
     setStage(stage); ui.clock('12:2' + stage + ' AM');
     police.forEach((l) => (l.userData.on = true));
@@ -671,24 +675,25 @@ export function createStore(G, checkpoint = 0) {
 
   // ---------------- navigation: glow-tape floor arrows, wall maps, objective glow ----------------
   const GOALS = { 1: [7.5, 2.4], 2: [18.2, 5.5], 3: [42.5, 30.5], 4: [28.5, 2.4], 5: [61.6, 40.5], 6: [62.6, 40.5] };
-  const arrowShape = new THREE.Shape(); arrowShape.moveTo(0, 0.45); arrowShape.lineTo(0.32, 0); arrowShape.lineTo(0.12, 0); arrowShape.lineTo(0.12, -0.4); arrowShape.lineTo(-0.12, -0.4); arrowShape.lineTo(-0.12, 0); arrowShape.lineTo(-0.32, 0); arrowShape.closePath();
-  const arrowGeo = new THREE.ShapeGeometry(arrowShape); arrowGeo.rotateX(-Math.PI / 2);
-  const arrowM = new THREE.MeshBasicMaterial({ color: 0xa8ffc0, transparent: true, opacity: 0.5, depthWrite: false, fog: false });
-  const arrows = []; for (let i = 0; i < 9; i++) { const a = new THREE.Mesh(arrowGeo, arrowM.clone()); a.position.y = 0.02; a.visible = false; scene.add(a); arrows.push(a); }
-  let arrowT = 0;
+  // subtle HUD chevron pointing the general way (no floor arrows)
+  const dirEl = document.getElementById('dirHint');
+  let arrowT = 0, guide = null;
   function updateArrows(dt) {
-    arrowT -= dt; if (arrowT > 0) return; arrowT = 0.5;
-    const goal = GOALS[Math.floor(stage)];
-    arrows.forEach((a) => (a.visible = false));
-    if (!goal || P.hidden) return;
-    const path = grid.path(P.pos.x, P.pos.z, goal[0], goal[1]); if (!path || path.length < 2) return;
-    let acc = 0, k = 0, px = P.pos.x, pz = P.pos.z;
-    for (let i = 0; i < path.length - 1 && k < arrows.length; i++) {
-      const p = path[i], n = path[i + 1]; acc += Math.hypot(p.x - px, p.z - pz); px = p.x; pz = p.z;
-      if (acc < 2.2) continue; acc = 0;
-      const a = arrows[k++]; a.visible = true; a.position.set(p.x, 0.02, p.z); a.rotation.y = Math.atan2(n.x - p.x, n.z - p.z) + Math.PI;
-      a.material.opacity = 0.55 * (1 - k / (arrows.length + 2));
+    arrowT -= dt;
+    if (arrowT <= 0) {
+      arrowT = 0.4; guide = null;
+      const goal = GOALS[Math.floor(stage)];
+      if (goal && !P.hidden) {
+        const path = grid.path(P.pos.x, P.pos.z, goal[0], goal[1]);
+        if (path && path.length) { let k = 0, acc = 0, px = P.pos.x, pz = P.pos.z; for (; k < path.length - 1; k++) { acc += Math.hypot(path[k].x - px, path[k].z - pz); px = path[k].x; pz = path[k].z; if (acc > 3.5) break; } guide = { x: path[k].x, z: path[k].z, d: Math.hypot(goal[0] - P.pos.x, goal[1] - P.pos.z) }; }
+      }
     }
+    if (!guide || P.frozen || P.reading) { dirEl.style.opacity = 0; return; }
+    const ang = Math.atan2(guide.x - P.pos.x, guide.z - P.pos.z);
+    const rel = ang - (P.yaw + Math.PI);
+    dirEl.style.opacity = 0.42;
+    dirEl.querySelector('i').style.transform = `rotate(${-rel}rad)`;
+    dirEl.querySelector('b').textContent = `${Math.round(guide.d)}m`;
   }
   const objGlow = makeGlow(0xd8ffe0, 0.9, 0.7); scene.add(objGlow);
   const MAPS = [[50, 1.06, 0], [20, 44.94, Math.PI], [0.94 + 0.02, 23.5, Math.PI / 2], [63.06 - 0.02, 23.5, -Math.PI / 2]];
@@ -789,14 +794,16 @@ export function createStore(G, checkpoint = 0) {
     ambient.t -= dt;
     if (ambient.t <= 0 && stage < 6) {
       ambient.t = 30 + r() * 40;
-      const k = (r() * 5) | 0, ang = r() * Math.PI * 2, rx = P.pos.x + Math.cos(ang) * 9, rz = P.pos.z + Math.sin(ang) * 9;
+      const k = (r() * 6) | 0, ang = r() * Math.PI * 2, rx = P.pos.x + Math.cos(ang) * 9, rz = P.pos.z + Math.sin(ang) * 9;
       if (k === 0) audio.chains({ x: 31.5, y: 1.2, z: 45.5 });
       else if (k === 1) audio.bark({ x: 31 + (r() - 0.5) * 30, y: 1, z: 55 });
       else if (k === 2) audio.can({ x: rx, y: 1.5, z: rz });
       else if (k === 3) { for (let i = 0; i < 4; i++) audio.boot({ x: rx, y: 0.2, z: rz }, 0.3); } // footsteps that stop
-      else audio.radio({ x: rx, y: 1.5, z: rz }, 0.4);
+      else if (k === 4) audio.radio({ x: rx, y: 1.5, z: rz }, 0.4);
+      else { audio.thunder(0.2 + r() * 0.4); ui.flash(0.03); }
     }
     updateCats(dt); updateArrows(dt); updateDrops(dt);
+    if (lockT > 0) { lockT -= dt; const m = Math.floor(lockT / 60), sec = Math.max(0, Math.floor(lockT % 60)); document.getElementById('timer').textContent = `ENTRY TEAM BREACHING IN ${m}:${String(sec).padStart(2, '0')}`; }
     { const gl = GOALS[Math.floor(stage)]; objGlow.visible = !!gl && stage < 6; if (gl) { objGlow.position.set(gl[0], 1.5 + Math.sin(tl * 2) * 0.1, gl[1]); objGlow.material.opacity = 0.45 + Math.sin(tl * 3) * 0.2; } }
     for (const g of eas) { g.cd -= dt; if (g.cd <= 0 && Math.abs(P.pos.x - g.x) < 0.8 && Math.abs(P.pos.z - g.z) < 0.5) { g.cd = 6; audio.easBeep({ x: g.x, y: 1, z: g.z }); L.onNoise(28, g.x, g.z, 'loud'); ui.toast('SECURITY GATE ALARM'); } }
     for (const n of nightLights) { if (n.l.intensity === 0 && L.power) continue; if (n.flick) { n.f = Math.random() < 0.05 ? Math.random() * 0.2 : Math.min(1, n.f + dt * 4); } n.l.intensity = L.power ? 0 : n.base * n.f; n.tube.visible = !L.power && n.f > 0.5; }
@@ -825,6 +832,6 @@ export function createStore(G, checkpoint = 0) {
     c.save(); c.translate(P.pos.x * sx, P.pos.z * sz); c.rotate(-P.yaw); c.fillStyle = '#b3261e'; c.beginPath(); c.moveTo(0, -8); c.lineTo(5, 6); c.lineTo(-5, 6); c.closePath(); c.fill(); c.restore();
     c.fillStyle = '#1d1b17'; c.font = '11px Oswald, sans-serif'; c.textAlign = 'left'; c.fillText('YOU ARE HERE (red arrow) · OBJECTIVE (red circle)', 8, H - 8);
   };
-  L.dispose = () => { police.forEach((l) => (l.userData.on = false)); };
+  L.dispose = () => { police.forEach((l) => (l.userData.on = false)); document.getElementById('timer').textContent = ''; dirEl.style.opacity = 0; };
   return L;
 }

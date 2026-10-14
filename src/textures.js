@@ -25,7 +25,7 @@ const GEN = {
     x.fillStyle = '#76726b'; x.fillRect(0, 0, 512, 512);
     blotches(x, 512, 512, r, 40, 'rgba(40,36,30,0.2)', 'rgba(160,155,145,0.12)', 20, 110);
     speckle(x, 512, 512, r, 9000, ['#5a5650', '#8f8b84', '#4a4640'], 0.6);
-    x.strokeStyle = 'rgba(30,28,25,0.7)'; x.lineWidth = 2; x.strokeRect(1, 1, 510, 510);
+    x.strokeStyle = 'rgba(30,28,25,0.18)'; x.lineWidth = 1; x.strokeRect(0.5, 0.5, 511, 511);
     return c;
   },
   asphalt() {

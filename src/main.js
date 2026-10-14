@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { AudioEngine } from './audio.js?v=1791999171';
-import { createStreet } from './street.js?v=1791999171';
-import { createRestaurant } from './restaurant.js?v=1791999171';
-import { createStore } from './store.js?v=1791999171';
-import { modelsReady } from './models.js?v=1791999171';
+import { AudioEngine } from './audio.js?v=1791999580';
+import { createStreet } from './street.js?v=1791999580';
+import { createRestaurant } from './restaurant.js?v=1791999580';
+import { createStore } from './store.js?v=1791999580';
+import { modelsReady } from './models.js?v=1791999580';
 
 const $ = (id) => document.getElementById(id);
 const PIX = 3; // render at 1/3 resolution, upscale with nearest-neighbour for the chunky pixel look
@@ -67,11 +67,18 @@ flash.position.set(0.22, -0.2, 0.05);
 flash.target.position.set(0.05, -0.08, -1);
 camera.add(flash); camera.add(flash.target);
 flash.castShadow = true; flash.shadow.mapSize.set(512, 512);
-flash.shadow.camera.near = 0.3; flash.shadow.camera.far = 32; flash.shadow.bias = -0.0008;
+flash.shadow.camera.near = 0.3; flash.shadow.camera.far = 32; flash.shadow.bias = -0.0004; flash.shadow.normalBias = 0.04;
 
 // ---------------- state ----------------
 const audio = new AudioEngine();
 const keys = new Set();
+// rebindable controls
+const DEFAULT_BINDS = { forward: 'KeyW', back: 'KeyS', left: 'KeyA', right: 'KeyD', sprint: 'ShiftLeft', crouch: 'KeyC', flashlight: 'KeyF', interact: 'KeyE', breath: 'Space', map: 'Tab' };
+const BIND_NAMES = { forward: 'Move forward', back: 'Move back', left: 'Move left', right: 'Move right', sprint: 'Sprint', crouch: 'Crouch', flashlight: 'Flashlight', interact: 'Interact / hide', breath: 'Hold breath', map: 'Store map' };
+let BINDS = { ...DEFAULT_BINDS };
+try { Object.assign(BINDS, JSON.parse(localStorage.getItem('lr_binds') || '{}')); } catch (e) { }
+const held = (a) => keys.has(BINDS[a]);
+const is = (e, a) => e.code === BINDS[a];
 const P = {
   pos: new THREE.Vector3(), yaw: 0, pitch: 0, eye: 1.62, crouch: false, stamina: 1, exhausted: false,
   hidden: null, frozen: false, reading: false, flashlight: false, battery: 1, lens: 0,
@@ -237,23 +244,24 @@ document.addEventListener('mousemove', (e) => {
   }
 });
 addEventListener('keydown', (e) => {
-  if (e.code === 'Tab') e.preventDefault();
+  if (e.code === 'Tab' || is(e, 'map')) e.preventDefault();
+  if (rebinding) return;
   if (e.repeat) return;
   keys.add(e.code);
   if (mode !== 'play' || paused) return;
-  if (e.code === 'KeyE') {
+  if (is(e, 'interact')) {
     if (ui._noteClose) { ui._noteClose(); return; }
     if (P.hidden) { game.unhide(); return; }
     if (currentIt && !currentIt.hold && !P.frozen) currentIt.action();
   }
-  if (e.code === 'KeyF' && level?.allowFlashlight && !P.hidden) {
+  if (is(e, 'flashlight') && level?.allowFlashlight && !P.hidden) {
     if (P.battery <= 0) { audio.click(); ui.toast('BATTERY DEAD'); return; }
     P.flashlight = !P.flashlight; audio.click(); if ($('bigHint').dataset.k === 'F') { ui.bigHint(''); $('bigHint').dataset.k = ''; }
   }
-  if (e.code === 'KeyC' || e.code === 'ControlLeft') P.crouch = !P.crouch;
-  if (e.code === 'Tab' && level?.drawMap) { const m = $('map'); level.drawMap(m.getContext('2d'), m.width, m.height); m.classList.add('on'); }
+  if (is(e, 'crouch')) P.crouch = !P.crouch;
+  if (is(e, 'map') && level?.drawMap) { const m = $('map'); level.drawMap(m.getContext('2d'), m.width, m.height); m.classList.add('on'); }
 });
-addEventListener('keyup', (e) => { keys.delete(e.code); if (e.code === 'Tab') $('map').classList.remove('on'); });
+addEventListener('keyup', (e) => { keys.delete(e.code); if (is(e, 'map')) $('map').classList.remove('on'); });
 addEventListener('blur', () => keys.clear());
 
 // ---------------- chapters ----------------
@@ -277,7 +285,7 @@ game.nextChapter = async () => {
   await ui.fade(1, 1.6); ui.hud(false); audio.stopAll();
   if (chapterI + 1 < CHAPTERS.length) startChapter(chapterI + 1); else game.win();
 };
-async function boot() { audio.init(); $('title').classList.remove('on'); $('chapters').classList.remove('on'); await ensureBrightness(); await modelsReady; }
+async function boot() { audio.init(); try { const v = parseFloat(localStorage.getItem('lr_vol')); if (isFinite(v)) audio.master.gain.value = v; } catch (e) { } $('title').classList.remove('on'); $('chapters').classList.remove('on'); await ensureBrightness(); await modelsReady; }
 $('startBtn').onclick = async () => {
   await boot();
   await ui.cards([
@@ -322,8 +330,34 @@ function openBrightness() {
   });
 }
 async function ensureBrightness() { if (loadBright() == null) await openBrightness(); }
-$('brightBtn').onclick = () => openBrightness();
-$('pauseBrightBtn').onclick = async () => { $('pause').classList.remove('on'); await openBrightness(); $('pause').classList.add('on'); };
+function keyName(code) { return (code || '').replace(/^Key/, '').replace(/^Digit/, '').replace('Left', '').replace('Right', ' R').replace('Space', 'SPACE').replace('Arrow', '').toUpperCase(); }
+let rebinding = null;
+function drawBinds() {
+  const list = $('bindList'); list.innerHTML = '';
+  for (const k of Object.keys(DEFAULT_BINDS)) {
+    const row = document.createElement('div'); row.className = 'bindRow';
+    row.innerHTML = `<span>${BIND_NAMES[k]}</span><button class="btn bindBtn">${rebinding === k ? 'PRESS A KEY' : keyName(BINDS[k])}</button>`;
+    row.querySelector('button').onclick = () => { rebinding = k; drawBinds(); };
+    list.appendChild(row);
+  }
+}
+addEventListener('keydown', (e) => {
+  if (!rebinding) return;
+  e.preventDefault(); e.stopPropagation();
+  if (e.code !== 'Escape') { BINDS[rebinding] = e.code; try { localStorage.setItem('lr_binds', JSON.stringify(BINDS)); } catch (er) { } }
+  rebinding = null; drawBinds();
+}, true);
+function openSettings() {
+  $('settings').classList.add('on'); drawBinds();
+  $('volSlider').value = audio.master ? audio.master.gain.value : 0.9;
+}
+$('settingsBtn').onclick = () => { openSettings(); };
+$('pauseSettingsBtn').onclick = () => { $('pause').classList.remove('on'); openSettings(); $('settings').dataset.fromPause = '1'; };
+$('setBack').onclick = () => { rebinding = null; $('settings').classList.remove('on'); if ($('settings').dataset.fromPause) { $('settings').dataset.fromPause = ''; $('pause').classList.add('on'); } };
+$('setBright').onclick = async () => { $('settings').classList.remove('on'); await openBrightness(); openSettings(); };
+$('setReset').onclick = () => { BINDS = { ...DEFAULT_BINDS }; try { localStorage.removeItem('lr_binds'); } catch (e) { } drawBinds(); };
+$('volSlider').oninput = (e) => { audio.init(); audio.master.gain.value = parseFloat(e.target.value); try { localStorage.setItem('lr_vol', e.target.value); } catch (er) { } };
+
 $('retryBtn').onclick = () => { $('caught').classList.remove('on'); mode = 'play'; game.retry?.(); };
 $('menuBtn').onclick = toTitle; $('pauseMenuBtn').onclick = toTitle;
 $('resumeBtn').onclick = () => { $('pause').classList.remove('on'); lockPointer(); };
@@ -333,7 +367,7 @@ const tmp = new THREE.Vector3();
 function updatePlayer(dt) {
   const L = level;
   if (P.hidden) {
-    P.holdingBreath = keys.has('Space') && P.breath > 0;
+    P.holdingBreath = held('breath') && P.breath > 0;
     if (P.holdingBreath) { P.breath -= dt / 7; if (P.breath <= 0) { P.breath = 0; P.holdingBreath = false; audio.gasp(); L.onGasp?.(); } }
     else P.breath = Math.min(1, P.breath + dt / 3.5);
     P.speedNow = 0; return;
@@ -342,12 +376,12 @@ function updatePlayer(dt) {
   const eyeT = P.crouch ? 1.0 : 1.62; P.eye += (eyeT - P.eye) * Math.min(1, dt * 10);
   if (P.frozen || P.reading) { P.speedNow = 0; P.sprinting = false; return; }
   let f = 0, s = 0;
-  if (keys.has('KeyW') || keys.has('ArrowUp')) f += 1;
-  if (keys.has('KeyS') || keys.has('ArrowDown')) f -= 1;
-  if (keys.has('KeyD') || keys.has('ArrowRight')) s += 1;
-  if (keys.has('KeyA') || keys.has('ArrowLeft')) s -= 1;
+  if (held('forward') || keys.has('ArrowUp')) f += 1;
+  if (held('back') || keys.has('ArrowDown')) f -= 1;
+  if (held('right') || keys.has('ArrowRight')) s += 1;
+  if (held('left') || keys.has('ArrowLeft')) s -= 1;
   const moving = f || s;
-  const wantSprint = (keys.has('ShiftLeft') || keys.has('ShiftRight')) && moving && f >= 0 && L.allowSprint !== false;
+  const wantSprint = (held('sprint') || (BINDS.sprint === 'ShiftLeft' && keys.has('ShiftRight'))) && moving && f >= 0 && L.allowSprint !== false;
   if (wantSprint && P.crouch) P.crouch = false;
   P.sprinting = wantSprint && !P.exhausted && P.stamina > 0;
   if (P.sprinting) { P.stamina -= dt / 7.5; if (P.stamina <= 0) { P.stamina = 0; P.exhausted = true; } }
@@ -373,7 +407,7 @@ function updatePlayer(dt) {
 function updateInteract(dt) {
   currentIt = null;
   if (P.hidden) {
-    ui.prompt(P.hidden.agentNear ? 'HOLD SPACE — HOLD YOUR BREATH' : 'E — LEAVE');
+    ui.prompt(P.hidden.agentNear ? `HOLD ${keyName(BINDS.breath)} — HOLD YOUR BREATH` : `${keyName(BINDS.interact)} — LEAVE`);
     return;
   }
   if (P.frozen || P.reading) { ui.prompt(''); return; }
@@ -389,10 +423,10 @@ function updateInteract(dt) {
   currentIt = best;
   if (!best) { ui.prompt(''); return; }
   if (best.hold) {
-    if (keys.has('KeyE')) { best.progress = Math.min(best.hold, (best.progress || 0) + dt); best.onHold?.(dt); if (best.progress >= best.hold) { best.action(); } }
+    if (held('interact')) { best.progress = Math.min(best.hold, (best.progress || 0) + dt); best.onHold?.(dt); if (best.progress >= best.hold) { best.action(); } }
     else best.onRelease?.();
-    ui.prompt('HOLD E — ' + best.label, (best.progress || 0) / best.hold);
-  } else ui.prompt('E — ' + best.label);
+    ui.prompt(`HOLD ${keyName(BINDS.interact)} — ` + best.label, (best.progress || 0) / best.hold);
+  } else ui.prompt(`${keyName(BINDS.interact)} — ` + best.label);
 }
 
 function updateFlashlight(dt) {
@@ -475,6 +509,10 @@ frame();
     if (mode === 'title') {
       for (let i = 0; i < img.data.length; i += 4) { const v = Math.random() * 40; img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255; }
       x.putImageData(img, 0, 0);
+      // rolling bright band, like a dying VHS tape
+      const d = new Date(); const pad = (n) => String(n).padStart(2, '0');
+      $('recTime').textContent = `OCT 14 2026  ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+      $('recDot').style.opacity = Math.floor(performance.now() / 600) % 2 ? 0 : 1;
     }
     setTimeout(tick, 80);
   };
