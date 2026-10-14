@@ -198,7 +198,7 @@ export function facadeTex(seed, floors, cols, wallColor) {
   const fh = H / floors, cw = W / cols;
   for (let f = 0; f < floors; f++) for (let k = 0; k < cols; k++) {
     const wx = k * cw + cw * 0.22, wy = f * fh + fh * 0.22, ww = cw * 0.56, wh = fh * 0.5;
-    x.fillStyle = '#d8d4c8'; x.fillRect(wx - 3, wy - 3, ww + 6, wh + 6);
+    x.fillStyle = 'rgba(40,36,30,0.85)'; x.fillRect(wx - 2, wy - 2, ww + 4, wh + 4);
     const lit = r() < 0.18;
     const warm = r() < 0.7;
     x.fillStyle = lit ? (warm ? '#e8c27a' : '#9fd6c0') : '#141a1c';

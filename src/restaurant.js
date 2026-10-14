@@ -1,8 +1,8 @@
 // PROLOGUE — "La Cocina de Rosa". A warm afternoon at Doña Rosa's taquería before everything goes wrong.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792002959';
-import { tex, textTex, rng } from './textures.js?v=1792002959';
-import { makeCharacter, makeVehicle, makeStatic, animateWalk, makeGlow, makeCar, makeBeam, std } from './models.js?v=1792002959';
+import { Grid } from './grid.js?v=1792003108';
+import { tex, textTex, rng, facadeTex } from './textures.js?v=1792003108';
+import { makeCharacter, makeVehicle, makeStatic, animateWalk, makeGlow, makeCar, makeBeam, std } from './models.js?v=1792003108';
 
 const VO = {
   rosa1: { id: 'p_rosa1', who: 'Doña Rosa', text: '¡Ay, mijo, por fin! Luz has been waiting all afternoon. Go, go say hi to your daughter.' },
@@ -89,12 +89,17 @@ export function createRestaurant(G) {
   wall(0, 0, 23, 0); wall(0, 1, 0, 22); wall(23, 1, 23, 22);
   // front: windows + door
   grid.rect(0, 23, 23, 23, 1, 0);
-  box(24, 0.9, 0.3, talM, 12, 0.45, 23.5, false);
+  { const fm = talM.clone(); fm.map = talT.clone(); fm.map.needsUpdate = true; fm.map.repeat.set(27, 1); box(24, 0.9, 0.3, fm, 12, 0.45, 23.5, false); }
   box(24, 0.7, 0.3, wallM(), 12, 3.25, 23.5, false);
   for (const x of [0.15, 9.85, 12.15, 23.85]) box(0.3, 3.6, 0.3, woodM, x, 1.8, 23.5, false);
   const glassM = new THREE.MeshStandardMaterial({ color: 0xcfe0e8, transparent: true, opacity: 0.18, roughness: 0.05, metalness: 0.2 });
   box(9.7, 2.0, 0.05, glassM, 5, 1.9, 23.5, false); box(11.6, 2.0, 0.05, glassM, 18, 1.9, 23.5, false);
-  const door = box(2.2, 2.9, 0.08, new THREE.MeshStandardMaterial({ color: 0x8a5a30, transparent: true, opacity: 0.85 }), 11, 1.45, 23.5, false);
+  const doorWood = std(0x5a3418, { roughness: 0.6 });
+  box(0.12, 2.9, 0.12, doorWood, 9.98, 1.45, 23.5, false); box(0.12, 2.9, 0.12, doorWood, 12.02, 1.45, 23.5, false); box(2.16, 0.14, 0.12, doorWood, 11, 2.88, 23.5, false);
+  box(0.9, 2.7, 0.06, doorWood, 10.5, 1.4, 23.55, false); box(0.9, 2.7, 0.06, doorWood, 11.5, 1.4, 23.55, false);
+  const doorGlass = new THREE.MeshStandardMaterial({ color: 0xcfe0e8, transparent: true, opacity: 0.2, roughness: 0.05 });
+  box(0.66, 1.6, 0.07, doorGlass, 10.5, 1.65, 23.55, false); box(0.66, 1.6, 0.07, doorGlass, 11.5, 1.65, 23.55, false);
+  box(0.6, 0.05, 0.05, std(0xb8bcc0, { metalness: 0.8, roughness: 0.3 }), 10.5, 1.05, 23.48, false); box(0.6, 0.05, 0.05, std(0xb8bcc0, { metalness: 0.8, roughness: 0.3 }), 11.5, 1.05, 23.48, false);
   const winT = textTex(512, 128, null, [{ text: 'TAQUERÍA DOÑA ROSA', size: 52, color: '#f0d27a' }]);
   const winSign = new THREE.Mesh(new THREE.PlaneGeometry(6, 1.5), new THREE.MeshBasicMaterial({ map: winT, transparent: true })); winSign.position.set(5, 2.3, 23.45); winSign.rotation.y = Math.PI; scene.add(winSign);
   const hoursT = textTex(256, 160, null, [{ text: 'ABIERTO', size: 40, color: '#e04a2a', y: 50 }, { text: '7AM – 11PM', size: 28, color: '#f0e0b0', y: 110 }]);
@@ -103,7 +108,13 @@ export function createRestaurant(G) {
   // outside: the street in afternoon light
   const street = new THREE.Mesh(new THREE.PlaneGeometry(200, 60), std(0x3a3a38, { map: tex('asphalt', [30, 8]) })); street.rotation.x = -Math.PI / 2; street.position.set(12, -0.02, 50); scene.add(street);
   const walk = new THREE.Mesh(new THREE.PlaneGeometry(200, 5), std(0x9a968c, { map: tex('sidewalk', [40, 1]) })); walk.rotation.x = -Math.PI / 2; walk.position.set(12, 0.01, 26.5); scene.add(walk);
-  for (let i = 0; i < 7; i++) { const h = 6 + r() * 6; const b = box(10 + r() * 4, h, 8, std([0xc8a878, 0x8aa0a0, 0xb07a5a, 0xd0c8b0][i % 4], { map: tex('stucco', [3, 2]) }), -24 + i * 12, h / 2, 46, false); }
+  for (let i = 0; i < 7; i++) {
+    const h = 7 + r() * 5, floors = Math.round(h / 3.4), w = 11 + r() * 3;
+    const fac = facadeTex(300 + i * 13, floors, Math.round(w / 3), ['#c8a878', '#8aa0a0', '#b07a5a', '#d0c8b0'][i % 4]);
+    const front = std(0xffffff, { map: fac.map, roughness: 0.9 }), side = std([0xc8a878, 0x8aa0a0, 0xb07a5a, 0xd0c8b0][i % 4], { map: tex('stucco', [2, 2]) });
+    box(w, h, 8, [side, side, side, side, side, front], -24 + i * 12, h / 2, 46, false);
+    const aw = box(w * 0.8, 0.08, 1.4, std([0x6e1d1a, 0x1d4a3a, 0x24304e][i % 3]), -24 + i * 12, 3.0, 41.4, false); aw.rotation.x = -0.35;
+  }
   const parked = makeVehicle('suv', 4.3, 0x5a3434, 0.3) || makeCar(0x6b1f1f); parked.position.set(4, 0, 30.5); parked.rotation.y = Math.PI / 2; scene.add(parked);
   const parked2 = makeVehicle('suv', 4.3, 0x6a6a66, 0.3) || makeCar(0x8a8478); parked2.position.set(19, 0, 30.5); parked2.rotation.y = Math.PI / 2; scene.add(parked2);
   const truck = makeVehicle('suv', 4.8, 0x161616, 0.6) || makeCar(0x0a0b0c, true); truck.position.set(7, 0, 33.5); truck.rotation.y = Math.PI / 2; scene.add(truck);

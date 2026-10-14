@@ -1,6 +1,6 @@
 // Low-poly (PS3-era) procedural models.
 import * as THREE from 'three';
-import { jacketTex } from './textures.js?v=1792002959';
+import { jacketTex } from './textures.js?v=1792003108';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
@@ -40,7 +40,7 @@ export function makeVehicle(kind, length = 5.2, tint = null, rough = 0.35) {
   obj.position.set(-c.x * s, -box.min.y * s, -c.z * s);
   const pivot = new THREE.Group(); pivot.add(obj); if (alongX) pivot.rotation.y = Math.PI / 2;
   obj.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; if (m.material) {
-      m.material = m.material.clone(); m.material.roughness = rough; m.material.metalness = 0.4; if (tint != null) m.material.color.setHex(tint);
+      m.material = m.material.clone(); m.material.roughness = Math.max(0.45, rough); m.material.metalness = 0.15; if (tint != null) m.material.color.setHex(tint);
       // chunky PS-era look: shrink the texture and sample it without smoothing
       const map = m.material.map;
       if (map && map.image) {

@@ -1,8 +1,8 @@
 // LEVEL 1 — PART B: Hammerline Depot after dark.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792002959';
-import { tex, textTex, rng } from './textures.js?v=1792002959';
-import { makeHumanoid, makeCharacter, makeVehicle, animateWalk, makeBeam, makeGlow, std } from './models.js?v=1792002959';
+import { Grid } from './grid.js?v=1792003108';
+import { tex, textTex, rng } from './textures.js?v=1792003108';
+import { makeHumanoid, makeCharacter, makeVehicle, animateWalk, makeBeam, makeGlow, std } from './models.js?v=1792003108';
 
 const VO = {
   out: { id: 'sr_out', who: 'Agent (radio)', text: 'Back door\'s locked down. He\'s inside. Nobody leaves this building.', radio: true, agent: true },
@@ -770,7 +770,7 @@ export function createStore(G, checkpoint = 0) {
     4: { id: 'cr_4', who: '???', text: 'Mine. All mine.' },
   };
   audio.preloadVo(['cr_1', 'cr_2', 'cr_3', 'cr_4']);
-  const stranger = makeCharacter('rafa', { shirt: 0x2a2a2a, pants: 0x2a2a2a, skin: 0x7a5a42 }, 1.72);
+  const stranger = makeCharacter('gus', { shirt: 0x2a2a2a, pants: 0x2a2a2a, skin: 0x7a5a42 }, 1.72); // darkened so he doesn't read as anyone you know
   stranger.group.traverse((m) => { if (m.isMesh && m.material) m.material.color.multiplyScalar(0.35); });
   stranger.group.visible = false; scene.add(stranger.group);
   const cr = { state: checkpoint <= 2 ? 'wait' : 'gone', t: 0, power: 0, said: 0, phase: 0 };
