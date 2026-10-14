@@ -1,8 +1,8 @@
 // LEVEL 1 — PART A: "The Walk Home". Juan and Santiago walk home → the street feels wrong → ICE → run.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792004050';
-import { tex, textTex, facadeTex, rng } from './textures.js?v=1792004050';
-import { makeHumanoid, makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeCar, makeTree, std } from './models.js?v=1792004050';
+import { Grid } from './grid.js?v=1792004124';
+import { tex, textTex, facadeTex, rng } from './textures.js?v=1792004124';
+import { makeHumanoid, makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeCar, makeTree, std } from './models.js?v=1792004124';
 
 const LINES = {
   u1: { id: 'st_u1', who: 'Santiago', text: '...Hey. That car. It\'s been behind us since the bus stop.' },
@@ -340,10 +340,10 @@ export function createStreet(G, opts = {}) {
     at(0.6, () => { ui.say([LINES.news]); audio.tone({ freq: 48, dur: 9, type: 'sawtooth', gain: 0.06, filter: 200 }); });
     at(9.5, () => { audio.noise({ dur: 0.8, type: 'highpass', freq: 2000, gain: 0.25 }); ui.fade(0, 2.5); ui.clock('11:41 PM'); });
     at(10.5, () => { audio.tone({ freq: 50, freqTo: 90, dur: 4, type: 'sawtooth', gain: 0.12, filter: 400, pos: { x: 3, y: 1, z: -10 } }); });
-    at(11.5, () => { P.frozen = false; });
+    at(9.4, () => { P.lookLock = { yaw: Math.atan2(-(rafa.group.position.x - P.pos.x), -(rafa.group.position.z - P.pos.z)), pitch: -0.05, k: 3 }; });
     at(13.0, () => { audio.vibrate(); ui.toast('INCOMING CALL — DOÑA ROSA'); });
     at(14.5, () => { audio.vibrate(); });
-    at(16.0, () => { lines('rosa1', 'mp1', 'rosa2', 'mp2', 'r0', 'rfollow').then(() => { if (phase === 'intro') { phase = 'walk'; ui.objective('Walk home with Santiago down Whittier. Stay close to him.'); lines('r1', 'm1');
+    at(16.0, () => { lines('rosa1', 'mp1', 'rosa2', 'mp2', 'r0', 'rfollow').then(() => { P.frozen = false; P.lookLock = null; if (phase === 'intro') { phase = 'walk'; ui.objective('Walk home with Santiago down Whittier. Stay close to him.'); lines('r1', 'm1');
         G.phone.receive('Luz', 'papi mami said i can stay up til you get home', 14, 0).then(() => G.phone.receive('Luz', 'te quiero papi. hurry!!', 6, 0));
       } }); });
   }
