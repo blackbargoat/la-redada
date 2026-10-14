@@ -1,8 +1,8 @@
 // LEVEL 1 — PART A: "The Walk Home". Juan and Santiago walk home → the street feels wrong → ICE → run.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792004170';
-import { tex, textTex, facadeTex, rng } from './textures.js?v=1792004170';
-import { makeHumanoid, makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeCar, makeTree, std } from './models.js?v=1792004170';
+import { Grid } from './grid.js?v=1792004214';
+import { tex, textTex, facadeTex, rng } from './textures.js?v=1792004214';
+import { makeHumanoid, makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeCar, makeTree, std } from './models.js?v=1792004214';
 
 const LINES = {
   u1: { id: 'st_u1', who: 'Santiago', text: '...Hey. That car. It\'s been behind us since the bus stop.' },
@@ -218,8 +218,9 @@ export function createStreet(G, opts = {}) {
   const tail = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.35), catM); tail.position.set(0, 0.32, -0.33); tail.rotation.x = 0.6; cat.add(tail);
   for (const s of [-1, 1]) { const e = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.02, 0.01), new THREE.MeshBasicMaterial({ color: 0xd8f070 })); e.position.set(s * 0.035, 0.34, 0.345); cat.add(e); }
   cat.position.set(8.0, 1.45, -26); cat.visible = true; scene.add(cat);
-  { const glb = makeVehicle('cat', 0.6, 0x222222, 0.7); if (glb) { cat.children.slice().forEach((ch) => cat.remove(ch)); cat.add(glb); } }
-  let catT = -1;
+  { const glb = makeVehicle('cat', 0.75, 0x3a3a3a, 0.5); if (glb) { cat.children.slice().forEach((ch) => cat.remove(ch)); cat.add(glb); for (const sx of [-0.04, 0.04]) { const e = makeGlow(0xd8ff70, 0.12, 1); e.position.set(sx, 0.36, 0.34); cat.add(e); } } }
+  let catT = -1, catSaid = false, catArmed = false;
+  const catLight = new THREE.PointLight(0xd8e8e0, 4, 5, 1.6); catLight.position.set(7, 2.6, -25.5); scene.add(catLight);
 
   // ---- characters ----
   const rafa = makeCharacter('rafa', { shirt: 0x6a3a2a, pants: 0x2e3a4e, hat: 'cap', hatColor: 0x7a2020, skin: 0x9a6644, mustache: true }, 1.74);
@@ -350,7 +351,7 @@ export function createStreet(G, opts = {}) {
   const triggers = [
     { p: 14, fn: () => lines('r2', 'm2') },
     { p: 20, fn: () => { followOn = true; followCar.visible = true; followCar.position.set(1.8, 0, P.pos.z + 26); } },
-    { p: 26, fn: () => { catT = 0; } },
+    { p: 24, fn: () => { catArmed = true; } },
     { p: 30, fn: () => lines('r3', 'm3', 'r4') },
     { p: 36, fn: () => lines('u1', 'm4') },
     { p: 41, fn: () => { lines('u3'); audio.radio({ x: -8.3, y: 1.5, z: -37 }, 0.25); } },
@@ -486,13 +487,15 @@ export function createStreet(G, opts = {}) {
     for (let i = triggers.length - 1; i >= 0; i--) if (phase === 'walk' && prog > triggers[i].p) { const t = triggers[i]; triggers.splice(i, 1); t.fn(); }
 
     // cat false scare: leaps off the dumpster, runs across the road
+    if (catArmed && catT < 0 && !catSaid && Math.hypot(P.pos.x - 8, P.pos.z + 26) < 6) { catArmed = false; catT = 0; }
     if (catT >= 0) {
       catT += dt;
       if (catT < 0.05) { audio.can({ x: 8, y: 1.4, z: -26 }); audio.catScreech({ x: 8, y: 1.3, z: -26 }); ui.shake(0.03, 0.25); audio.paws({ x: 4, y: 0.2, z: -25 }, 14); setTimeout(() => audio.paws({ x: -3, y: 0.2, z: -24 }, 10), 700); setTimeout(() => audio.meow({ x: -9, y: 0.5, z: -23 }), 1600); }
-      const t = Math.min(1, catT / 1.4);
+      const t = Math.min(1, catT / 2.4);
+      catLight.position.set(cat.position.x, 2.4, cat.position.z + 0.5);
       cat.position.set(8 - t * 22, Math.max(0, catT < 0.3 ? 1.45 - catT * 4.5 : Math.abs(Math.sin(catT * 16)) * 0.12), -26 + t * 3); cat.rotation.x = Math.sin(catT * 16) * 0.15;
       cat.rotation.y = -Math.PI / 2 + 0.15;
-      if (catT > 0.35 && catT < 0.4) lines('cat');
+      if (catT > 0.35 && !catSaid) { catSaid = true; lines('cat'); }
       if (t >= 1) { catT = -1; cat.visible = false; }
     }
 
