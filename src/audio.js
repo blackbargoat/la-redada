@@ -373,6 +373,13 @@ export class AudioEngine {
   metalGroan(pos) { this.tone({ freq: 90, freqTo: 70, dur: 1.6, type: 'sawtooth', gain: 0.05, filter: 400, vib: [3, 6], pos }); this.tone({ freq: 340, freqTo: 300, dur: 1.2, type: 'triangle', gain: 0.02, filter: 900, pos, when: 0.2 }); }
   thump(pos) { this.noise({ dur: 0.3, type: 'lowpass', freq: 220, gain: 0.5, pos, brown: true }); this.tone({ freq: 60, freqTo: 40, dur: 0.25, gain: 0.3, pos }); }
 
+  gunshot(pos) {
+    this.noise({ dur: 0.06, type: 'highpass', freq: 1200, gain: 1, attack: 0.001, pos });
+    this.noise({ dur: 0.35, type: 'lowpass', freq: 900, freqTo: 120, gain: 1, attack: 0.001, pos });
+    this.tone({ freq: 140, freqTo: 38, dur: 0.4, gain: 0.9, attack: 0.001, pos });
+    for (const [w, g] of [[0.22, 0.35], [0.5, 0.2], [0.9, 0.12], [1.4, 0.06]]) this.noise({ dur: 0.8, type: 'lowpass', freq: 600, freqTo: 150, gain: g, attack: 0.01, when: w, dest: this.amb });
+  }
+
   // ---------- adaptive music ----------
   update(dt, st) {
     if (!this.ctx) return;

@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import { AudioEngine } from './audio.js?v=1792003362';
-import { createStreet } from './street.js?v=1792003362';
-import { createRestaurant } from './restaurant.js?v=1792003362';
-import { createStore } from './store.js?v=1792003362';
-import { createPhone } from './phone.js?v=1792003362';
-import { modelsReady } from './models.js?v=1792003362';
+import { AudioEngine } from './audio.js?v=1792004050';
+import { createStreet } from './street.js?v=1792004050';
+import { createRestaurant } from './restaurant.js?v=1792004050';
+import { createStore } from './store.js?v=1792004050';
+import { createPhone } from './phone.js?v=1792004050';
+import { modelsReady } from './models.js?v=1792004050';
 
 const $ = (id) => document.getElementById(id);
 const PIX = 3; // render at 1/3 resolution, upscale with nearest-neighbour for the chunky pixel look
@@ -78,6 +78,9 @@ const keys = new Set();
 const DEFAULT_BINDS = { forward: 'KeyW', back: 'KeyS', left: 'KeyA', right: 'KeyD', sprint: 'ShiftLeft', crouch: 'KeyC', flashlight: 'KeyF', interact: 'KeyE', breath: 'Space', map: 'Tab' };
 const BIND_NAMES = { forward: 'Move forward', back: 'Move back', left: 'Move left', right: 'Move right', sprint: 'Sprint', crouch: 'Crouch', flashlight: 'Flashlight', interact: 'Interact / hide', breath: 'Hold breath', map: 'Store map' };
 let BINDS = { ...DEFAULT_BINDS };
+const OPTS = { subs: true, juanVoice: true };
+try { Object.assign(OPTS, JSON.parse(localStorage.getItem('lr_opts') || '{}')); } catch (e) { }
+const saveOpts = () => { try { localStorage.setItem('lr_opts', JSON.stringify(OPTS)); } catch (e) { } };
 try { Object.assign(BINDS, JSON.parse(localStorage.getItem('lr_binds') || '{}')); } catch (e) { }
 const held = (a) => keys.has(BINDS[a]);
 const is = (e, a) => e.code === BINDS[a];
@@ -95,6 +98,7 @@ let currentIt = null, caughtRoll = 0, caughtEye = 1.62, caughtYaw = 0;
 const sleep = (s) => new Promise((r) => setTimeout(r, s * 1000));
 let sayChain = Promise.resolve(), sayToken = 0, subTimer = null;
 function showSub(who, text, cls, dur) {
+  if (!OPTS.subs) return;
   $('subs').innerHTML = who ? `<b class="${cls || ''}">${who}:</b> ${text}` : text;
   clearTimeout(subTimer); subTimer = setTimeout(() => { $('subs').innerHTML = ''; }, dur * 1000);
 }
@@ -102,7 +106,8 @@ async function speak(l, token) {
   if (token !== sayToken) return;
   if (l.wait) await sleep(l.wait);
   if (token !== sayToken) return;
-  const d = await audio.playVo(l.id, { radio: l.radio, pos: l.pos, gain: l.gain });
+  const muteJuan = !OPTS.juanVoice && /^Juan/.test(l.who || '');
+  const d = muteJuan ? 0 : await audio.playVo(l.id, { radio: l.radio, pos: l.pos, gain: l.gain });
   const dur = d > 0 ? d + 0.3 : 1.3 + l.text.length * 0.055;
   showSub(l.who, l.text, l.agent ? 'agent' : '', dur + 0.2);
   await sleep(dur);
@@ -115,7 +120,7 @@ const ui = {
   // queued dialogue
   say(lines) { const tok = sayToken; sayChain = sayChain.then(async () => { for (const l of lines) await speak(l, tok); }); return sayChain; },
   // immediate line (interrupts subtitle, not the queue)
-  bark(l) { audio.playVo(l.id, { radio: l.radio, pos: l.pos, gain: l.gain }).then((d) => showSub(l.who, l.text, l.agent ? 'agent' : '', (d || 1.2 + l.text.length * 0.05) + 0.3)); },
+  bark(l) { if (!OPTS.juanVoice && /^Juan/.test(l.who || '')) { showSub(l.who, l.text, '', 1.2 + l.text.length * 0.05); return; } audio.playVo(l.id, { radio: l.radio, pos: l.pos, gain: l.gain }).then((d) => showSub(l.who, l.text, l.agent ? 'agent' : '', (d || 1.2 + l.text.length * 0.05) + 0.3)); },
   cancelSay() { sayToken++; sayChain = Promise.resolve(); $('subs').innerHTML = ''; },
   cards(lines) {
     return new Promise((resolve) => {
@@ -183,7 +188,7 @@ const game = {
     ui.hud(false); audio.stopAll(); ui.cancelSay();
     await sleep(1.2);
     await ui.cards(['The door comes down behind him like a guillotine.']);
-    startChapter(2);
+    startChapter(1);
   },
   async win() {
     mode = 'cutscene'; ui.cancelSay();
@@ -191,10 +196,10 @@ const game = {
     ui.hud(false); audio.stopAll();
     audio.rainBed(); audio.setLoop('rain', 0.5, 2);
     await ui.cards([
-      'Mateo ran until the sirens were behind him. Then he kept running.',
+      'Juan ran until the sirens were behind him. Then he kept running.',
       'At 3:10 AM he climbed the stairs of his building on Soto Street.\nLuz was asleep on the couch, still holding the card she made.',
       'He carried her to bed. He lay down on the floor next to her and listened to the street until the sky turned grey.',
-      'Rafa did not come home.',
+      'Santiago did not come home.',
       'NIGHT 1 SURVIVED.\n\nDAY 2 — The Fields — coming next.',
     ]);
     audio.stopAll(); toTitle();
@@ -276,8 +281,7 @@ addEventListener('blur', () => keys.clear());
 
 // ---------------- chapters ----------------
 const CHAPTERS = [
-  { key: 'day1', name: 'DAY 1 — La Cocina de Rosa', hud: 'DAY', cards: ['DAY 1\nLa Cocina de Rosa', 'Tuesday. 2:20 PM.\nBoyle Heights, Los Angeles.'], make: createRestaurant },
-  { key: 'night1', name: 'NIGHT 1 — The Walk Home', hud: 'NIGHT', cards: ['Eight hours of drywall later.', 'NIGHT 1\nThe Walk Home\n11:40 PM'], make: createStreet },
+  { key: 'night1', name: 'NIGHT 1 — The Walk Home', hud: 'NIGHT', cards: ['NIGHT 1\nThe Walk Home\n11:40 PM'], make: createStreet },
   { key: 'store', name: 'NIGHT 1 — Hammerline Depot', hud: 'NIGHT', cards: ['HAMMERLINE DEPOT\nStore #0417 — Boyle Heights\n11:58 PM'], make: (g) => createStore(g, 0) },
 ];
 let chapterI = 0;
@@ -299,7 +303,7 @@ async function boot() { audio.init(); try { const v = parseFloat(localStorage.ge
 $('startBtn').onclick = async () => {
   await boot();
   await ui.cards([
-    'Los Angeles.\nFourteen years ago, Mateo Reyes crossed the desert with a backpack and his cousin\'s phone number.',
+    'Los Angeles.\nFourteen years ago, Juan Reyes crossed the desert with a backpack and his cousin\'s phone number.',
     'He built the apartments you live in.\nHe poured the sidewalks you walk on.',
     'His daughter Luz is nine. She was born here.\nHe was not.',
   ]);
@@ -357,14 +361,17 @@ addEventListener('keydown', (e) => {
   if (e.code !== 'Escape') { BINDS[rebinding] = e.code; try { localStorage.setItem('lr_binds', JSON.stringify(BINDS)); } catch (er) { } }
   rebinding = null; drawBinds();
 }, true);
+function drawToggles() { $('optSubs').textContent = 'SUBTITLES: ' + (OPTS.subs ? 'ON' : 'OFF'); $('optJuan').textContent = 'JUAN\'S VOICE: ' + (OPTS.juanVoice ? 'ON' : 'OFF'); }
 function openSettings() {
-  $('settings').classList.add('on'); drawBinds();
+  $('settings').classList.add('on'); drawBinds(); drawToggles();
   $('volSlider').value = audio.master ? audio.master.gain.value : 0.9;
 }
 $('settingsBtn').onclick = () => { openSettings(); };
 $('pauseSettingsBtn').onclick = () => { $('pause').classList.remove('on'); openSettings(); $('settings').dataset.fromPause = '1'; };
 $('setBack').onclick = () => { rebinding = null; $('settings').classList.remove('on'); if ($('settings').dataset.fromPause) { $('settings').dataset.fromPause = ''; $('pause').classList.add('on'); } };
 $('setBright').onclick = async () => { $('settings').classList.remove('on'); await openBrightness(); openSettings(); };
+$('optSubs').onclick = () => { OPTS.subs = !OPTS.subs; saveOpts(); drawToggles(); };
+$('optJuan').onclick = () => { OPTS.juanVoice = !OPTS.juanVoice; saveOpts(); drawToggles(); };
 $('setReset').onclick = () => { BINDS = { ...DEFAULT_BINDS }; try { localStorage.removeItem('lr_binds'); } catch (e) { } drawBinds(); };
 $('volSlider').oninput = (e) => { audio.init(); audio.master.gain.value = parseFloat(e.target.value); try { localStorage.setItem('lr_vol', e.target.value); } catch (er) { } };
 
@@ -385,6 +392,19 @@ function updatePlayer(dt) {
   P.breath = Math.min(1, P.breath + dt / 3.5);
   const eyeT = P.crouch ? 1.0 : 1.62; P.eye += (eyeT - P.eye) * Math.min(1, dt * 10);
   if (P.frozen || P.reading) { P.speedNow = 0; P.sprinting = false; return; }
+  if (L.forcedRun) { // chase: W only, auto-sprint, can't turn back
+    const fr = L.forcedRun; let dy = P.yaw - fr.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+    if (!P.lookLock) P.yaw = fr.yaw + Math.max(-fr.range, Math.min(fr.range, dy));
+    const go = held('forward') || keys.has('ArrowUp');
+    const dir = fr.yaw + Math.max(-fr.range, Math.min(fr.range, dy)) * 0.6;
+    const sp = go ? 6.0 * (L.speedMul || 1) : 0;
+    const ox = P.pos.x, oz = P.pos.z;
+    if (go) L.grid.move(P.pos, -Math.sin(dir) * sp * dt, -Math.cos(dir) * sp * dt, 0.3);
+    const moved = Math.hypot(P.pos.x - ox, P.pos.z - oz); P.speedNow = moved / dt; P.sprinting = go; P.stamina = 1; P.crouch = false;
+    P.bob += moved * 2.4; P.stepAcc += moved;
+    if (P.stepAcc > 1.0) { P.stepAcc = 0; audio.step('sprint', L.surface); }
+    return;
+  }
   let f = 0, s = 0;
   if (held('forward') || keys.has('ArrowUp')) f += 1;
   if (held('back') || keys.has('ArrowDown')) f -= 1;

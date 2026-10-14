@@ -1,33 +1,38 @@
-// LEVEL 1 — PART A: "The Walk Home". Calm walk with Rafa → blackout → raid → run.
+// LEVEL 1 — PART A: "The Walk Home". Juan and Santiago walk home → the street feels wrong → ICE → run.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792003362';
-import { tex, textTex, facadeTex, rng } from './textures.js?v=1792003362';
-import { makeHumanoid, makeCharacter, makeVehicle, animateWalk, makeBeam, makeGlow, makeCar, makeTree, std } from './models.js?v=1792003362';
+import { Grid } from './grid.js?v=1792004050';
+import { tex, textTex, facadeTex, rng } from './textures.js?v=1792004050';
+import { makeHumanoid, makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeCar, makeTree, std } from './models.js?v=1792004050';
 
 const LINES = {
+  u1: { id: 'st_u1', who: 'Santiago', text: '...Hey. That car. It\'s been behind us since the bus stop.' },
+  u3: { id: 'st_u3', who: 'Santiago', text: 'Juan... that guy in the alley. He\'s not smoking. He\'s just... watching us.' },
+  u4: { id: 'st_u4', who: 'Santiago', text: 'Walk normal. Walk normal, güey. Don\'t run.' },
+  ice: { id: 'st_ice', who: 'Agent', text: 'ICE! Stop right there! Hands where I can see them!', agent: true },
+  after: { id: 'st_after', who: 'Juan', text: 'Santi... no. No, no, no...' },
   news: { id: 'st_news', who: 'Radio', text: '...and in Boyle Heights tonight, residents are reporting unmarked vehicles along Whittier Boulevard. Federal officials have not confirmed any enforcement operation...', radio: true },
-  rosa1: { id: 'st_rosa1', who: 'Doña Rosa (phone)', text: 'Mijo? It\'s Rosa. Rafa\'s phone is dead again, ¿verdad? Where are you two? The pozole is getting cold.', radio: true },
-  mp1: { id: 'st_mphone1', who: 'Mateo', text: 'We just got off the bus, Doña Rosa. Ten minutes.' },
-  rosa2: { id: 'st_rosa2', who: 'Doña Rosa (phone)', text: 'Come straight down Whittier, past the big Hammerline sign. Don\'t take the alleys tonight, mijo. Lupe says she saw trucks. And tell Rafa to bring tortillas.', radio: true },
-  mp2: { id: 'st_mphone2', who: 'Mateo', text: 'Sí, señora. Straight down Whittier.' },
-  r0: { id: 'st_r0', who: 'Rafa', text: 'Was that my mom? Tell her I love her. And that I\'m not buying tortillas.' },
-  rfollow: { id: 'st_rfollow', who: 'Rafa', text: 'Come on, güey, stay close. Let\'s go eat.' },
-  rwait: { id: 'st_rwait', who: 'Rafa', text: 'Mateo! This way, güey. Come on.' },
+  rosa1: { id: 'st_rosa1', who: 'Doña Rosa (phone)', text: 'Mijo? It\'s Rosa. Santiago\'s phone is dead again, ¿verdad? Where are you two? The pozole is getting cold.', radio: true },
+  mp1: { id: 'st_mphone1', who: 'Juan', text: 'We just got off the bus, Doña Rosa. Ten minutes.' },
+  rosa2: { id: 'st_rosa2', who: 'Doña Rosa (phone)', text: 'Come straight down Whittier, past the big Hammerline sign. Don\'t take the alleys tonight, mijo. Lupe says she saw trucks. And tell Santiago to bring tortillas.', radio: true },
+  mp2: { id: 'st_mphone2', who: 'Juan', text: 'Sí, señora. Straight down Whittier.' },
+  r0: { id: 'st_r0', who: 'Santiago', text: 'Was that my mom? Tell her I love her. And that I\'m not buying tortillas.' },
+  rfollow: { id: 'st_rfollow', who: 'Santiago', text: 'Come on, güey, stay close. Let\'s go eat.' },
+  rwait: { id: 'st_rwait', who: 'Santiago', text: 'Juan! This way, güey. Come on.' },
   a3: { id: 'st_a3', who: 'Agent', text: 'Hey! Get back here!', agent: true },
-  r1: { id: 'st_r1', who: 'Rafa', text: 'Ay, my back, güey. Twelve hours of drywall. Tomorrow I\'m calling in sick.' },
-  m1: { id: 'st_m1', who: 'Mateo', text: 'You said that yesterday.' },
-  r2: { id: 'st_r2', who: 'Rafa', text: 'And yesterday I meant it too. So... Saturday. Luz\'s party. You got the bike?' },
-  m2: { id: 'st_m2', who: 'Mateo', text: 'The pink one, with the streamers. Hammerline has it on sale. Dale pays me tonight, I pick it up.' },
-  r3: { id: 'st_r3', who: 'Rafa', text: 'Dale? That guy owes me three weeks, carnal. Three.' },
-  m3: { id: 'st_m3', who: 'Mateo', text: 'He\'ll pay. He always says Friday.' },
-  r4: { id: 'st_r4', who: 'Rafa', text: 'With Dale, every day is Friday.' },
-  cat: { id: 'st_rcat', who: 'Rafa', text: 'Ay! Stupid cat. Almost gave me a heart attack.' },
-  r5: { id: 'st_r5', who: 'Rafa', text: '...Hey. That truck. It\'s been parked there since we got off the bus.' },
-  m4: { id: 'st_m4', who: 'Mateo', text: 'Don\'t look at it. Just keep walking.' },
-  r6: { id: 'st_r6', who: 'Rafa', text: 'Mateo... it doesn\'t have plates.' },
+  r1: { id: 'st_r1', who: 'Santiago', text: 'Ay, my back, güey. Twelve hours of drywall. Tomorrow I\'m calling in sick.' },
+  m1: { id: 'st_m1', who: 'Juan', text: 'You said that yesterday.' },
+  r2: { id: 'st_r2', who: 'Santiago', text: 'And yesterday I meant it too. So... Saturday. Luz\'s party. You got the bike?' },
+  m2: { id: 'st_m2', who: 'Juan', text: 'The pink one, with the streamers. Hammerline has it on sale. Dale pays me tonight, I pick it up.' },
+  r3: { id: 'st_r3', who: 'Santiago', text: 'Dale? That guy owes me three weeks, carnal. Three.' },
+  m3: { id: 'st_m3', who: 'Juan', text: 'He\'ll pay. He always says Friday.' },
+  r4: { id: 'st_r4', who: 'Santiago', text: 'With Dale, every day is Friday.' },
+  cat: { id: 'st_rcat', who: 'Santiago', text: 'Ay! Stupid cat. Almost gave me a heart attack.' },
+  r5: { id: 'st_r5', who: 'Santiago', text: '...Hey. That truck. It\'s been parked there since we got off the bus.' },
+  m4: { id: 'st_m4', who: 'Juan', text: 'Don\'t look at it. Just keep walking.' },
+  r6: { id: 'st_r6', who: 'Santiago', text: 'Mateo... it doesn\'t have plates.' },
   a1: { id: 'st_a1', who: 'Agent', text: 'Federal agents! Get on the ground! Ground, now!', agent: true },
-  r7: { id: 'st_r7', who: 'Rafa', text: 'Mateo! ¡Corre! Run!' },
-  a2: { id: 'st_a2', who: 'Agent', text: 'One\'s running! East side, toward the hardware store!', agent: true },
+  r7: { id: 'st_r7', who: 'Santiago', text: 'Juan! ¡Corre! Run!' },
+  a2: { id: 'st_a2', who: 'Agent', text: 'One down! The other one\'s running! East side, toward the hardware store!', agent: true },
 };
 export const STREET_VO = Object.values(LINES).map((l) => l.id);
 
@@ -258,6 +263,17 @@ export function createStreet(G, opts = {}) {
   const marker = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(mk), depthTest: false, transparent: true }));
   marker.scale.set(0.35, 0.35, 0.35); marker.visible = false; marker.renderOrder = 10; scene.add(marker);
 
+  // ---- the build-up: things that are wrong on this street ----
+  const followCar = makeVehicle('suv', 4.3, 0x1a1c20, 0.5) || makeCar(0x1a1c20);
+  followCar.position.set(1.8, 0, 40); followCar.rotation.y = Math.PI; followCar.visible = false; scene.add(followCar);
+  const followL = [-1, 1].map(() => { const sl = new THREE.SpotLight(0xf0f4ff, 0, 55, 0.4, 0.4, 1.1); scene.add(sl); scene.add(sl.target); return sl; });
+  let followOn = false, followLit = false;
+  const watcherFig = makeStatic('watcher', 1.82);
+  if (watcherFig) { watcherFig.position.set(-8.3, 0.15, -37); watcherFig.rotation.y = Math.PI / 2; scene.add(watcherFig); }
+  const mirrorMan = makeCharacter('gus', { shirt: 0x222222, pants: 0x222222 }, 1.8);
+  mirrorMan.group.traverse((m) => { if (m.isMesh && m.material) m.material.color.multiplyScalar(0.3); });
+  mirrorMan.group.position.set(-7.0, 0.15, -30); mirrorMan.group.visible = false; scene.add(mirrorMan.group);
+  let mirrorOn = false, mirrorPhase = 0, echoAcc = 0, lastMoving = false;
   // ---- story / script ----
   const lines = (...k) => ui.say(k.map((x) => LINES[x]));
   let phase = opts.blackout ? 'dark' : 'intro', tl = 0, darkT = 0, waitCD = 0;
@@ -274,9 +290,10 @@ export function createStreet(G, opts = {}) {
   G.phone.state.hasPhone = true; G.phone.state.battery = 0.41;
   if (!G.phone.state.threads.Rosa.length) G.phone.history('Rosa', [[false, 'Mijo the pozole is ready. Ten o clock. Both of you.'], [true, 'Si señora']]);
 
-  // Rafa leads the way down the east sidewalk
+  // Santiago leads the way down the east sidewalk
   const route = [[7.0, 2], [6.8, -10], [6.6, -24], [6.2, -27.5], [6.6, -31], [6.8, -44], [7.0, -55]];
   let ri = 0;
+  const lookBack = { done: false, t: -1 };
 
   function killLamp(lp, bang) {
     lp.on = false; lp.light.intensity = 0; lp.headM.emissiveIntensity = 0; lp.glow.visible = false; lp.cone.visible = false;
@@ -284,43 +301,36 @@ export function createStreet(G, opts = {}) {
   }
   function startBlackout(fast) {
     phase = 'blackout'; tl = 0; events.length = 0;
-    ui.objective(''); marker.visible = false;
+    ui.objective(''); marker.visible = false; ui.cancelSay();
     traffic.forEach((t) => scene.remove(t.c)); traffic.length = 0; rain.visible = false;
-    const order = [...lamps].sort((a, b) => a.z - b.z); // farthest first
-    const step = fast ? 0.12 : 0.5;
-    if (!fast) at(0.2, () => audio.powerDown({ x: 0, y: 5, z: P.pos.z - 30 }));
-    order.forEach((lp, i) => at(0.4 + i * step, () => { killLamp(lp, i === 0); if (i === 0) { ui.flash(0.25); } }));
-    const tDark = 0.4 + order.length * step;
-    at(tDark - 0.2, () => { neon.forEach((m) => (m.emissiveIntensity = 0)); neonLights.forEach((n) => { if (n.isLight) n.intensity = 0; else n.visible = false; }); windowMats.forEach((m) => (m.emissiveIntensity = 0)); dockLamp.intensity = 0; dockGlow.visible = false; hemi.intensity = 0.05; moon.intensity = 0.05; audio.setLoop('city', 0, 0.3); audio.setLoop('rain', 0.1, 1); audio.droneBed(); audio.setLoop('drone', 0.5, 4); });
-    at(tDark + 0.8, () => { audio.carAlarm({ x: 3.8, y: 1, z: -38 }, 9); audio.bark({ x: -20, y: 1, z: P.pos.z - 25 }); });
-    // silence... then an engine roars up from behind
-    at(tDark + 3.2, () => {
-      suv2.visible = true; suv2.position.set(1.8, 0, P.pos.z + 45); suv2.rotation.y = Math.PI; suv2T = 0; suv2Stop = P.pos.z - 9;
-      suv2.userData.headlights.forEach((m) => { m.material.emissive.setHex(0xffffff); m.material.emissiveIntensity = 3; });
-      suv2L.forEach((l) => (l.intensity = 160));
-      audio.tone({ freq: 55, freqTo: 140, dur: 2.2, type: 'sawtooth', gain: 0.35, filter: 700, pos: { x: 1.8, y: 1, z: P.pos.z + 20 } });
-      audio.noise({ dur: 2.4, type: 'lowpass', freq: 400, freqTo: 1200, gain: 0.5, pos: { x: 1.8, y: 1, z: P.pos.z + 15 } });
+    const order = [...lamps].sort((a, b) => a.z - b.z);
+    const step = fast ? 0.08 : 0.22;
+    if (!fast) at(0.1, () => audio.powerDown({ x: 0, y: 5, z: P.pos.z - 30 }));
+    order.forEach((lp, i) => at(0.2 + i * step, () => killLamp(lp, i === 0)));
+    const tDark = 0.2 + order.length * step;
+    at(tDark, () => { neon.forEach((m) => (m.emissiveIntensity = 0)); neonLights.forEach((n) => { if (n.isLight) n.intensity = 0; else n.visible = false; }); windowMats.forEach((m) => (m.emissiveIntensity = 0)); dockLamp.intensity = 0; dockGlow.visible = false; hemi.intensity = 0.05; moon.intensity = 0.05; audio.setLoop('city', 0, 0.3); audio.setLoop('rain', 0.1, 1); audio.droneBed(); audio.setLoop('drone', 0.5, 4); });
+    // the car behind snaps its lights on; a man steps out of it
+    at(tDark + 1.4, () => {
+      followCar.visible = true; followCar.position.set(1.8, 0, P.pos.z + 12); followLit = true;
+      followL.forEach((l) => (l.intensity = 150)); audio.hit(0.9); ui.flash(0.2);
+      for (let i = 0; i < 3; i++) audio.tone({ freq: 900, freqTo: 1500, dur: 0.18, type: 'square', gain: 0.05, when: i * 0.25, filter: 2500, pos: { x: 1.8, y: 1, z: P.pos.z + 12 } });
     });
-    at(tDark + 6.0, () => { // the parked SUV ahead lights up too: boxed in
-      headL.forEach(({ sl, gl }) => { sl.intensity = 140; gl.material.opacity = 0.95; });
-      suv.userData.headlights.forEach((m) => { m.material.emissive.setHex(0xffffff); m.material.emissiveIntensity = 3; });
-    });
-    at(tDark + 6.4, () => { audio.carDoor({ x: 3, y: 1, z: suv2Stop }); });
-    at(tDark + 6.6, () => { audio.carDoor({ x: 0.5, y: 1, z: suv2Stop - 1 }); makeAgent(3.2, suv2Stop + 0.5).role = 'tackle'; makeAgent(0.2, suv2Stop - 1).role = 'chase'; });
-    at(tDark + 6.9, () => { ui.cancelSay(); ui.bark(LINES.a1); audio.radio({ x: 2, y: 1.5, z: suv2Stop }); });
-    at(tDark + 9.0, () => {
-      ui.bark(LINES.r7); rafaState = 'flee';
+    at(tDark + 2.0, () => { audio.carDoor({ x: 3, y: 1, z: P.pos.z + 11 }); makeAgent(3.0, P.pos.z + 10.5).role = 'chase'; });
+    at(tDark + 2.3, () => { ui.bark(LINES.ice); audio.radio({ x: 3, y: 1.5, z: P.pos.z + 10 }); });
+    at(tDark + 2.6, () => { if (watcherFig) watcherFig.visible = false; const w = makeAgent(-7.6, -37); w.role = 'chase'; w.delay = 1.2; });
+    at(tDark + 3.6, () => {
+      ui.bark(LINES.r7); rafaState = 'runWithYou';
       phase = 'run'; L.allowSprint = true; L.speedMul = 1; darkT = 0;
+      L.forcedRun = { yaw: 0, range: 0.65 }; P.yaw = 0; P.pitch = 0;
       ui.objective('RUN. Down the driveway past the Hammerline sign, to the loading dock.');
+      ui.bigHint('HOLD <kbd>W</kbd> — RUN<small>DON\'T STOP</small>'); setTimeout(() => ui.bigHint(''), 3500);
       agents.forEach((a) => { if (a.role === 'chase') a.role = 'chaseGo'; });
     });
-    at(tDark + 11.0, () => { ui.bark(LINES.a2); });
-    at(tDark + 15.0, () => { if (phase === 'run') ui.bark(LINES.a3); });
   }
 
   if (opts.blackout) {
     rain.visible = false;
-    P.pos.set(6.4, 0, -53); rafa.group.position.set(7.0, 0.15, -55); ri = route.length;
+    P.pos.set(6.4, 0, -52); rafa.group.position.set(7.0, 0.15, -53); ri = route.length;
     lamps.forEach((lp) => killLamp(lp, false));
     phase = 'walk'; startBlackout(true);
   } else {
@@ -333,15 +343,20 @@ export function createStreet(G, opts = {}) {
     at(11.5, () => { P.frozen = false; });
     at(13.0, () => { audio.vibrate(); ui.toast('INCOMING CALL — DOÑA ROSA'); });
     at(14.5, () => { audio.vibrate(); });
-    at(16.0, () => { lines('rosa1', 'mp1', 'rosa2', 'mp2', 'r0', 'rfollow').then(() => { if (phase === 'intro') { phase = 'walk'; ui.objective('Follow Rafa home down Whittier. Stay close to him.'); lines('r1', 'm1');
+    at(16.0, () => { lines('rosa1', 'mp1', 'rosa2', 'mp2', 'r0', 'rfollow').then(() => { if (phase === 'intro') { phase = 'walk'; ui.objective('Walk home with Santiago down Whittier. Stay close to him.'); lines('r1', 'm1');
         G.phone.receive('Luz', 'papi mami said i can stay up til you get home', 14, 0).then(() => G.phone.receive('Luz', 'te quiero papi. hurry!!', 6, 0));
       } }); });
   }
   const triggers = [
-    { p: 16, fn: () => lines('r2', 'm2') },
+    { p: 14, fn: () => lines('r2', 'm2') },
+    { p: 20, fn: () => { followOn = true; followCar.visible = true; followCar.position.set(1.8, 0, P.pos.z + 26); } },
     { p: 26, fn: () => { catT = 0; } },
-    { p: 34, fn: () => lines('r3', 'm3', 'r4') },
-    { p: 50, fn: () => { lines('r5', 'm4', 'r6').then(() => { if (phase === 'walk') startBlackout(false); }); } },
+    { p: 30, fn: () => lines('r3', 'm3', 'r4') },
+    { p: 36, fn: () => lines('u1', 'm4') },
+    { p: 41, fn: () => { lines('u3'); audio.radio({ x: -8.3, y: 1.5, z: -37 }, 0.25); } },
+    { p: 46, fn: () => { mirrorOn = true; mirrorMan.group.visible = true; mirrorMan.group.position.set(-7.0, 0.15, P.pos.z - 2); lines('u4'); } },
+    { p: 49, fn: () => { audio.radio({ x: -8.5, y: 1.5, z: P.pos.z - 6 }, 0.4); } },
+    { p: 54, fn: () => { if (phase === 'walk') startBlackout(false); } },
   ];
 
   // ---- per-frame ----
@@ -407,6 +422,33 @@ export function createStreet(G, opts = {}) {
     }
 
     if (phase === 'run' || (phase === 'blackout' && suv2.visible)) { const on = Math.floor(tl * 8) % 2; iceLights.forEach((m, i) => m.material.color.setHex((i % 2) === on ? m.userData.col : 0x111111)); }
+    // the car that creeps behind you, lights off
+    if (followOn && !followLit) { const tz = P.pos.z + 16; followCar.position.z += (tz - followCar.position.z) * Math.min(1, dt * 0.6); }
+    if (followLit) { const ry = followCar.rotation.y; followL.forEach((l, i) => { l.position.set(followCar.position.x + (i ? 0.7 : -0.7), 1.0, followCar.position.z - 2.6); l.target.position.set(l.position.x, 0.3, l.position.z - 20); }); }
+    // the man across the street matches your pace
+    if (mirrorOn && phase === 'walk') {
+      const mg = mirrorMan.group.position, tz = P.pos.z - 1; const v = Math.max(-3, Math.min(3, (tz - mg.z) * 2));
+      mg.z += v * dt; mirrorMan.group.rotation.y = Math.PI; mirrorPhase += Math.abs(v) * dt * 3; animateWalk(mirrorMan, mirrorPhase, Math.min(1, Math.abs(v)), false);
+    }
+    if (phase !== 'walk' && phase !== 'intro' && mirrorMan.group.visible) mirrorMan.group.visible = false;
+    // footsteps behind you that stop when you stop
+    { const prog0 = 6 - P.pos.z, moving = P.speedNow > 0.5;
+      if (phase === 'walk' && prog0 > 32) { echoAcc += P.speedNow * dt; if (echoAcc > 1.6) { echoAcc = 0; audio.boot({ x: P.pos.x + 0.5, y: 0.2, z: P.pos.z + 7 }, 0.18); } if (lastMoving && !moving && Math.random() < 0.6) setTimeout(() => audio.boot({ x: P.pos.x + 0.5, y: 0.2, z: P.pos.z + 7 }, 0.15), 380); }
+      lastMoving = moving; }
+    if (L.forcedRun && !P.lookLock) {
+      const want = P.pos.z > -56.5 && P.pos.x < 8 ? 0 : (P.pos.x < 10 ? -Math.PI / 4 : -Math.PI / 2);
+      let d = want - L.forcedRun.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); L.forcedRun.yaw += d * Math.min(1, dt * 4);
+    }
+    // the look back: as you hit the driveway, the camera turns, Santiago is behind you, then the shot
+    if (phase === 'run' && !lookBack.done && P.pos.x > 10.5) { lookBack.done = true; lookBack.t = 0; P.lookLock = { yaw: Math.PI / 2, pitch: 0.02, k: 6 }; }
+    if (lookBack.t >= 0 && lookBack.t < 6) {
+      lookBack.t += dt; const lt = lookBack.t;
+      if (lt < 2.2) grid.move(P.pos, 5.2 * dt, (-60.5 - P.pos.z) * dt * 2, 0.3); // you keep running while you look
+      if (lt > 1.0 && lt - dt <= 1.0) { audio.gunshot({ x: rg.x - 6, y: 1.5, z: rg.z + 4 }); ui.flash(0.35); ui.shake(0.1, 0.5); rafaState = 'shot'; rafaFall = 0; }
+      if (lt > 1.9 && lt - dt <= 1.9) { P.lookLock = { yaw: -Math.PI / 2, pitch: 0, k: 7 }; }
+      if (lt > 2.3 && lt - dt <= 2.3) { P.lookLock = null; audio.muffle(true, 0.05); audio.tinnitus(); L.speedMul = 0.65; ui.bark(LINES.after); }
+      if (lt > 5.2 && lt - dt <= 5.2) { audio.muffle(false, 1.2); L.speedMul = 1; ui.bark(LINES.a2); }
+    }
     tl += dt;
     for (let i = events.length - 1; i >= 0; i--) if (tl >= events[i].t) { const e = events[i]; events.splice(i, 1); e.fn(); }
 
@@ -463,9 +505,9 @@ export function createStreet(G, opts = {}) {
         }
       } else if (a.role === 'chaseGo') {
         darkT += dt;
-        const sp = darkT < 2.2 ? 0 : 2.8 + Math.min(0.5, darkT * 0.03);
+        const sp = darkT < 2.2 + (a.delay || 0) ? 0 : 2.8 + Math.min(0.5, darkT * 0.03);
         if (sp > 0) moveAgent(a, P.pos.x, P.pos.z, sp, dt); else a.speed = 0;
-        if (Math.hypot(P.pos.x - g.x, P.pos.z - g.z) < 0.85) game.caught(a.h, 'They took both of you.');
+        if (Math.hypot(P.pos.x - g.x, P.pos.z - g.z) < 0.85) game.caught(a.h, 'You stopped running. Try again.');
       }
       if (a.speed > 0) {
         a.phase += a.speed * dt * 2.6; animateWalk(a.h, a.phase, Math.min(1, a.speed / 3), true, a.speed);
@@ -477,7 +519,7 @@ export function createStreet(G, opts = {}) {
     }
 
     // the searchlight finds you in the driveway
-    if (phase === 'run' && heliT < 0 && P.pos.x > 14) { heliT = 0; audio.tone({ freq: 22, dur: 9, type: 'sawtooth', gain: 0.5, filter: 160, vib: [11, 4] }); audio.noise({ dur: 9, type: 'lowpass', freq: 300, gain: 0.4, attack: 1.2, brown: true }); }
+    if (phase === 'run' && heliT < 0 && P.pos.x > 26) { heliT = 0; audio.tone({ freq: 22, dur: 9, type: 'sawtooth', gain: 0.5, filter: 160, vib: [11, 4] }); audio.noise({ dur: 9, type: 'lowpass', freq: 300, gain: 0.4, attack: 1.2, brown: true }); }
     if (heliT >= 0 && heliT < 9) {
       heliT += dt;
       const lock = heliT > 1.6 && heliT < 4.5;
@@ -488,7 +530,8 @@ export function createStreet(G, opts = {}) {
       if (heliT >= 9) { heli.intensity = 0; heliBeam.visible = false; }
     }
     // reaching the dock
-    if (phase === 'run' && P.pos.z < -64.2 && P.pos.x > 37.5) { phase = 'done'; game.toStore(); }
+    if (phase === 'run' && P.pos.z < -63.6 && P.pos.x > 37.5) { phase = 'done'; L.forcedRun = null; game.toStore(); }
+    if (phase === 'run' && P.pos.x > 37 && L.forcedRun) L.forcedRun.yaw += (Math.atan2(-(40 - P.pos.x), -(-64.6 - P.pos.z)) - L.forcedRun.yaw) * Math.min(1, dt * 4);
   };
   L.danger = () => {
     if (phase !== 'run') return { heart: phase === 'blackout' ? 0.5 : 0 };

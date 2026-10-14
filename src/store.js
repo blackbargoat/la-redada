@@ -1,12 +1,12 @@
 // LEVEL 1 — PART B: Hammerline Depot after dark.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792003362';
-import { tex, textTex, rng } from './textures.js?v=1792003362';
-import { makeHumanoid, makeCharacter, makeVehicle, animateWalk, makeBeam, makeGlow, std } from './models.js?v=1792003362';
+import { Grid } from './grid.js?v=1792004050';
+import { tex, textTex, rng } from './textures.js?v=1792004050';
+import { makeHumanoid, makeCharacter, makeVehicle, animateWalk, makeBeam, makeGlow, std } from './models.js?v=1792004050';
 
 const VO = {
   out: { id: 'sr_out', who: 'Agent (radio)', text: 'Back door\'s locked down. He\'s inside. Nobody leaves this building.', radio: true, agent: true },
-  m1: { id: 'sr_m1', who: 'Mateo', text: '(whispering) Rafa... Dios mío. Okay. Okay. Think. My phone, it\'s charging in my locker.' },
+  m1: { id: 'sr_m1', who: 'Juan', text: '(whispering) Santiago... Dios mío. Okay. Okay. Think. My phone, it\'s charging in my locker.' },
   hollis: { id: 'sr_hollis', who: 'Hollis (radio)', text: 'Hollis. Starting my sweep. Every aisle, every shelf.', radio: true, agent: true },
   dunn: { id: 'sr_dunn', who: 'Dunn (radio)', text: 'Dunn. Going dark. I\'ll hear him before he sees me.', radio: true, agent: true },
   kowal: { id: 'sr_kowal', who: 'Kowalski (radio)', text: 'Kowalski, I\'m in. Point me at him.', radio: true, agent: true },
@@ -17,11 +17,11 @@ const VO = {
   lost: { id: 'sr_lost', who: 'Agent', text: 'Lost him. He\'s hiding. Check everything.', agent: true },
   clear: { id: 'sr_clear', who: 'Agent', text: 'Clear.', agent: true },
   power: { id: 'sr_power', who: 'Agent (radio)', text: 'Lights are on! Breaker room, back of the store. Move, move!', radio: true, agent: true },
-  m2: { id: 'sr_m2', who: 'Mateo', text: '(whispering) Dale... you called them on us.' },
-  m3: { id: 'sr_m3', who: 'Mateo', text: 'The gate. Go. Go.' },
-  mcat: { id: 'sr_mcat', who: 'Mateo', text: '(breathing hard) ...just a cat. Just a cat.' },
+  m2: { id: 'sr_m2', who: 'Juan', text: '(whispering) Dale... you called them on us.' },
+  m3: { id: 'sr_m3', who: 'Juan', text: 'The gate. Go. Go.' },
+  mcat: { id: 'sr_mcat', who: 'Juan', text: '(breathing hard) ...just a cat. Just a cat.' },
   found: { id: 'sr_found', who: 'Agent', text: 'Don\'t move! Hands where I can see them!', agent: true },
-  mdark: { id: 'sr_mdark', who: 'Mateo', text: '(whispering) No, no, no... the light.' },
+  mdark: { id: 'sr_mdark', who: 'Juan', text: '(whispering) No, no, no... the light.' },
 };
 export const STORE_VO = Object.values(VO).map((l) => l.id);
 
@@ -563,14 +563,14 @@ export function createStore(G, checkpoint = 0) {
   function lockerPhone() {
     return new Promise((res) => {
       ph.state.hasPhone = true; ph.state.battery = 0.34;
-            ui.note('<h3>VOICEMAIL — LUZ — 9:14 PM</h3>"Papi, are you coming home soon? Mami says I can stay up until you get here. I made you a card. Don\'t look at it until Saturday, okay? Te quiero mucho."\n\n<h3>CHUY — 11:59 PM</h3>they took rafa. i saw from the bus\nthey have the front and the dock\ngarden center gate nobody is watching it. its on the electric lock, needs power\nbreaker blew last week dale never fixed it. fuse is 30 amp aisle 7\ngate key is in dales desk\ncorre carnal', 'phone').then(res);
+            ui.note('<h3>VOICEMAIL — LUZ — 9:14 PM</h3>"Papi, are you coming home soon? Mami says I can stay up until you get here. I made you a card. Don\'t look at it until Saturday, okay? Te quiero mucho."\n\n<h3>CHUY — 11:59 PM</h3>they got santiago. i heard the shot from the bus. lo siento\nthey have the front and the dock\ngarden center gate nobody is watching it. its on the electric lock, needs power\nbreaker blew last week dale never fixed it. fuse is 30 amp aisle 7\ngate key is in dales desk\ncorre carnal', 'phone').then(res);
 
     });
   }
 
   // ---------------- interactables ----------------
   const it = (o) => { L.interactables.push(o); return o; };
-  it({ x: 2.6, z: 8.1, label: 'Read the corkboard', action: () => ui.note('<h3>NIGHT CREW — READ THIS</h3>Cash pay is pushed to NEXT Friday. Don\'t talk to anybody about the schedule.\nDon\'t use the front entrance after 11.\n— Dale\n\n<i>(Underneath, in pen: "you said that last friday" — R.)</i>') });
+  it({ x: 2.6, z: 8.1, label: 'Read the corkboard', action: () => ui.note('<h3>NIGHT CREW — READ THIS</h3>Cash pay is pushed to NEXT Friday. Don\'t talk to anybody about the schedule.\nDon\'t use the front entrance after 11.\n— Dale\n\n<i>(Underneath, in pen: "you said that last friday" — S.)</i>') });
   it({ x: 7.5, z: 2.4, label: 'Open your locker', enabled: () => stage === 1, action: () => {
     audio.creak({ x: 7.5, y: 1, z: 1.7 }); audio.pickup(); myLocker.rotation.y = -1.2; myLocker.position.x -= 0.4; myLocker.position.z += 0.35; phoneGlow.visible = false;
     audio.vibrate(); triggerBreach(true);
@@ -607,7 +607,7 @@ export function createStore(G, checkpoint = 0) {
     1: { id: 'bt_1', who: 'Beto', text: 'Shh! Shh, shh. Don\'t scream. It\'s me. Beto. It\'s Beto.' },
     2: { id: 'bt_2', who: 'Beto', text: 'They walked past this door twice. Do it. Fix it. I\'ll watch the door.' },
     radio: { id: 'bt_radio', who: 'Agent (radio)', text: 'Got one more in the electrical room. Taking him out the back.', radio: true, agent: true },
-    3: { id: 'bt_3', who: 'Beto', text: 'Mateo! Mateo, go! Don\'t stop!' },
+    3: { id: 'bt_3', who: 'Beto', text: 'Juan! Juan, go! Don\'t stop!' },
   };
   audio.preloadVo(['bt_1', 'bt_2', 'bt_radio', 'bt_3']);
   const beto = makeCharacter('gus', { shirt: 0x2a2a2a, pants: 0x2a2a2a }, 1.7);
