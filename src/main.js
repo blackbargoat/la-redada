@@ -1,0 +1,453 @@
+import * as THREE from 'three';
+import { AudioEngine } from './audio.js';
+import { createStreet } from './street.js';
+import { createStore } from './store.js';
+import { modelsReady } from './models.js';
+
+const $ = (id) => document.getElementById(id);
+const PIX = 3; // render at 1/3 resolution, upscale with nearest-neighbour for the chunky pixel look
+
+// ---------------- renderer + low-res post ----------------
+const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+renderer.setPixelRatio(1);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+$('game').appendChild(renderer.domElement);
+
+const camera = new THREE.PerspectiveCamera(72, 16 / 9, 0.05, 500);
+camera.rotation.order = 'YXZ';
+const rt = new THREE.WebGLRenderTarget(16, 16, { type: THREE.HalfFloatType });
+
+const post = new THREE.ShaderMaterial({
+  depthTest: false, depthWrite: false,
+  uniforms: {
+    tDiffuse: { value: rt.texture }, res: { value: new THREE.Vector2(1, 1) }, time: { value: 0 },
+    sat: { value: 0.28 }, exposure: { value: 1.0 }, contrast: { value: 1.18 }, flash: { value: 0 }, red: { value: 0 },
+    tint: { value: new THREE.Vector3(0.94, 1.0, 0.98) }, levels: { value: 26 }, blackout: { value: 0 }, bright: { value: 1.3 },
+  },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+  fragmentShader: `
+    uniform sampler2D tDiffuse; uniform vec2 res; uniform float time, sat, exposure, contrast, flash, red, levels, blackout, bright; uniform vec3 tint;
+    varying vec2 vUv;
+    vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14), 0.0, 1.0); }
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
+    float ign(vec2 p){ return fract(52.9829189 * fract(0.06711056*p.x + 0.00583715*p.y)); }
+    void main(){
+      vec3 c = texture2D(tDiffuse, vUv).rgb * exposure;
+      c = aces(c);
+      c = pow(c, vec3(1.0/(2.2*bright)));
+      float l = dot(c, vec3(0.299, 0.587, 0.114));
+      c = mix(vec3(l), c, sat) * tint;
+      c = (c - 0.5) * contrast + 0.5;
+      vec2 q = vUv - 0.5; c *= 1.0 - dot(q, q) * 1.5;
+      c += (hash(vUv * res + fract(time) * 91.7) - 0.5) * 0.085;
+      c = floor(c * levels + ign(gl_FragCoord.xy)) / levels;
+      c = mix(c, vec3(0.55, 0.02, 0.02) * (l + 0.3), red);
+      c = mix(c, vec3(1.0), flash);
+      c *= 1.0 - blackout;
+      gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
+    }`,
+});
+const postScene = new THREE.Scene();
+const postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+postScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), post));
+
+function resize() {
+  const W = Math.max(200, Math.floor(innerWidth / PIX)), H = Math.max(120, Math.floor(innerHeight / PIX));
+  renderer.setSize(W, H, false); rt.setSize(W, H);
+  camera.aspect = W / H; camera.updateProjectionMatrix();
+  post.uniforms.res.value.set(W, H);
+}
+addEventListener('resize', resize); resize();
+
+// ---------------- flashlight (camera-mounted) ----------------
+const flash = new THREE.SpotLight(0xfff0d8, 0, 30, 0.42, 0.55, 1.2);
+flash.position.set(0.22, -0.2, 0.05);
+flash.target.position.set(0.05, -0.08, -1);
+camera.add(flash); camera.add(flash.target);
+flash.castShadow = true; flash.shadow.mapSize.set(512, 512);
+flash.shadow.camera.near = 0.3; flash.shadow.camera.far = 32; flash.shadow.bias = -0.0008;
+
+// ---------------- state ----------------
+const audio = new AudioEngine();
+const keys = new Set();
+const P = {
+  pos: new THREE.Vector3(), yaw: 0, pitch: 0, eye: 1.62, crouch: false, stamina: 1, exhausted: false,
+  hidden: null, frozen: false, reading: false, flashlight: false, battery: 1, lens: 0,
+  holdingBreath: false, breath: 1, bob: 0, stepAcc: 0, sprinting: false, speedNow: 0, lookLock: null,
+};
+let mode = 'title', paused = false, level = null, time = 0;
+let shakeAmt = 0, shakeT = 0, flashV = 0, caughtT = 0, caughtRig = null, caughtShown = false;
+let currentIt = null, caughtRoll = 0, caughtEye = 1.62, caughtYaw = 0;
+
+// ---------------- UI ----------------
+const sleep = (s) => new Promise((r) => setTimeout(r, s * 1000));
+let sayChain = Promise.resolve(), sayToken = 0, subTimer = null;
+function showSub(who, text, cls, dur) {
+  $('subs').innerHTML = who ? `<b class="${cls || ''}">${who}:</b> ${text}` : text;
+  clearTimeout(subTimer); subTimer = setTimeout(() => { $('subs').innerHTML = ''; }, dur * 1000);
+}
+async function speak(l, token) {
+  if (token !== sayToken) return;
+  if (l.wait) await sleep(l.wait);
+  if (token !== sayToken) return;
+  const d = await audio.playVo(l.id, { radio: l.radio, pos: l.pos, gain: l.gain });
+  const dur = d > 0 ? d + 0.3 : 1.3 + l.text.length * 0.055;
+  showSub(l.who, l.text, l.agent ? 'agent' : '', dur + 0.2);
+  await sleep(dur);
+}
+const ui = {
+  objective(t) { $('objText').textContent = t; if (t) ui.toast('NEW OBJECTIVE'); },
+  toast(t, d = 2.2) { const e = $('toast'); e.textContent = t; e.style.opacity = 1; clearTimeout(e._t); e._t = setTimeout(() => (e.style.opacity = 0), d * 1000); },
+  clock(t) { $('clock').textContent = t; },
+  prompt(t, prog) { $('prompt').innerHTML = t ? `${t}${prog != null ? `<div class="bar"><i style="width:${(prog * 100) | 0}%"></i></div>` : ''}` : ''; },
+  // queued dialogue
+  say(lines) { const tok = sayToken; sayChain = sayChain.then(async () => { for (const l of lines) await speak(l, tok); }); return sayChain; },
+  // immediate line (interrupts subtitle, not the queue)
+  bark(l) { audio.playVo(l.id, { radio: l.radio, pos: l.pos, gain: l.gain }).then((d) => showSub(l.who, l.text, l.agent ? 'agent' : '', (d || 1.2 + l.text.length * 0.05) + 0.3)); },
+  cancelSay() { sayToken++; sayChain = Promise.resolve(); $('subs').innerHTML = ''; },
+  cards(lines) {
+    return new Promise((resolve) => {
+      const prevMode = mode; mode = 'cards'; document.exitPointerLock?.();
+      const el = $('cards'), tx = $('cardText'); el.classList.add('on');
+      let i = 0, typing = null;
+      const show = () => {
+        const s = lines[i]; let k = 0; tx.textContent = ''; clearInterval(typing);
+        typing = setInterval(() => { k++; tx.textContent = s.slice(0, k); if (k >= s.length) { clearInterval(typing); typing = null; } }, 28);
+      };
+      const next = () => {
+        if (typing) { clearInterval(typing); typing = null; tx.textContent = lines[i]; return; }
+        i++; if (i >= lines.length) { el.classList.remove('on'); el.onclick = null; removeEventListener('keydown', kd); mode = prevMode === 'cards' ? 'play' : prevMode; resolve(); return; }
+        show();
+      };
+      const kd = (e) => { if (e.code === 'Space' || e.code === 'Enter' || e.code === 'KeyE') next(); };
+      el.onclick = next; addEventListener('keydown', kd); show();
+    });
+  },
+  note(html, cls = '') {
+    return new Promise((resolve) => {
+      const n = $('note'); n.className = 'on ' + cls; n.innerHTML = html + '<div class="close">PRESS E TO CLOSE</div>';
+      P.reading = true; ui._noteClose = () => { n.className = ''; P.reading = false; ui._noteClose = null; resolve(); };
+    });
+  },
+  fade(v, dur = 1) {
+    const f = $('fade'); f.style.transition = `opacity ${dur}s linear`; f.style.opacity = v; return sleep(dur);
+  },
+  flash(v) { flashV = Math.max(flashV, v); },
+  shake(a, d = 0.5) { shakeAmt = Math.max(shakeAmt, a); shakeT = Math.max(shakeT, d); },
+  bigHint(t) { const e = $('bigHint'); e.innerHTML = t; e.style.opacity = t ? 1 : 0; },
+  hud(on) { $('hud').style.display = on ? 'block' : 'none'; },
+  post: post.uniforms,
+};
+
+// ---------------- game API exposed to levels ----------------
+const game = {
+  retry: null,
+  hide(spot) {
+    P.hidden = spot; P.pos.set(spot.ix, 0, spot.iz); P.yaw = spot.yaw; P.pitch = 0; P.crouch = false;
+    $('hideView').className = 'layer on ' + spot.kind; audio.creak(spot.pos); level.onHide?.(spot);
+    $('breathM').style.display = 'block';
+  },
+  unhide() {
+    const s = P.hidden; if (!s) return;
+    P.hidden = null; P.pos.set(s.ex, 0, s.ez); $('hideView').className = 'layer'; audio.creak(s.pos);
+    $('breathM').style.display = 'none'; P.holdingBreath = false;
+  },
+  caught(rig, sub) {
+    if (mode !== 'play') return;
+    if (P.hidden) { $('hideView').className = 'layer'; P.hidden = null; }
+    mode = 'caught'; caughtT = 0; caughtRig = rig; caughtShown = false;
+    ui.cancelSay(); ui.prompt(''); ui.bigHint('');
+    const shout = Math.random() < 0.5 ? { id: 'sr_stop', who: 'Agent', text: 'Hey! Stop right there! Don\'t move!', agent: true } : { id: 'sr_found', who: 'Agent', text: 'Don\'t move! Hands where I can see them!', agent: true };
+    ui.bark(shout); audio.tackle(P.pos); audio.tone({ freq: 70, freqTo: 30, dur: 0.6, gain: 0.9 }); ui.shake(0.1, 0.5);
+    caughtRoll = 0; caughtEye = P.eye; caughtYaw = P.yaw;
+    $('caughtSub').textContent = sub || 'Luz waited up all night.';
+    level.onCaught?.();
+  },
+  async toStore() {
+    mode = 'cutscene';
+    await ui.fade(1, 0.2);
+    audio.slam({ x: P.pos.x, y: 1, z: P.pos.z });
+    ui.hud(false); audio.stopAll(); ui.cancelSay();
+    await sleep(1.2);
+    await ui.cards(['The door comes down behind him like a guillotine.', 'HAMMERLINE DEPOT\nStore #0417 — Boyle Heights\n11:58 PM']);
+    loadLevel((G) => createStore(G, 0));
+  },
+  async win() {
+    mode = 'cutscene'; ui.cancelSay();
+    await ui.fade(1, 2.5);
+    ui.hud(false); audio.stopAll();
+    audio.rainBed(); audio.setLoop('rain', 0.5, 2);
+    await ui.cards([
+      'Mateo ran until the sirens were behind him. Then he kept running.',
+      'At 3:10 AM he climbed the stairs of his building on Soto Street.\nLuz was asleep on the couch, still holding the card she made.',
+      'Inside, in purple crayon:\n"PARA MI PAPI, QUE CONSTRUYE CASAS."\nFor my dad, who builds houses.',
+      'Rafa did not come home.',
+      'NIGHT 1 SURVIVED.\n\nNight 2 — The Fields — coming soon.',
+    ]);
+    audio.stopAll(); toTitle();
+  },
+};
+
+// ---------------- levels ----------------
+const G = { THREE, renderer, camera, audio, ui, P, game, keys, flash };
+G.loadLevel = (m) => loadLevel(m);
+function disposeScene(s) {
+  s.traverse((o) => {
+    if (o.geometry) o.geometry.dispose();
+    if (o.material) for (const m of [].concat(o.material)) { for (const k in m) if (m[k] && m[k].isTexture) m[k].dispose(); m.dispose(); }
+  });
+}
+function loadLevel(make) {
+  if (level) { level.dispose?.(); camera.parent?.remove(camera); disposeScene(level.scene); }
+  audio.stopAll(); ui.cancelSay();
+  Object.assign(P, { frozen: false, reading: false, hidden: null, crouch: false, stamina: 1, exhausted: false, breath: 1, pitch: 0, eye: 1.62 });
+  $('hideView').className = 'layer'; $('breathM').style.display = 'none';
+  level = make(G);
+  level.scene.add(camera);
+  mode = 'play'; paused = false;
+  ui.hud(true); ui.fade(0, 1.5);
+  lockPointer();
+}
+function toTitle() {
+  if (level) { level.dispose?.(); camera.parent?.remove(camera); disposeScene(level.scene); level = null; }
+  audio.stopAll(); ui.cancelSay(); ui.hud(false);
+  mode = 'title'; ['caught', 'pause', 'cards'].forEach((id) => $(id).classList.remove('on'));
+  $('title').classList.add('on'); $('fade').style.opacity = 1;
+  document.exitPointerLock?.();
+}
+
+// ---------------- input ----------------
+function lockPointer() { const c = renderer.domElement; if (document.pointerLockElement !== c) c.requestPointerLock?.(); }
+renderer.domElement.addEventListener('click', () => { if (mode === 'play') lockPointer(); });
+document.addEventListener('pointerlockchange', () => {
+  const locked = document.pointerLockElement === renderer.domElement;
+  if (!locked && mode === 'play' && !P.reading) { paused = true; $('pause').classList.add('on'); }
+  if (locked) { paused = false; $('pause').classList.remove('on'); }
+});
+document.addEventListener('mousemove', (e) => {
+  if (document.pointerLockElement !== renderer.domElement || mode !== 'play' || paused) return;
+  P.yaw -= e.movementX * 0.0021; P.pitch -= e.movementY * 0.0021;
+  P.pitch = Math.max(-1.45, Math.min(1.45, P.pitch));
+  if (P.hidden) {
+    let d = P.yaw - P.hidden.yaw; d = Math.atan2(Math.sin(d), Math.cos(d));
+    P.yaw = P.hidden.yaw + Math.max(-0.7, Math.min(0.7, d));
+    P.pitch = Math.max(-0.35, Math.min(0.35, P.pitch));
+  }
+});
+addEventListener('keydown', (e) => {
+  if (e.code === 'Tab') e.preventDefault();
+  if (e.repeat) return;
+  keys.add(e.code);
+  if (mode !== 'play' || paused) return;
+  if (e.code === 'KeyE') {
+    if (ui._noteClose) { ui._noteClose(); return; }
+    if (P.hidden) { game.unhide(); return; }
+    if (currentIt && !currentIt.hold && !P.frozen) currentIt.action();
+  }
+  if (e.code === 'KeyF' && level?.allowFlashlight && !P.hidden) {
+    if (P.battery <= 0) { audio.click(); ui.toast('BATTERY DEAD'); return; }
+    P.flashlight = !P.flashlight; audio.click(); if ($('bigHint').dataset.k === 'F') { ui.bigHint(''); $('bigHint').dataset.k = ''; }
+  }
+  if (e.code === 'KeyC' || e.code === 'ControlLeft') P.crouch = !P.crouch;
+  if (e.code === 'Tab' && level?.drawMap) { const m = $('map'); level.drawMap(m.getContext('2d'), m.width, m.height); m.classList.add('on'); }
+});
+addEventListener('keyup', (e) => { keys.delete(e.code); if (e.code === 'Tab') $('map').classList.remove('on'); });
+addEventListener('blur', () => keys.clear());
+
+$('startBtn').onclick = async () => {
+  audio.init(); $('title').classList.remove('on');
+  await ensureBrightness();
+  await modelsReady;
+  await ui.cards([
+    'Los Angeles.\nFourteen years ago, Mateo Reyes crossed the desert with a backpack and his cousin\'s phone number.',
+    'He built the apartments you live in.\nHe poured the sidewalks you walk on.',
+    'His daughter Luz is nine. She was born here.\nHe was not.',
+    'Tuesday. 11:40 PM.\nThe walk home from the bus stop.',
+  ]);
+  loadLevel(createStreet);
+};
+$('storeBtn').onclick = async () => { audio.init(); $('title').classList.remove('on'); await ensureBrightness(); await modelsReady; loadLevel((G2) => createStore(G2, 0)); };
+
+// ---------------- brightness calibration ----------------
+function loadBright() { try { const v = parseFloat(localStorage.getItem('lr_bright')); return isFinite(v) ? v : null; } catch (e) { return null; } }
+function saveBright(v) { try { localStorage.setItem('lr_bright', String(v)); } catch (e) { } }
+post.uniforms.bright.value = loadBright() ?? 1.3;
+function drawBrightPreview() {
+  const c = $('brightCanvas'), x = c.getContext('2d'), b = post.uniforms.bright.value;
+  x.fillStyle = '#000'; x.fillRect(0, 0, c.width, c.height);
+  [0.004, 0.015, 0.05].forEach((lin, i) => {
+    let v = Math.pow(lin, 1 / (2.2 * b)); v = Math.max(0, Math.min(1, (v - 0.5) * 1.18 + 0.5));
+    const g = Math.round(v * 255); x.fillStyle = `rgb(${g},${g},${g})`;
+    const cx = 90 + i * 170, cy = 90;
+    x.beginPath(); x.moveTo(cx, cy - 55); x.lineTo(cx + 48, cy + 40); x.lineTo(cx - 48, cy + 40); x.closePath(); x.fill();
+  });
+}
+function openBrightness() {
+  return new Promise((resolve) => {
+    const prevMode = mode; if (mode === 'play') { paused = true; }
+    $('bright').classList.add('on'); const sl = $('brightSlider'); sl.value = post.uniforms.bright.value; drawBrightPreview();
+    sl.oninput = () => { post.uniforms.bright.value = parseFloat(sl.value); drawBrightPreview(); };
+    $('brightOk').onclick = () => { saveBright(post.uniforms.bright.value); $('bright').classList.remove('on'); resolve(); };
+  });
+}
+async function ensureBrightness() { if (loadBright() == null) await openBrightness(); }
+$('brightBtn').onclick = () => openBrightness();
+$('pauseBrightBtn').onclick = async () => { $('pause').classList.remove('on'); await openBrightness(); $('pause').classList.add('on'); };
+$('retryBtn').onclick = () => { $('caught').classList.remove('on'); mode = 'play'; game.retry?.(); };
+$('menuBtn').onclick = toTitle; $('pauseMenuBtn').onclick = toTitle;
+$('resumeBtn').onclick = () => { $('pause').classList.remove('on'); lockPointer(); };
+
+// ---------------- player ----------------
+const tmp = new THREE.Vector3();
+function updatePlayer(dt) {
+  const L = level;
+  if (P.hidden) {
+    P.holdingBreath = keys.has('Space') && P.breath > 0;
+    if (P.holdingBreath) { P.breath -= dt / 7; if (P.breath <= 0) { P.breath = 0; P.holdingBreath = false; audio.gasp(); L.onGasp?.(); } }
+    else P.breath = Math.min(1, P.breath + dt / 3.5);
+    P.speedNow = 0; return;
+  }
+  P.breath = Math.min(1, P.breath + dt / 3.5);
+  const eyeT = P.crouch ? 1.0 : 1.62; P.eye += (eyeT - P.eye) * Math.min(1, dt * 10);
+  if (P.frozen || P.reading) { P.speedNow = 0; P.sprinting = false; return; }
+  let f = 0, s = 0;
+  if (keys.has('KeyW') || keys.has('ArrowUp')) f += 1;
+  if (keys.has('KeyS') || keys.has('ArrowDown')) f -= 1;
+  if (keys.has('KeyD') || keys.has('ArrowRight')) s += 1;
+  if (keys.has('KeyA') || keys.has('ArrowLeft')) s -= 1;
+  const moving = f || s;
+  const wantSprint = (keys.has('ShiftLeft') || keys.has('ShiftRight')) && moving && f >= 0 && L.allowSprint !== false;
+  if (wantSprint && P.crouch) P.crouch = false;
+  P.sprinting = wantSprint && !P.exhausted && P.stamina > 0;
+  if (P.sprinting) { P.stamina -= dt / 7.5; if (P.stamina <= 0) { P.stamina = 0; P.exhausted = true; } }
+  else { P.stamina = Math.min(1, P.stamina + dt / (P.exhausted ? 8 : 4.5)); if (P.exhausted && P.stamina > 0.4) P.exhausted = false; }
+  const speed = (P.crouch ? 1.6 : P.sprinting ? 6.2 : 3.1) * (P.exhausted ? 0.8 : 1) * (L.speedMul || 1);
+  const len = Math.hypot(f, s) || 1;
+  const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
+  const dx = ((fx * f + rx * s) / len) * speed * dt, dz = ((fz * f + rz * s) / len) * speed * dt;
+  const ox = P.pos.x, oz = P.pos.z;
+  if (moving) L.grid.move(P.pos, dx, dz, 0.3);
+  const moved = Math.hypot(P.pos.x - ox, P.pos.z - oz);
+  P.speedNow = moved / dt;
+  P.bob += moved * (P.sprinting ? 2.4 : 2.9);
+  P.stepAcc += moved;
+  const kind = P.sprinting ? 'sprint' : P.crouch ? 'crouch' : 'walk';
+  const stride = P.sprinting ? 1.0 : P.crouch ? 0.55 : 0.75;
+  if (P.stepAcc > stride) {
+    P.stepAcc = 0; audio.step(kind, L.surface);
+    L.onNoise?.(kind === 'sprint' ? 13 : kind === 'walk' ? 4.5 : 0, P.pos.x, P.pos.z, 'step');
+  }
+}
+
+function updateInteract(dt) {
+  currentIt = null;
+  if (P.hidden) {
+    ui.prompt(P.hidden.agentNear ? 'HOLD SPACE — HOLD YOUR BREATH' : 'E — LEAVE');
+    return;
+  }
+  if (P.frozen || P.reading) { ui.prompt(''); return; }
+  let best = null, bd = 1e9;
+  const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw);
+  for (const it of level.interactables) {
+    if (it.enabled && !it.enabled()) continue;
+    const dx = it.x - P.pos.x, dz = it.z - P.pos.z, d = Math.hypot(dx, dz);
+    if (d > (it.r || 1.7)) continue;
+    if (d > 0.5 && (dx * fx + dz * fz) / d < 0.3) continue;
+    if (d < bd) { bd = d; best = it; }
+  }
+  currentIt = best;
+  if (!best) { ui.prompt(''); return; }
+  if (best.hold) {
+    if (keys.has('KeyE')) { best.progress = Math.min(best.hold, (best.progress || 0) + dt); best.onHold?.(dt); if (best.progress >= best.hold) { best.action(); } }
+    else best.onRelease?.();
+    ui.prompt('HOLD E — ' + best.label, (best.progress || 0) / best.hold);
+  } else ui.prompt('E — ' + best.label);
+}
+
+function updateFlashlight(dt) {
+  const on = P.flashlight && level?.allowFlashlight && !P.hidden && P.battery > 0;
+  if (on) {
+    P.battery = Math.max(0, P.battery - dt / (P.lens ? 330 : 420));
+    if (P.battery <= 0) { P.flashlight = false; audio.click(); audio.hit(0.5); ui.toast('BATTERY DEAD'); }
+  }
+  let k = on ? 1 : 0;
+  if (on && P.battery < 0.18 && Math.random() < 0.06) k = Math.random() * 0.3; // dying flicker
+  if (on && level.flicker) k *= level.flicker;
+  flash.intensity = k * (P.lens ? 42 : 30);
+  flash.angle = P.lens ? 0.56 : 0.42; flash.distance = P.lens ? 42 : 30;
+  $('batBar').style.width = (P.battery * 100) + '%'; $('batPct').textContent = Math.ceil(P.battery * 100) + '%';
+  $('batBar').style.background = P.battery < 0.2 ? '#b3261e' : '';
+  $('staBar').style.width = (P.stamina * 100) + '%';
+  $('staBar').style.background = P.exhausted ? '#b3261e' : '';
+  $('breathBar').style.width = (P.breath * 100) + '%';
+}
+
+function updateCaught(dt) {
+  // realistic takedown: shout, you're tackled to the wet floor, a light in your face, cuffs
+  caughtT += dt;
+  const g = caughtRig.group;
+  const k = Math.min(1, caughtT / 0.45);
+  P.eye = caughtEye + (0.28 - caughtEye) * (k * k);
+  caughtRoll = -1.15 * k;
+  P.pitch += (0.55 - P.pitch) * Math.min(1, dt * 6);
+  const fx = -Math.sin(caughtYaw), fz = -Math.cos(caughtYaw);
+  g.position.set(P.pos.x + fx * 1.0, 0, P.pos.z + fz * 1.0);
+  g.rotation.y = Math.atan2(-fx, -fz);
+  g.rotation.x = 0.35; // leaning over you
+  if (caughtRig.armL) { caughtRig.armL.rotation.x = -1.3; caughtRig.armR.rotation.x = -1.0; }
+  if (caughtT > 0.45 && caughtT - dt <= 0.45) { audio.noise({ dur: 0.35, type: 'lowpass', freq: 300, gain: 1 }); ui.shake(0.06, 0.3); }
+  flashV = Math.max(flashV, caughtT > 0.5 ? 0.25 + Math.sin(caughtT * 9) * 0.08 : 0);
+  if (caughtT > 1.2 && caughtT - dt <= 1.2) { audio.ziptie(P.pos); }
+  if (caughtT > 1.6 && caughtT - dt <= 1.6) { audio.ziptie(P.pos); }
+  if (caughtT > 2.0 && caughtT - dt <= 2.0) { audio.radio(null, 1); showSub('Agent (radio)', 'One in custody. Bring the van around.', 'agent', 2.2); }
+  if (caughtT > 3.2 && !caughtShown) {
+    caughtShown = true; $('fade').style.transition = 'opacity 0.6s'; $('fade').style.opacity = 1;
+    ui.hud(false); document.exitPointerLock?.();
+    setTimeout(() => $('caught').classList.add('on'), 900);
+  }
+}
+
+// ---------------- main loop ----------------
+const clock = new THREE.Clock();
+function frame() {
+  requestAnimationFrame(frame);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  time += dt;
+  post.uniforms.time.value = time;
+  if (!level) return;
+  if (mode === 'play' && !paused) { updatePlayer(dt); level.update(dt); updateInteract(dt); }
+  else if (mode === 'cutscene') level.update(dt);
+  else if (mode === 'caught') { level.update(dt * 0.15); updateCaught(dt); }
+  updateFlashlight(dt);
+  // camera
+  shakeT = Math.max(0, shakeT - dt); const sk = shakeT > 0 ? shakeAmt : 0; if (!shakeT) shakeAmt = 0;
+  const bobY = P.speedNow > 0.1 ? Math.sin(P.bob) * (P.sprinting ? 0.055 : 0.03) : 0;
+  const bobX = P.speedNow > 0.1 ? Math.cos(P.bob * 0.5) * (P.sprinting ? 0.03 : 0.015) : 0;
+  camera.position.set(P.pos.x + bobX * Math.cos(P.yaw) + (Math.random() - 0.5) * sk, P.eye + bobY + (Math.random() - 0.5) * sk, P.pos.z - bobX * Math.sin(P.yaw));
+  camera.rotation.set(P.pitch + (Math.random() - 0.5) * sk * 0.5, P.yaw + (Math.random() - 0.5) * sk * 0.5, (mode === 'caught' ? caughtRoll : 0) + (P.sprinting ? Math.sin(P.bob * 0.5) * 0.012 : 0));
+  flashV = Math.max(0, flashV - dt * 2.2); post.uniforms.flash.value = flashV;
+  audio.setListener(camera);
+  const dg = level.danger ? level.danger() : {};
+  audio.update(dt, { chase: dg.chase && mode === 'play', heart: mode === 'play' ? dg.heart || 0 : 0, breath: P.exhausted ? 1 : Math.max(0, 0.6 - P.stamina) * (P.sprinting ? 1 : 0.5) });
+  $('alert').style.opacity = mode === 'play' ? Math.min(0.85, dg.alert || 0) : 0;
+  renderer.setRenderTarget(rt); renderer.render(level.scene, camera);
+  renderer.setRenderTarget(null); renderer.render(postScene, postCam);
+}
+frame();
+
+// animated static on the title screen
+(function titleNoise() {
+  const c = $('titleBg'), x = c.getContext('2d'); const img = x.createImageData(320, 180);
+  const tick = () => {
+    if (mode === 'title') {
+      for (let i = 0; i < img.data.length; i += 4) { const v = Math.random() * 40; img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255; }
+      x.putImageData(img, 0, 0);
+    }
+    setTimeout(tick, 80);
+  };
+  tick();
+})();
+
+// debug hooks (used for testing / screenshots)
+window.__dbg = { P, ui, audio, get level() { return level; }, startStreet: (o) => { $('title').classList.remove('on'); loadLevel((g) => createStreet(g, o)); }, startStore: (c = 0) => { $('title').classList.remove('on'); loadLevel((g) => createStore(g, c)); }, setMode: (m) => { mode = m; paused = false; }, get mode() { return mode; }, get paused() { return paused; } };

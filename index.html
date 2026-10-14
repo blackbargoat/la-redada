@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La Redada</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Special+Elite&display=swap" rel="stylesheet">
+<style>
+  :root { --red: #b3261e; --paper: #e9e3d3; --ink: #f2efe6; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; color: var(--ink); font-family: Oswald, 'Arial Narrow', sans-serif; user-select: none; }
+  #game canvas { position: fixed; inset: 0; width: 100vw !important; height: 100vh !important; image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+  .layer { position: fixed; inset: 0; pointer-events: none; }
+  #fade { background: #000; opacity: 1; transition: opacity 0.1s linear; z-index: 40; }
+  #hideView { z-index: 5; opacity: 0; transition: opacity 0.25s; }
+  #hideView.on { opacity: 1; }
+  #hideView.locker { background: repeating-linear-gradient(180deg, #000 0 26px, transparent 26px 34px), radial-gradient(ellipse at center, transparent 30%, #000 75%); }
+  #hideView.shed { background: linear-gradient(90deg, #000 0 46%, transparent 46% 54%, #000 54% 100%); }
+  #hideView.john { background: linear-gradient(180deg, #000 0 30%, transparent 30% 42%, #000 42% 100%); }
+  #alert { z-index: 6; opacity: 0; background: radial-gradient(ellipse at center, transparent 45%, rgba(150,0,0,0.75) 100%); }
+  #hud { z-index: 10; }
+  #objective { position: absolute; top: 22px; left: 26px; max-width: 460px; font-size: 17px; letter-spacing: 0.04em; text-shadow: 0 2px 6px #000; opacity: 0.92; }
+  #objective small { display: block; font-size: 11px; letter-spacing: 0.3em; color: #c9c2b0; margin-bottom: 4px; }
+  #night { position: absolute; top: 22px; right: 26px; text-align: right; font-size: 13px; letter-spacing: 0.3em; text-shadow: 0 2px 6px #000; }
+  #night b { display: block; font-size: 26px; letter-spacing: 0.12em; }
+  #prompt { position: absolute; left: 50%; top: 58%; transform: translateX(-50%); font-size: 18px; letter-spacing: 0.08em; text-shadow: 0 2px 8px #000; text-align: center; }
+  #prompt .bar { width: 180px; height: 4px; background: rgba(255,255,255,0.2); margin: 8px auto 0; }
+  #prompt .bar i { display: block; height: 100%; background: var(--ink); width: 0; }
+  #dot { position: absolute; left: 50%; top: 50%; width: 3px; height: 3px; margin: -1px; background: rgba(255,255,255,0.6); }
+  #subs { position: absolute; left: 50%; bottom: 9%; transform: translateX(-50%); width: min(900px, 90vw); text-align: center; font-family: 'Special Elite', monospace; font-size: 21px; line-height: 1.4; text-shadow: 0 2px 4px #000, 0 0 12px #000; }
+  #subs b { color: #e8c37a; font-weight: normal; }
+  #subs b.agent { color: #9fb7ff; }
+  #meters { position: absolute; left: 26px; bottom: 26px; width: 170px; font-size: 10px; letter-spacing: 0.25em; }
+  .meter { height: 3px; background: rgba(255,255,255,0.15); margin: 3px 0 9px; }
+  .meter i { display: block; height: 100%; background: var(--ink); width: 100%; transition: width 0.15s; }
+  #breathM { display: none; }
+  #bigHint { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); font-size: 30px; letter-spacing: 0.18em; text-align: center; opacity: 0; transition: opacity 0.4s; text-shadow: 0 2px 10px #000; }
+  #bigHint kbd { display: inline-block; border: 2px solid var(--ink); padding: 2px 16px; margin: 0 10px; font-family: Oswald, sans-serif; font-size: 34px; }
+  #bigHint small { display: block; font-size: 13px; letter-spacing: 0.3em; margin-top: 10px; color: #c9c2b0; }
+  #toast { position: absolute; left: 50%; top: 30%; transform: translateX(-50%); font-size: 15px; letter-spacing: 0.25em; opacity: 0; transition: opacity 0.4s; text-shadow: 0 2px 8px #000; }
+  .screen { position: fixed; inset: 0; z-index: 50; display: none; align-items: center; justify-content: center; flex-direction: column; text-align: center; background: #000; pointer-events: auto; }
+  .screen.on { display: flex; }
+  #title h1 { font-size: clamp(56px, 11vw, 140px); margin: 0; letter-spacing: 0.06em; font-weight: 700; line-height: 0.9; }
+  #title .tag { font-family: 'Special Elite', monospace; font-size: 18px; color: #c9c2b0; margin: 14px 0 34px; }
+  #title canvas.bg { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; opacity: 0.5; image-rendering: pixelated; }
+  .btn { font-family: Oswald, sans-serif; font-size: 20px; letter-spacing: 0.2em; background: transparent; color: var(--ink); border: 1px solid rgba(255,255,255,0.5); padding: 12px 34px; margin: 6px; cursor: pointer; }
+  .btn:hover { background: var(--ink); color: #000; }
+  .controls { margin-top: 30px; font-size: 13px; letter-spacing: 0.15em; color: #a8a294; line-height: 2; }
+  .warn { margin-top: 18px; font-size: 11px; letter-spacing: 0.2em; color: #8a8478; max-width: 560px; }
+  #cards { background: #000; cursor: pointer; }
+  #cardText { font-family: 'Special Elite', monospace; font-size: clamp(18px, 2.4vw, 28px); max-width: 820px; line-height: 1.6; padding: 0 28px; white-space: pre-wrap; }
+  #cardHint { position: absolute; bottom: 40px; font-size: 11px; letter-spacing: 0.4em; color: #6d685e; }
+  #note { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(560px, 90vw); background: var(--paper); color: #1d1b17; font-family: 'Special Elite', monospace; padding: 34px 36px; z-index: 30; display: none; box-shadow: 0 30px 80px #000; white-space: pre-wrap; line-height: 1.55; font-size: 16px; }
+  #note.phone { background: #0d0f12; color: #e8e8e8; font-family: -apple-system, 'Helvetica Neue', sans-serif; border-radius: 26px; border: 8px solid #222; font-size: 15px; }
+  #note.on { display: block; }
+  #note h3 { margin: 0 0 14px; font-family: Oswald, sans-serif; letter-spacing: 0.1em; }
+  #note .close { margin-top: 18px; font-size: 11px; letter-spacing: 0.3em; opacity: 0.6; font-family: Oswald, sans-serif; }
+  #caught h1 { font-size: clamp(60px, 12vw, 150px); margin: 0; color: var(--red); letter-spacing: 0.08em; }
+  #caught p { font-family: 'Special Elite', monospace; font-size: 20px; color: #c9c2b0; margin: 10px 0 30px; }
+  #pause { background: rgba(0,0,0,0.85); z-index: 45; }
+  #map { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 25; display: none; background: #e9e3d3; padding: 14px; box-shadow: 0 20px 60px #000; }
+  #map.on { display: block; }
+  #flashOv { z-index: 41; background: #fff; opacity: 0; }
+</style>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
+</head>
+<body>
+<div id="game"></div>
+<div id="hideView" class="layer"></div>
+<div id="alert" class="layer"></div>
+<div id="hud" class="layer" style="display:none">
+  <div id="objective"><small>OBJECTIVE</small><span id="objText"></span></div>
+  <div id="night"><span>NIGHT</span><b id="nightNum">1</b><span id="clock">11:41 PM</span></div>
+  <div id="dot"></div>
+  <div id="prompt"></div>
+  <div id="toast"></div>
+  <div id="bigHint"></div>
+  <div id="subs"></div>
+  <div id="meters">
+    <div id="staM">STAMINA<div class="meter"><i id="staBar"></i></div></div>
+    <div id="batM">FLASHLIGHT <span id="batPct" style="float:right">100%</span><div class="meter"><i id="batBar"></i></div></div>
+    <div id="breathM">BREATH<div class="meter"><i id="breathBar"></i></div></div>
+  </div>
+</div>
+<canvas id="map" width="640" height="460"></canvas>
+<div id="note"></div>
+<div id="flashOv" class="layer"></div>
+<div id="fade" class="layer"></div>
+
+<div id="title" class="screen on">
+  <canvas class="bg" id="titleBg" width="320" height="180"></canvas>
+  <h1>LA REDADA</h1>
+  <div class="tag">When the lights go out, run.</div>
+  <button class="btn" id="startBtn">BEGIN NIGHT 1</button>
+  <button class="btn" id="storeBtn">SKIP TO THE STORE</button>
+  <button class="btn" id="brightBtn" style="font-size:14px">BRIGHTNESS</button>
+  <div class="controls">WASD MOVE &nbsp;·&nbsp; MOUSE LOOK &nbsp;·&nbsp; SHIFT SPRINT &nbsp;·&nbsp; C CROUCH<br>F FLASHLIGHT &nbsp;·&nbsp; E INTERACT / HIDE &nbsp;·&nbsp; SPACE HOLD BREATH &nbsp;·&nbsp; TAB STORE MAP</div>
+  <div class="warn">HEADPHONES RECOMMENDED. CONTAINS JUMPSCARES, FLASHING LIGHTS, AND DEPICTIONS OF IMMIGRATION ENFORCEMENT. A WORK OF FICTION.</div>
+</div>
+<div id="cards" class="screen"><div id="cardText"></div><div id="cardHint">CLICK TO CONTINUE</div></div>
+<div id="caught" class="screen"><h1>DETAINED</h1><p id="caughtSub">Luz waited up all night.</p><button class="btn" id="retryBtn">TRY AGAIN</button><button class="btn" id="menuBtn">MAIN MENU</button></div>
+<div id="pause" class="screen"><h1 style="letter-spacing:.2em;font-size:42px;margin:0 0 20px">PAUSED</h1><button class="btn" id="resumeBtn">RESUME</button><button class="btn" id="pauseBrightBtn">BRIGHTNESS</button><button class="btn" id="pauseMenuBtn">MAIN MENU</button></div>
+<div id="bright" class="screen" style="z-index:60"><h1 style="letter-spacing:.2em;font-size:34px;margin:0 0 6px">ADJUST BRIGHTNESS</h1><p style="font-family:'Special Elite',monospace;color:#c9c2b0;margin:0 0 22px">Move the slider until the LEFT symbol is barely visible<br>and the other two are clearly visible.</p><canvas id="brightCanvas" width="520" height="180" style="background:#000"></canvas><input id="brightSlider" type="range" min="0.7" max="2.4" step="0.02" style="width:420px;margin:26px 0"><button class="btn" id="brightOk">CONTINUE</button></div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
