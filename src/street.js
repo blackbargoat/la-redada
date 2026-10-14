@@ -1,8 +1,8 @@
 // LEVEL 1 — PART A: "The Walk Home". Juan and Santiago walk home → the street feels wrong → ICE → run.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792004918';
-import { tex, textTex, facadeTex, rng } from './textures.js?v=1792004918';
-import { makeHumanoid, makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeCar, makeTree, std } from './models.js?v=1792004918';
+import { Grid } from './grid.js?v=1792005012';
+import { tex, textTex, facadeTex, rng } from './textures.js?v=1792005012';
+import { makeHumanoid, makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeCar, makeTree, std } from './models.js?v=1792005012';
 
 const LINES = {
   u1: { id: 'st_u1', who: 'Santiago', text: '...Hey. That car. It\'s been behind us since the bus stop.' },
@@ -264,6 +264,9 @@ export function createStreet(G, opts = {}) {
   const marker = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(mk), depthTest: false, transparent: true }));
   marker.scale.set(0.35, 0.35, 0.35); marker.visible = false; marker.renderOrder = 10; scene.add(marker);
 
+  // ---- roadblock past the driveway: the only way out is right ----
+  const block = makeICE(); block.position.set(-0.5, 0, -71); block.rotation.y = Math.PI / 2; block.visible = false; scene.add(block);
+  const blockL = new THREE.SpotLight(0xf0f4ff, 0, 40, 0.5, 0.4, 1.1); blockL.position.set(2.2, 1.0, -71); blockL.target.position.set(6, 0.3, -58); scene.add(blockL); scene.add(blockL.target);
   // ---- the build-up: things that are wrong on this street ----
   const followCar = makeVehicle('suv', 4.3, 0x1a1c20, 0.5) || makeCar(0x1a1c20);
   followCar.position.set(1.8, 0, 40); followCar.rotation.y = Math.PI; followCar.visible = false; scene.add(followCar);
@@ -319,6 +322,7 @@ export function createStreet(G, opts = {}) {
     });
     at(tDark + 2.0, () => { audio.carDoor({ x: 3, y: 1, z: P.pos.z + 11 }); makeAgent(3.0, P.pos.z + 10.5).role = 'chase'; });
     at(tDark + 2.3, () => { ui.bark(LINES.ice); audio.radio({ x: 3, y: 1.5, z: P.pos.z + 10 }); });
+    at(tDark + 2.4, () => { block.visible = true; blockL.intensity = 120; grid.rect(-9, -72, 8, -70, 1, 0); block.userData.headlights?.forEach((m) => { m.material.emissive.setHex(0xffffff); m.material.emissiveIntensity = 3; }); const b = makeAgent(4.5, -69.5); b.role = 'guard'; });
     at(tDark + 2.6, () => { if (watcherFig) watcherFig.visible = false; const w = makeAgent(-7.6, -37); w.role = 'chase'; w.delay = 1.2; });
     at(tDark + 3.6, () => {
       ui.bark(LINES.r7); rafaState = 'runWithYou';
@@ -448,6 +452,14 @@ export function createStreet(G, opts = {}) {
       if (wrongT > 3 && agents[0]) { ui.bigHint(''); game.caught(agents[0].h, 'You ran back toward them. Try again.'); }
     }
     lastPX = P.pos.x; lastPZ = P.pos.z;
+    if (phase === 'run') {
+      const gx2 = P.pos.x < 9 ? 7.5 : 40, gz2 = P.pos.x < 9 ? -60.5 : -64.6;
+      const de = document.getElementById('dirHint'); de.style.opacity = 0.5;
+      const ang = Math.atan2(gx2 - P.pos.x, gz2 - P.pos.z), rel = ang - (P.yaw + Math.PI);
+      de.querySelector('i').style.transform = `rotate(${-rel}rad)`; de.querySelector('b').textContent = `${Math.round(Math.hypot(40 - P.pos.x, -64.6 - P.pos.z))}m`;
+      if (P.pos.z < -64.5 && P.pos.x < 9 && wrongT < 0.8) ui.bigHint('TURN RIGHT<small>INTO THE DRIVEWAY</small>');
+      else if (P.pos.x > 9 && document.getElementById('bigHint').textContent.startsWith('TURN')) ui.bigHint('');
+    } else if (phase === 'done') document.getElementById('dirHint').style.opacity = 0;
     // the look back: as you hit the driveway, the camera turns, Santiago is behind you, then the shot
     if (phase === 'run' && !lookBack.done && P.pos.x > 10.5) { lookBack.done = true; lookBack.t = 0; P.lookLock = { yaw: Math.PI / 2, pitch: 0.02, k: 6 }; }
     if (lookBack.t >= 0 && lookBack.t < 6) {
@@ -520,6 +532,9 @@ export function createStreet(G, opts = {}) {
           moveAgent(a, rg.x, rg.z, 5.5, dt);
           if (Math.hypot(rg.x - g.x, rg.z - g.z) < 1.1) { rafaState = 'down'; audio.tackle(rg); setTimeout(() => audio.ziptie(rg), 1800); ui.shake(0.02, 0.3); }
         }
+      } else if (a.role === 'guard') {
+        a.h.group.rotation.y = Math.atan2(P.pos.x - g.x, P.pos.z - g.z); a.speed = 0;
+        if (phase === 'run' && Math.hypot(P.pos.x - g.x, P.pos.z - g.z) < 5) { moveAgent(a, P.pos.x, P.pos.z, 4, dt); if (Math.hypot(P.pos.x - g.x, P.pos.z - g.z) < 0.9) game.caught(a.h, 'You ran into the roadblock. Turn right into the driveway. Try again.'); }
       } else if (a.role === 'chaseGo') {
         darkT += dt;
         const sp = darkT < 2.2 + (a.delay || 0) ? 0 : 2.8 + Math.min(0.5, darkT * 0.03);
