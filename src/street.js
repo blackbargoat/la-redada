@@ -1,8 +1,8 @@
 // LEVEL 1 — PART A: "The Walk Home". Calm walk with Rafa → blackout → raid → run.
 import * as THREE from 'three';
-import { Grid } from './grid.js';
-import { tex, textTex, facadeTex, rng } from './textures.js';
-import { makeHumanoid, makeCharacter, animateWalk, makeBeam, makeGlow, makeCar, makeTree, std } from './models.js';
+import { Grid } from './grid.js?v=1791998671';
+import { tex, textTex, facadeTex, rng } from './textures.js?v=1791998671';
+import { makeHumanoid, makeCharacter, animateWalk, makeBeam, makeGlow, makeCar, makeTree, std } from './models.js?v=1791998671';
 
 const LINES = {
   news: { id: 'st_news', who: 'Radio', text: '...and in Boyle Heights tonight, residents are reporting unmarked vehicles along Whittier Boulevard. Federal officials have not confirmed any enforcement operation...', radio: true },

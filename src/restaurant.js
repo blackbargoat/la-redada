@@ -1,8 +1,8 @@
 // PROLOGUE — "La Cocina de Rosa". A warm afternoon at Doña Rosa's taquería before everything goes wrong.
 import * as THREE from 'three';
-import { Grid } from './grid.js';
-import { tex, textTex, rng } from './textures.js';
-import { makeCharacter, animateWalk, makeGlow, makeCar, makeBeam, std } from './models.js';
+import { Grid } from './grid.js?v=1791998671';
+import { tex, textTex, rng } from './textures.js?v=1791998671';
+import { makeCharacter, animateWalk, makeGlow, makeCar, makeBeam, std } from './models.js?v=1791998671';
 
 const VO = {
   rosa1: { id: 'p_rosa1', who: 'Doña Rosa', text: '¡Ay, mijo, por fin! Luz has been waiting all afternoon. Go, go say hi to your daughter.' },

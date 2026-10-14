@@ -1,8 +1,8 @@
 // LEVEL 1 — PART B: Hammerline Depot after dark.
 import * as THREE from 'three';
-import { Grid } from './grid.js';
-import { tex, textTex, rng } from './textures.js';
-import { makeHumanoid, makeCharacter, animateWalk, makeBeam, makeGlow, std } from './models.js';
+import { Grid } from './grid.js?v=1791998671';
+import { tex, textTex, rng } from './textures.js?v=1791998671';
+import { makeHumanoid, makeCharacter, animateWalk, makeBeam, makeGlow, std } from './models.js?v=1791998671';
 
 const VO = {
   out: { id: 'sr_out', who: 'Agent (radio)', text: 'Back door\'s locked down. He\'s inside. Nobody leaves this building.', radio: true, agent: true },

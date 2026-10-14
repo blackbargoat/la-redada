@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { AudioEngine } from './audio.js';
-import { createStreet } from './street.js';
-import { createRestaurant } from './restaurant.js';
-import { createStore } from './store.js';
-import { modelsReady } from './models.js';
+import { AudioEngine } from './audio.js?v=1791998671';
+import { createStreet } from './street.js?v=1791998671';
+import { createRestaurant } from './restaurant.js?v=1791998671';
+import { createStore } from './store.js?v=1791998671';
+import { modelsReady } from './models.js?v=1791998671';
 
 const $ = (id) => document.getElementById(id);
 const PIX = 3; // render at 1/3 resolution, upscale with nearest-neighbour for the chunky pixel look
