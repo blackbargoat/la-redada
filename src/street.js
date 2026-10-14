@@ -1,8 +1,8 @@
 // LEVEL 1 — PART A: "The Walk Home". Calm walk with Rafa → blackout → raid → run.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792003125';
-import { tex, textTex, facadeTex, rng } from './textures.js?v=1792003125';
-import { makeHumanoid, makeCharacter, makeVehicle, animateWalk, makeBeam, makeGlow, makeCar, makeTree, std } from './models.js?v=1792003125';
+import { Grid } from './grid.js?v=1792003362';
+import { tex, textTex, facadeTex, rng } from './textures.js?v=1792003362';
+import { makeHumanoid, makeCharacter, makeVehicle, animateWalk, makeBeam, makeGlow, makeCar, makeTree, std } from './models.js?v=1792003362';
 
 const LINES = {
   news: { id: 'st_news', who: 'Radio', text: '...and in Boyle Heights tonight, residents are reporting unmarked vehicles along Whittier Boulevard. Federal officials have not confirmed any enforcement operation...', radio: true },
@@ -463,7 +463,7 @@ export function createStreet(G, opts = {}) {
         }
       } else if (a.role === 'chaseGo') {
         darkT += dt;
-        const sp = darkT < 2.0 ? 0 : 3.1 + Math.min(0.6, darkT * 0.04);
+        const sp = darkT < 2.2 ? 0 : 2.8 + Math.min(0.5, darkT * 0.03);
         if (sp > 0) moveAgent(a, P.pos.x, P.pos.z, sp, dt); else a.speed = 0;
         if (Math.hypot(P.pos.x - g.x, P.pos.z - g.z) < 0.85) game.caught(a.h, 'They took both of you.');
       }

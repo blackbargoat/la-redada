@@ -1,8 +1,8 @@
 // LEVEL 1 — PART B: Hammerline Depot after dark.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792003125';
-import { tex, textTex, rng } from './textures.js?v=1792003125';
-import { makeHumanoid, makeCharacter, makeVehicle, animateWalk, makeBeam, makeGlow, std } from './models.js?v=1792003125';
+import { Grid } from './grid.js?v=1792003362';
+import { tex, textTex, rng } from './textures.js?v=1792003362';
+import { makeHumanoid, makeCharacter, makeVehicle, animateWalk, makeBeam, makeGlow, std } from './models.js?v=1792003362';
 
 const VO = {
   out: { id: 'sr_out', who: 'Agent (radio)', text: 'Back door\'s locked down. He\'s inside. Nobody leaves this building.', radio: true, agent: true },
@@ -41,7 +41,7 @@ const STAGE_OBJ = {
 };
 const savedBattery = {};
 // difficulty presets (Normal for now; Easy/Hard later)
-const DIFF = { notice: 0.5, maxAgents: 2, chaseMul: 0.85, giveUp: 4.5 };
+const DIFF = { notice: 0.35, maxAgents: 2, chaseMul: 0.72, giveUp: 4, vision: 0.85, react: 0.9 };
 
 export function createStore(G, checkpoint = 0) {
   const { audio, ui, P, game, flash } = G;
@@ -344,6 +344,7 @@ export function createStore(G, checkpoint = 0) {
     if (playerLight) range *= 1.35;
     if (P.crouch) range *= 0.65;
     if (a.lightOff) range *= 0.55;
+    range *= DIFF.vision;
     if (d > range) return false;
     const h = a.g.rotation.y, dot = (dx * Math.sin(h) + dz * Math.cos(h)) / d;
     if (d > 1.6 && dot < 0.76) return false;
@@ -354,7 +355,7 @@ export function createStore(G, checkpoint = 0) {
   function startChase(a) {
     if (a.state === 'chase') return;
     const fresh = !agents.some((o) => o.state === 'chase');
-    a.state = 'chase'; a.aware = 1; a.lightOff = false; a.lost = 0; a.repath = 0;
+    a.state = 'chase'; a.aware = 1; a.lightOff = false; a.lost = 0; a.repath = 0; a.react = DIFF.react;
     a.lastKnown = [P.pos.x, P.pos.z];
     bark(a, Math.random() < 0.5 ? 'spot1' : 'spot2');
     if (fresh) { audio.stinger(0.55); ui.shake(0.02, 0.3); }
@@ -456,13 +457,14 @@ export function createStore(G, checkpoint = 0) {
         break;
       }
       case 'chase': {
+        if (a.react > 0) { a.react -= dt; a.speed = 0; turnTo(a, Math.atan2(P.pos.x - g.x, P.pos.z - g.z), dt * 8); break; }
         a.repath -= dt;
         if (see) { a.lastKnown = [P.pos.x, P.pos.z]; a.lost = 0; }
         else a.lost += dt;
         if (a.repath <= 0) { a.repath = 0.35; goTo(a, a.lastKnown[0], a.lastKnown[1]); }
         const sp = a.def.chase * DIFF.chaseMul * (L.power ? 1.06 : 1);
         const done = stepPath(a, sp, dt);
-        if (!P.hidden && dP < 0.8) { game.caught(a.h); return; }
+        if (!P.hidden && dP < 0.7) { game.caught(a.h); return; }
         if ((done && !see) || a.lost > DIFF.giveUp) {
           // lost him
           bark(a, 'lost'); a.aware = 0.3;
@@ -600,7 +602,20 @@ export function createStore(G, checkpoint = 0) {
   if (stage > 2) { keyMesh.visible = false; keyGlow.visible = false; }
   if (stage > 1) { phoneGlow.visible = false; }
   if (P.lens) lensMesh.visible = false;
-  it({ x: 28.5, z: 2.4, label: 'Replace the fuse', enabled: () => stage === 4, action: () => {
+  // Beto: night crew, hiding in the electrical room in the dark
+  const BT = {
+    1: { id: 'bt_1', who: 'Beto', text: 'Shh! Shh, shh. Don\'t scream. It\'s me. Beto. It\'s Beto.' },
+    2: { id: 'bt_2', who: 'Beto', text: 'They walked past this door twice. Do it. Fix it. I\'ll watch the door.' },
+    radio: { id: 'bt_radio', who: 'Agent (radio)', text: 'Got one more in the electrical room. Taking him out the back.', radio: true, agent: true },
+    3: { id: 'bt_3', who: 'Beto', text: 'Mateo! Mateo, go! Don\'t stop!' },
+  };
+  audio.preloadVo(['bt_1', 'bt_2', 'bt_radio', 'bt_3']);
+  const beto = makeCharacter('gus', { shirt: 0x2a2a2a, pants: 0x2a2a2a }, 1.7);
+  beto.group.traverse((m) => { if (m.isMesh && m.material) m.material.color.multiplyScalar(0.45); });
+  beto.group.position.set(28.4, 0, 3.6); beto.group.rotation.y = Math.PI; beto.group.visible = stage <= 4; scene.add(beto.group);
+  animateWalk(beto, 0, 0, false);
+  const betoLight = new THREE.PointLight(0xbfd0d8, 0, 3, 1.6); betoLight.position.set(28.4, 1.2, 2.6); scene.add(betoLight);
+  function restorePower() {
     audio.clunk({ x: 28.5, y: 1.5, z: 1.2 }); stage = 4.5;
     at(0.7, () => { fixM.emissiveIntensity = 1; audio.tone({ freq: 2000, dur: 0.05, type: 'square', gain: 0.05 }); });
     at(0.8, () => { fixM.emissiveIntensity = 0; });
@@ -609,10 +624,27 @@ export function createStore(G, checkpoint = 0) {
     at(1.6, () => {
       setPower(true); ui.flash(0.4); audio.hit(0.7);
       L.onNoise(200, 28.5, 4, 'loud');
-      agents.forEach((a) => { if (a.active && a.state !== 'chase') { a.invSpeed = 3.3; } });
+      agents.forEach((a) => { if (a.active && a.state !== 'chase') { a.invSpeed = 2.4; } });
       radio(VO.power, null, 0.6);
       setStage(5); ui.say([{ ...VO.m3, wait: 2.2 }]);
     });
+    // they find Beto
+    at(9, () => { radio(BT.radio, null); });
+    at(11.5, () => { ui.bark({ ...BT[3], pos: { x: 28.5, y: 1.5, z: 6 } }); audio.tackle({ x: 28.5, y: 0.5, z: 5 }); setTimeout(() => audio.ziptie({ x: 28.5, y: 0.5, z: 5 }), 1500); beto.group.visible = false; });
+  }
+  it({ x: 28.5, z: 2.4, label: 'Replace the fuse', enabled: () => stage === 4, action: () => {
+    // the game takes your camera: open the panel, hear breathing behind you, turn around
+    stage = 4.2; P.frozen = true; P.flashlight = P.flashlight;
+    P.lookLock = { yaw: 0, pitch: -0.12, k: 3 };
+    audio.creak({ x: 28.5, y: 1.5, z: 1.2 });
+    at(1.4, () => { audio.noise({ dur: 0.9, type: 'bandpass', freq: 900, q: 0.8, gain: 0.16, attack: 0.3, pos: { x: 28.4, y: 1.6, z: 3.5 } }); });
+    at(2.7, () => { audio.noise({ dur: 1.0, type: 'bandpass', freq: 800, q: 0.8, gain: 0.18, attack: 0.3, pos: { x: 28.4, y: 1.6, z: 3.5 } }); });
+    at(3.6, () => { audio.noise({ dur: 0.12, type: 'lowpass', freq: 600, gain: 0.25, pos: { x: 28.4, y: 0.1, z: 3.5 } }); });
+    at(4.2, () => { P.lookLock = { yaw: Math.PI, pitch: 0.02, k: 1.4 }; betoLight.intensity = 1.2; });
+    at(5.6, () => { audio.hit(1); audio.stinger(0.8); ui.flash(0.25); ui.shake(0.07, 0.6); ui.bark(BT[1]); });
+    at(9.5, () => { ui.bark(BT[2]); });
+    at(14, () => { P.lookLock = { yaw: 0, pitch: -0.1, k: 3 }; betoLight.intensity = 0.4; });
+    at(15, () => { P.lookLock = null; P.frozen = false; restorePower(); });
   } });
   it({ x: 61.6, z: 40.5, r: 2.0, label: 'Open the garden-center gate', hold: 6, enabled: () => stage === 5 && !gateOpen,
     onHold: (dt) => {
@@ -772,8 +804,8 @@ export function createStore(G, checkpoint = 0) {
   audio.preloadVo(['cr_1', 'cr_2', 'cr_3', 'cr_4']);
   const stranger = makeCharacter('gus', { shirt: 0x2a2a2a, pants: 0x2a2a2a, skin: 0x7a5a42 }, 1.72); // darkened so he doesn't read as anyone you know
   stranger.group.traverse((m) => { if (m.isMesh && m.material) m.material.color.multiplyScalar(0.35); });
-  stranger.group.visible = false; scene.add(stranger.group);
-  const cr = { state: checkpoint <= 2 ? 'wait' : 'gone', t: 0, power: 0, said: 0, phase: 0 };
+  stranger.group.visible = false;
+  const cr = { state: 'gone', t: 0, power: 0, said: 0, phase: 0 };
   function strangerUpdate(dt) {
     const g = stranger.group;
     if (cr.state === 'wait') {

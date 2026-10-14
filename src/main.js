@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import { AudioEngine } from './audio.js?v=1792003125';
-import { createStreet } from './street.js?v=1792003125';
-import { createRestaurant } from './restaurant.js?v=1792003125';
-import { createStore } from './store.js?v=1792003125';
-import { createPhone } from './phone.js?v=1792003125';
-import { modelsReady } from './models.js?v=1792003125';
+import { AudioEngine } from './audio.js?v=1792003362';
+import { createStreet } from './street.js?v=1792003362';
+import { createRestaurant } from './restaurant.js?v=1792003362';
+import { createStore } from './store.js?v=1792003362';
+import { createPhone } from './phone.js?v=1792003362';
+import { modelsReady } from './models.js?v=1792003362';
 
 const $ = (id) => document.getElementById(id);
 const PIX = 3; // render at 1/3 resolution, upscale with nearest-neighbour for the chunky pixel look
@@ -214,7 +214,7 @@ function disposeScene(s) {
 function loadLevel(make) {
   if (level) { level.dispose?.(); camera.parent?.remove(camera); disposeScene(level.scene); }
   audio.stopAll(); audio.muffle(false, 0.05); ui.cancelSay(); phone.close();
-  Object.assign(P, { frozen: false, reading: false, hidden: null, crouch: false, stamina: 1, exhausted: false, breath: 1, pitch: 0, eye: 1.62 });
+  Object.assign(P, { lookLock: null, frozen: false, reading: false, hidden: null, crouch: false, stamina: 1, exhausted: false, breath: 1, pitch: 0, eye: 1.62 });
   $('hideView').className = 'layer'; $('breathM').style.display = 'none';
   ui.post.exposure.value = 0.8; ui.post.sat.value = 0.55; ui.post.contrast.value = 1.16; ui.post.tint.value.set(0.9, 0.98, 0.96); ui.post.lift.value.set(0.0, 0.01, 0.012); ui.post.levels.value = 28;
   level = make(G);
@@ -242,7 +242,7 @@ document.addEventListener('pointerlockchange', () => {
   if (locked) { paused = false; $('pause').classList.remove('on'); }
 });
 document.addEventListener('mousemove', (e) => {
-  if (document.pointerLockElement !== renderer.domElement || mode !== 'play' || paused) return;
+  if (document.pointerLockElement !== renderer.domElement || mode !== 'play' || paused || P.lookLock) return;
   P.yaw -= e.movementX * 0.0021; P.pitch -= e.movementY * 0.0021;
   P.pitch = Math.max(-1.45, Math.min(1.45, P.pitch));
   if (P.hidden) {
@@ -504,6 +504,11 @@ function frame() {
   else if (mode === 'cutscene') level.update(dt);
   else if (mode === 'caught') { level.update(dt * 0.15); updateCaught(dt); }
   updateFlashlight(dt);
+  // scripted camera control (forced looks)
+  if (P.lookLock && mode === 'play') {
+    let dy = P.lookLock.yaw - P.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+    P.yaw += dy * Math.min(1, dt * P.lookLock.k); P.pitch += (P.lookLock.pitch - P.pitch) * Math.min(1, dt * P.lookLock.k);
+  }
   // camera
   shakeT = Math.max(0, shakeT - dt); const sk = shakeT > 0 ? shakeAmt : 0; if (!shakeT) shakeAmt = 0;
   const bobY = P.speedNow > 0.1 ? Math.sin(P.bob) * (P.sprinting ? 0.055 : 0.03) : 0;
