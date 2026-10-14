@@ -290,7 +290,7 @@ $('startBtn').onclick = async () => {
 };
 $('storeBtn').onclick = () => {
   const list = $('chapterList'); list.innerHTML = '';
-  const unlocked = loadProgress();
+  const unlocked = CHAPTERS.length; // all chapters open
   CHAPTERS.forEach((ch, i) => {
     const b = document.createElement('button'); b.className = 'btn'; b.textContent = i <= unlocked ? ch.name : 'LOCKED'; b.disabled = i > unlocked; b.style.opacity = i > unlocked ? 0.35 : 1;
     b.onclick = async () => { await boot(); startChapter(i); };
