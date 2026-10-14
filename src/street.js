@@ -1,8 +1,8 @@
 // LEVEL 1 — PART A: "The Walk Home". Juan and Santiago walk home → the street feels wrong → ICE → run.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792004214';
-import { tex, textTex, facadeTex, rng } from './textures.js?v=1792004214';
-import { makeHumanoid, makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeCar, makeTree, std } from './models.js?v=1792004214';
+import { Grid } from './grid.js?v=1792004918';
+import { tex, textTex, facadeTex, rng } from './textures.js?v=1792004918';
+import { makeHumanoid, makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeCar, makeTree, std } from './models.js?v=1792004918';
 
 const LINES = {
   u1: { id: 'st_u1', who: 'Santiago', text: '...Hey. That car. It\'s been behind us since the bus stop.' },
@@ -217,10 +217,10 @@ export function createStreet(G, opts = {}) {
   const ch = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.13, 0.14), catM); ch.position.set(0, 0.32, 0.27); cat.add(ch);
   const tail = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.35), catM); tail.position.set(0, 0.32, -0.33); tail.rotation.x = 0.6; cat.add(tail);
   for (const s of [-1, 1]) { const e = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.02, 0.01), new THREE.MeshBasicMaterial({ color: 0xd8f070 })); e.position.set(s * 0.035, 0.34, 0.345); cat.add(e); }
-  cat.position.set(8.0, 1.45, -26); cat.visible = true; scene.add(cat);
+  cat.position.set(-7.0, 0.15, -14); cat.visible = false; scene.add(cat);
   { const glb = makeVehicle('cat', 0.75, 0x3a3a3a, 0.5); if (glb) { cat.children.slice().forEach((ch) => cat.remove(ch)); cat.add(glb); for (const sx of [-0.04, 0.04]) { const e = makeGlow(0xd8ff70, 0.12, 1); e.position.set(sx, 0.36, 0.34); cat.add(e); } } }
-  let catT = -1, catSaid = false, catArmed = false;
-  const catLight = new THREE.PointLight(0xd8e8e0, 4, 5, 1.6); catLight.position.set(7, 2.6, -25.5); scene.add(catLight);
+  let catT = -1, catState = 'idle', catFrom = null;
+  const catLight = new THREE.PointLight(0xd8e8e0, 3, 4, 1.6); catLight.position.set(-7, 2.4, -14); scene.add(catLight);
 
   // ---- characters ----
   const rafa = makeCharacter('rafa', { shirt: 0x6a3a2a, pants: 0x2e3a4e, hat: 'cap', hatColor: 0x7a2020, skin: 0x9a6644, mustache: true }, 1.74);
@@ -295,6 +295,7 @@ export function createStreet(G, opts = {}) {
   const route = [[7.0, 2], [6.8, -10], [6.6, -24], [6.2, -27.5], [6.6, -31], [6.8, -44], [7.0, -55]];
   let ri = 0;
   const lookBack = { done: false, t: -1 };
+  let wrongT = 0, lastPX = 0, lastPZ = 0;
 
   function killLamp(lp, bang) {
     lp.on = false; lp.light.intensity = 0; lp.headM.emissiveIntensity = 0; lp.glow.visible = false; lp.cone.visible = false;
@@ -322,9 +323,9 @@ export function createStreet(G, opts = {}) {
     at(tDark + 3.6, () => {
       ui.bark(LINES.r7); rafaState = 'runWithYou';
       phase = 'run'; L.allowSprint = true; L.speedMul = 1; darkT = 0;
-      L.forcedRun = { yaw: 0, range: 0.65 }; P.yaw = 0; P.pitch = 0;
+      L.chaseRun = true; wrongT = 0;
       ui.objective('RUN. Down the driveway past the Hammerline sign, to the loading dock.');
-      ui.bigHint('HOLD <kbd>W</kbd> — RUN<small>DON\'T STOP</small>'); setTimeout(() => ui.bigHint(''), 3500);
+      ui.bigHint('RUN<small>DON\'T STOP. DOWN THE STREET, INTO THE DRIVEWAY ON YOUR RIGHT</small>'); setTimeout(() => { if (wrongT < 1) ui.bigHint(''); }, 3500);
       agents.forEach((a) => { if (a.role === 'chase') a.role = 'chaseGo'; });
     });
   }
@@ -341,7 +342,7 @@ export function createStreet(G, opts = {}) {
     at(0.6, () => { ui.say([LINES.news]); audio.tone({ freq: 48, dur: 9, type: 'sawtooth', gain: 0.06, filter: 200 }); });
     at(9.5, () => { audio.noise({ dur: 0.8, type: 'highpass', freq: 2000, gain: 0.25 }); ui.fade(0, 2.5); ui.clock('11:41 PM'); });
     at(10.5, () => { audio.tone({ freq: 50, freqTo: 90, dur: 4, type: 'sawtooth', gain: 0.12, filter: 400, pos: { x: 3, y: 1, z: -10 } }); });
-    at(9.4, () => { P.lookLock = { yaw: Math.atan2(-(rafa.group.position.x - P.pos.x), -(rafa.group.position.z - P.pos.z)), pitch: -0.05, k: 3 }; });
+    at(9.6, () => { P.frozen = false; });
     at(13.0, () => { audio.vibrate(); ui.toast('INCOMING CALL — DOÑA ROSA'); });
     at(14.5, () => { audio.vibrate(); });
     at(16.0, () => { lines('rosa1', 'mp1', 'rosa2', 'mp2', 'r0', 'rfollow').then(() => { P.frozen = false; P.lookLock = null; if (phase === 'intro') { phase = 'walk'; ui.objective('Walk home with Santiago. Straight down Whittier, past the Hammerline sign.'); lines('r1', 'm1');
@@ -351,7 +352,7 @@ export function createStreet(G, opts = {}) {
   const triggers = [
     { p: 14, fn: () => lines('r2', 'm2') },
     { p: 20, fn: () => { followOn = true; followCar.visible = true; followCar.position.set(1.8, 0, P.pos.z + 26); } },
-    { p: 24, fn: () => { catArmed = true; } },
+    { p: 12, fn: () => { catState = 'walk'; cat.position.set(-7.0, 0.15, P.pos.z - 16); } },
     { p: 30, fn: () => lines('r3', 'm3', 'r4') },
     { p: 36, fn: () => lines('u1', 'm4') },
     { p: 41, fn: () => { lines('u3'); audio.radio({ x: -8.3, y: 1.5, z: -37 }, 0.25); } },
@@ -436,10 +437,17 @@ export function createStreet(G, opts = {}) {
     { const prog0 = 6 - P.pos.z, moving = P.speedNow > 0.5;
       if (phase === 'walk' && prog0 > 32) { echoAcc += P.speedNow * dt; if (echoAcc > 1.6) { echoAcc = 0; audio.boot({ x: P.pos.x + 0.5, y: 0.2, z: P.pos.z + 7 }, 0.18); } if (lastMoving && !moving && Math.random() < 0.6) setTimeout(() => audio.boot({ x: P.pos.x + 0.5, y: 0.2, z: P.pos.z + 7 }, 0.15), 380); }
       lastMoving = moving; }
-    if (L.forcedRun && !P.lookLock) {
-      const want = P.pos.z > -56.5 && P.pos.x < 8 ? 0 : (P.pos.x < 10 ? -Math.PI / 4 : -Math.PI / 2);
-      let d = want - L.forcedRun.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); L.forcedRun.yaw += d * Math.min(1, dt * 4);
+    // running the wrong way (back toward them) gets you caught
+    if (phase === 'run' && L.chaseRun && !P.lookLock) {
+      const gx = P.pos.z > -57 && P.pos.x < 9 ? 7.5 : 40, gz = P.pos.z > -57 && P.pos.x < 9 ? -60.5 : -64.6;
+      const tx = gx - P.pos.x, tz = gz - P.pos.z, tl2 = Math.hypot(tx, tz) || 1;
+      const vx = P.pos.x - lastPX, vz = P.pos.z - lastPZ, vl = Math.hypot(vx, vz);
+      const away = vl > 0.02 && (vx * tx + vz * tz) / (vl * tl2) < -0.35;
+      wrongT = away ? wrongT + dt : Math.max(0, wrongT - dt * 2);
+      if (wrongT > 0.8) ui.bigHint('WRONG WAY — RUN!<small>THE OTHER WAY</small>'); else if (wrongT === 0 && document.getElementById('bigHint').textContent.startsWith('WRONG')) ui.bigHint('');
+      if (wrongT > 3 && agents[0]) { ui.bigHint(''); game.caught(agents[0].h, 'You ran back toward them. Try again.'); }
     }
+    lastPX = P.pos.x; lastPZ = P.pos.z;
     // the look back: as you hit the driveway, the camera turns, Santiago is behind you, then the shot
     if (phase === 'run' && !lookBack.done && P.pos.x > 10.5) { lookBack.done = true; lookBack.t = 0; P.lookLock = { yaw: Math.PI / 2, pitch: 0.02, k: 6 }; }
     if (lookBack.t >= 0 && lookBack.t < 6) {
@@ -464,7 +472,7 @@ export function createStreet(G, opts = {}) {
         const tx = Math.max(5.6, Math.min(8.4, P.pos.x + 1.1)), tz = P.pos.z + (Math.abs(fz) > 0.3 ? 0.15 : 0);
         const dx = tx - rg.x, dz = tz - rg.z, d = Math.hypot(dx, dz);
         if (d > 0.25) {
-          sp = Math.min(Math.max(P.speedNow, d > 2 ? 3.4 : 0), d * 3.5, 4.2);
+          sp = Math.min(Math.max(P.speedNow * 1.1, d * 3.2), 6.5);
           if (sp > 0.05) { rg.x += dx / d * sp * dt; rg.z += dz / d * sp * dt; }
         }
         const want = sp > 0.3 ? Math.atan2(dx, dz) : Math.atan2(fx, fz);
@@ -486,17 +494,21 @@ export function createStreet(G, opts = {}) {
     const prog = 6 - P.pos.z;
     for (let i = triggers.length - 1; i >= 0; i--) if (phase === 'walk' && prog > triggers[i].p) { const t = triggers[i]; triggers.splice(i, 1); t.fn(); }
 
-    // cat false scare: leaps off the dumpster, runs across the road
-    if (catArmed && catT < 0 && !catSaid && Math.hypot(P.pos.x - 8, P.pos.z + 26) < 6) { catArmed = false; catT = 0; }
-    if (catT >= 0) {
-      catT += dt;
-      if (catT < 0.05) { audio.can({ x: 8, y: 1.4, z: -26 }); audio.catScreech({ x: 8, y: 1.3, z: -26 }); ui.shake(0.03, 0.25); audio.paws({ x: 4, y: 0.2, z: -25 }, 14); setTimeout(() => audio.paws({ x: -3, y: 0.2, z: -24 }, 10), 700); setTimeout(() => audio.meow({ x: -9, y: 0.5, z: -23 }), 1600); }
-      const t = Math.min(1, catT / 2.4);
-      catLight.position.set(cat.position.x, 2.4, cat.position.z + 0.5);
-      cat.position.set(8 - t * 22, Math.max(0, catT < 0.3 ? 1.45 - catT * 4.5 : Math.abs(Math.sin(catT * 16)) * 0.12), -26 + t * 3); cat.rotation.x = Math.sin(catT * 16) * 0.15;
-      cat.rotation.y = -Math.PI / 2 + 0.15;
-      if (catT > 0.35 && !catSaid) { catSaid = true; lines('cat'); }
-      if (t >= 1) { catT = -1; cat.visible = false; }
+    // the cat: slinks along the far sidewalk, then bolts across the road in front of you
+    if (catState === 'walk') {
+      cat.visible = true; cat.position.z -= dt * 0.55; cat.position.y = Math.abs(Math.sin(tl * 6)) * 0.02; cat.rotation.set(0, Math.PI, 0);
+      catLight.position.set(cat.position.x + 0.6, 2.2, cat.position.z);
+      if (Math.abs(P.pos.z - cat.position.z) < 7 && phase === 'walk') {
+        catState = 'dart'; catT = 0; catFrom = { x: cat.position.x, z: cat.position.z };
+        audio.catScreech({ x: cat.position.x, y: 0.5, z: cat.position.z }); audio.paws({ x: cat.position.x + 3, y: 0.2, z: cat.position.z }, 18); ui.shake(0.03, 0.25); audio.hit(0.35);
+      }
+    } else if (catState === 'dart') {
+      catT += dt; const t = Math.min(1, catT / 1.1);
+      const tz = P.pos.z - 2.2;
+      cat.position.set(catFrom.x + (8.4 - catFrom.x) * t, Math.abs(Math.sin(catT * 18)) * 0.1, catFrom.z + (tz - catFrom.z) * t);
+      cat.rotation.set(Math.sin(catT * 18) * 0.12, Math.atan2(8.4 - catFrom.x, tz - catFrom.z), 0);
+      catLight.position.set(cat.position.x, 2.2, cat.position.z + 0.6);
+      if (t >= 1) { catState = 'gone'; cat.visible = false; catLight.intensity = 0; setTimeout(() => audio.can({ x: 8, y: 1.2, z: -26 }), 200); }
     }
 
     // agents
@@ -535,8 +547,7 @@ export function createStreet(G, opts = {}) {
       if (heliT >= 9) { heli.intensity = 0; heliBeam.visible = false; }
     }
     // reaching the dock
-    if (phase === 'run' && P.pos.z < -63.6 && P.pos.x > 37.5) { phase = 'done'; L.forcedRun = null; game.toStore(); }
-    if (phase === 'run' && P.pos.x > 37 && L.forcedRun) L.forcedRun.yaw += (Math.atan2(-(40 - P.pos.x), -(-64.6 - P.pos.z)) - L.forcedRun.yaw) * Math.min(1, dt * 4);
+    if (phase === 'run' && P.pos.z < -63.6 && P.pos.x > 37.5) { phase = 'done'; L.chaseRun = false; ui.bigHint(''); game.toStore(); }
   };
   L.danger = () => {
     if (phase !== 'run') return { heart: phase === 'blackout' ? 0.5 : 0 };

@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import { AudioEngine } from './audio.js?v=1792004214';
-import { createStreet } from './street.js?v=1792004214';
-import { createRestaurant } from './restaurant.js?v=1792004214';
-import { createStore } from './store.js?v=1792004214';
-import { createPhone } from './phone.js?v=1792004214';
-import { modelsReady } from './models.js?v=1792004214';
+import { AudioEngine } from './audio.js?v=1792004918';
+import { createStreet } from './street.js?v=1792004918';
+import { createRestaurant } from './restaurant.js?v=1792004918';
+import { createStore } from './store.js?v=1792004918';
+import { createPhone } from './phone.js?v=1792004918';
+import { modelsReady } from './models.js?v=1792004918';
 
 const $ = (id) => document.getElementById(id);
 const PIX = 3; // render at 1/3 resolution, upscale with nearest-neighbour for the chunky pixel look
@@ -392,29 +392,16 @@ function updatePlayer(dt) {
   P.breath = Math.min(1, P.breath + dt / 3.5);
   const eyeT = P.crouch ? 1.0 : 1.62; P.eye += (eyeT - P.eye) * Math.min(1, dt * 10);
   if (P.frozen || P.reading) { P.speedNow = 0; P.sprinting = false; return; }
-  if (L.forcedRun) { // chase: W only, auto-sprint, can't turn back
-    const fr = L.forcedRun; let dy = P.yaw - fr.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
-    if (!P.lookLock) P.yaw = fr.yaw + Math.max(-fr.range, Math.min(fr.range, dy));
-    const go = held('forward') || keys.has('ArrowUp');
-    const dir = fr.yaw + Math.max(-fr.range, Math.min(fr.range, dy)) * 0.6;
-    const sp = go ? 6.0 * (L.speedMul || 1) : 0;
-    const ox = P.pos.x, oz = P.pos.z;
-    if (go) L.grid.move(P.pos, -Math.sin(dir) * sp * dt, -Math.cos(dir) * sp * dt, 0.3);
-    const moved = Math.hypot(P.pos.x - ox, P.pos.z - oz); P.speedNow = moved / dt; P.sprinting = go; P.stamina = 1; P.crouch = false;
-    P.bob += moved * 2.4; P.stepAcc += moved;
-    if (P.stepAcc > 1.0) { P.stepAcc = 0; audio.step('sprint', L.surface); }
-    return;
-  }
   let f = 0, s = 0;
   if (held('forward') || keys.has('ArrowUp')) f += 1;
   if (held('back') || keys.has('ArrowDown')) f -= 1;
   if (held('right') || keys.has('ArrowRight')) s += 1;
   if (held('left') || keys.has('ArrowLeft')) s -= 1;
   const moving = f || s;
-  const wantSprint = (held('sprint') || (BINDS.sprint === 'ShiftLeft' && keys.has('ShiftRight'))) && moving && f >= 0 && L.allowSprint !== false;
+  const wantSprint = (L.chaseRun || held('sprint') || (BINDS.sprint === 'ShiftLeft' && keys.has('ShiftRight'))) && moving && f >= 0 && L.allowSprint !== false;
   if (wantSprint && P.crouch) P.crouch = false;
   P.sprinting = wantSprint && !P.exhausted && P.stamina > 0;
-  if (P.sprinting) { P.stamina -= dt / 7.5; if (P.stamina <= 0) { P.stamina = 0; P.exhausted = true; } }
+  if (P.sprinting && !L.chaseRun) { P.stamina -= dt / 7.5; if (P.stamina <= 0) { P.stamina = 0; P.exhausted = true; } }
   else { P.stamina = Math.min(1, P.stamina + dt / (P.exhausted ? 8 : 4.5)); if (P.exhausted && P.stamina > 0.4) P.exhausted = false; }
   const speed = (P.crouch ? 1.6 : P.sprinting ? 6.2 : 3.1) * (P.exhausted ? 0.8 : 1) * (L.speedMul || 1);
   const len = Math.hypot(f, s) || 1;
