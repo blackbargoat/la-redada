@@ -71,7 +71,7 @@
 <div id="alert" class="layer"></div>
 <div id="hud" class="layer" style="display:none">
   <div id="objective"><small>OBJECTIVE</small><span id="objText"></span></div>
-  <div id="night"><span>NIGHT</span><b id="nightNum">1</b><span id="clock">11:41 PM</span></div>
+  <div id="night"><span id="nightLbl">NIGHT</span><b id="nightNum">1</b><span id="clock">11:41 PM</span></div>
   <div id="dot"></div>
   <div id="prompt"></div>
   <div id="toast"></div>
@@ -92,12 +92,13 @@
   <canvas class="bg" id="titleBg" width="320" height="180"></canvas>
   <h1>LA REDADA</h1>
   <div class="tag">When the lights go out, run.</div>
-  <button class="btn" id="startBtn">BEGIN NIGHT 1</button>
-  <button class="btn" id="storeBtn">SKIP TO THE STORE</button>
+  <button class="btn" id="startBtn">NEW GAME</button>
+  <button class="btn" id="storeBtn">CHAPTERS</button>
   <button class="btn" id="brightBtn" style="font-size:14px">BRIGHTNESS</button>
   <div class="controls">WASD MOVE &nbsp;·&nbsp; MOUSE LOOK &nbsp;·&nbsp; SHIFT SPRINT &nbsp;·&nbsp; C CROUCH<br>F FLASHLIGHT &nbsp;·&nbsp; E INTERACT / HIDE &nbsp;·&nbsp; SPACE HOLD BREATH &nbsp;·&nbsp; TAB STORE MAP</div>
   <div class="warn">HEADPHONES RECOMMENDED. CONTAINS JUMPSCARES, FLASHING LIGHTS, AND DEPICTIONS OF IMMIGRATION ENFORCEMENT. A WORK OF FICTION.</div>
 </div>
+<div id="chapters" class="screen" style="z-index:55"><h1 style="letter-spacing:.2em;font-size:34px;margin:0 0 20px">CHAPTERS</h1><div id="chapterList" style="display:flex;flex-direction:column;align-items:stretch;min-width:420px"></div><button class="btn" id="chapBack" style="margin-top:24px;font-size:14px">BACK</button></div>
 <div id="cards" class="screen"><div id="cardText"></div><div id="cardHint">CLICK TO CONTINUE</div></div>
 <div id="caught" class="screen"><h1>DETAINED</h1><p id="caughtSub">Luz waited up all night.</p><button class="btn" id="retryBtn">TRY AGAIN</button><button class="btn" id="menuBtn">MAIN MENU</button></div>
 <div id="pause" class="screen"><h1 style="letter-spacing:.2em;font-size:42px;margin:0 0 20px">PAUSED</h1><button class="btn" id="resumeBtn">RESUME</button><button class="btn" id="pauseBrightBtn">BRIGHTNESS</button><button class="btn" id="pauseMenuBtn">MAIN MENU</button></div>

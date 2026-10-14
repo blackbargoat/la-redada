@@ -8,7 +8,7 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 const GLB = {};
 export const modelsReady = (async () => {
   const loader = new GLTFLoader();
-  await Promise.all(['rafa', 'agent'].map(async (k) => {
+  await Promise.all(['rafa', 'agent', 'rosa', 'luz', 'gus', 'elena'].map(async (k) => {
     try {
       const g = await loader.loadAsync(`assets/models/${k}.glb`);
       // strip root motion: keep the hips' vertical bob, pin x/z to the first frame

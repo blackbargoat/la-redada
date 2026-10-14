@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { AudioEngine } from './audio.js';
 import { createStreet } from './street.js';
+import { createRestaurant } from './restaurant.js';
 import { createStore } from './store.js';
 import { modelsReady } from './models.js';
 
@@ -170,8 +171,8 @@ const game = {
     audio.slam({ x: P.pos.x, y: 1, z: P.pos.z });
     ui.hud(false); audio.stopAll(); ui.cancelSay();
     await sleep(1.2);
-    await ui.cards(['The door comes down behind him like a guillotine.', 'HAMMERLINE DEPOT\nStore #0417 — Boyle Heights\n11:58 PM']);
-    loadLevel((G) => createStore(G, 0));
+    await ui.cards(['The door comes down behind him like a guillotine.']);
+    startChapter(2);
   },
   async win() {
     mode = 'cutscene'; ui.cancelSay();
@@ -203,6 +204,7 @@ function loadLevel(make) {
   audio.stopAll(); ui.cancelSay();
   Object.assign(P, { frozen: false, reading: false, hidden: null, crouch: false, stamina: 1, exhausted: false, breath: 1, pitch: 0, eye: 1.62 });
   $('hideView').className = 'layer'; $('breathM').style.display = 'none';
+  ui.post.sat.value = 0.28; ui.post.contrast.value = 1.18; ui.post.tint.value.set(0.94, 1.0, 0.98); ui.post.levels.value = 26;
   level = make(G);
   level.scene.add(camera);
   mode = 'play'; paused = false;
@@ -255,19 +257,48 @@ addEventListener('keydown', (e) => {
 addEventListener('keyup', (e) => { keys.delete(e.code); if (e.code === 'Tab') $('map').classList.remove('on'); });
 addEventListener('blur', () => keys.clear());
 
+// ---------------- chapters ----------------
+const CHAPTERS = [
+  { key: 'prologue', name: 'PROLOGUE — La Cocina de Rosa', hud: 'DAY', cards: ['PROLOGUE\nLa Cocina de Rosa', 'Tuesday. 2:20 PM.\nBoyle Heights, Los Angeles.'], make: createRestaurant },
+  { key: 'night1', name: 'NIGHT 1 — The Walk Home', hud: 'NIGHT', cards: ['Eight hours later.', 'NIGHT 1\nThe Walk Home\n11:40 PM'], make: createStreet },
+  { key: 'store', name: 'NIGHT 1 — Hammerline Depot', hud: 'NIGHT', cards: ['HAMMERLINE DEPOT\nStore #0417 — Boyle Heights\n11:58 PM'], make: (g) => createStore(g, 0) },
+];
+let chapterI = 0;
+function loadProgress() { try { return parseInt(localStorage.getItem('lr_chapter') || '0', 10) || 0; } catch (e) { return 0; } }
+function saveProgress(i) { try { if (i > loadProgress()) localStorage.setItem('lr_chapter', String(i)); } catch (e) { } }
+async function startChapter(i, skipCards) {
+  chapterI = i; saveProgress(i);
+  const ch = CHAPTERS[i];
+  $('nightLbl').textContent = ch.hud;
+  if (!skipCards) await ui.cards(ch.cards);
+  loadLevel(ch.make);
+}
+game.nextChapter = async () => {
+  mode = 'cutscene'; ui.cancelSay();
+  await ui.fade(1, 1.6); ui.hud(false); audio.stopAll();
+  if (chapterI + 1 < CHAPTERS.length) startChapter(chapterI + 1); else game.win();
+};
+async function boot() { audio.init(); $('title').classList.remove('on'); $('chapters').classList.remove('on'); await ensureBrightness(); await modelsReady; }
 $('startBtn').onclick = async () => {
-  audio.init(); $('title').classList.remove('on');
-  await ensureBrightness();
-  await modelsReady;
+  await boot();
   await ui.cards([
     'Los Angeles.\nFourteen years ago, Mateo Reyes crossed the desert with a backpack and his cousin\'s phone number.',
     'He built the apartments you live in.\nHe poured the sidewalks you walk on.',
     'His daughter Luz is nine. She was born here.\nHe was not.',
-    'Tuesday. 11:40 PM.\nThe walk home from the bus stop.',
   ]);
-  loadLevel(createStreet);
+  startChapter(0);
 };
-$('storeBtn').onclick = async () => { audio.init(); $('title').classList.remove('on'); await ensureBrightness(); await modelsReady; loadLevel((G2) => createStore(G2, 0)); };
+$('storeBtn').onclick = () => {
+  const list = $('chapterList'); list.innerHTML = '';
+  const unlocked = loadProgress();
+  CHAPTERS.forEach((ch, i) => {
+    const b = document.createElement('button'); b.className = 'btn'; b.textContent = i <= unlocked ? ch.name : 'LOCKED'; b.disabled = i > unlocked; b.style.opacity = i > unlocked ? 0.35 : 1;
+    b.onclick = async () => { await boot(); startChapter(i); };
+    list.appendChild(b);
+  });
+  $('chapters').classList.add('on');
+};
+$('chapBack').onclick = () => $('chapters').classList.remove('on');
 
 // ---------------- brightness calibration ----------------
 function loadBright() { try { const v = parseFloat(localStorage.getItem('lr_bright')); return isFinite(v) ? v : null; } catch (e) { return null; } }
@@ -367,7 +398,7 @@ function updateInteract(dt) {
 
 function updateFlashlight(dt) {
   const on = P.flashlight && level?.allowFlashlight && !P.hidden && P.battery > 0;
-  if (on) {
+  if (on && !level.noDrain) {
     P.battery = Math.max(0, P.battery - dt / (P.lens ? 330 : 420));
     if (P.battery <= 0) { P.flashlight = false; audio.click(); audio.hit(0.5); ui.toast('BATTERY DEAD'); }
   }
@@ -450,4 +481,4 @@ frame();
 })();
 
 // debug hooks (used for testing / screenshots)
-window.__dbg = { P, ui, audio, get level() { return level; }, startStreet: (o) => { $('title').classList.remove('on'); loadLevel((g) => createStreet(g, o)); }, startStore: (c = 0) => { $('title').classList.remove('on'); loadLevel((g) => createStore(g, c)); }, setMode: (m) => { mode = m; paused = false; }, get mode() { return mode; }, get paused() { return paused; } };
+window.__dbg = { P, ui, audio, get level() { return level; }, startStreet: (o) => { $('title').classList.remove('on'); loadLevel((g) => createStreet(g, o)); }, startStore: (c = 0) => { $('title').classList.remove('on'); loadLevel((g) => createStore(g, c)); }, setMode: (m) => { mode = m; paused = false; }, startRest: () => { $('title').classList.remove('on'); loadLevel((g) => createRestaurant(g)); }, get mode() { return mode; }, get paused() { return paused; } };

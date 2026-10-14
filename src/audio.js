@@ -87,7 +87,7 @@ export class AudioEngine {
     setTimeout(() => { for (const n of L.nodes) { try { n.stop(); } catch (e) { } } L.g.disconnect(); }, time * 1000 + 300);
     delete this.loops[name];
   }
-  stopAll() { for (const k of Object.keys(this.loops)) this.stopLoop(k, 0.3); this.chaseLvl = 0; }
+  stopAll() { for (const k of Object.keys(this.loops)) this.stopLoop(k, 0.3); this.chaseLvl = 0; this.gtr = null; }
   noiseSrc(ctx, brown) { const s = ctx.createBufferSource(); s.buffer = brown ? this.brownBuf : this.noiseBuf; s.loop = true; return s; }
 
   // ---------- beds ----------
@@ -293,9 +293,62 @@ export class AudioEngine {
   }
   powerDown(pos) { this.tone({ freq: 180, freqTo: 18, dur: 2.6, type: 'sawtooth', gain: 0.22, filter: 900, pos }); this.tone({ freq: 60, freqTo: 15, dur: 2.8, gain: 0.4, pos }); }
 
+  doorBell(pos) { for (const [f, w] of [[2093, 0], [2637, 0.12], [2093, 0.5], [2637, 0.62]]) this.tone({ freq: f, dur: 0.9, type: 'sine', gain: 0.06, when: w, pos }); }
+  sizzleBed(pos) {
+    return this.loop('sizzle', (ctx, g) => {
+      const s = this.noiseSrc(ctx); const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2500;
+      const am = ctx.createOscillator(); am.frequency.value = 7; const amg = ctx.createGain(); amg.gain.value = 0.3; const v = ctx.createGain(); v.gain.value = 0.7; am.connect(amg); amg.connect(v.gain);
+      s.connect(hp); hp.connect(v); v.connect(g); g.connect(this.out(pos)); s.start(); am.start(); return [s, am];
+    });
+  }
+  chatterBed() { // murmur of a busy room
+    return this.loop('chatter', (ctx, g) => {
+      const s = this.noiseSrc(ctx, true); const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 450; bp.Q.value = 1.2;
+      const am = ctx.createOscillator(); am.frequency.value = 3.3; const amg = ctx.createGain(); amg.gain.value = 0.35; const v = ctx.createGain(); v.gain.value = 0.6; am.connect(amg); amg.connect(v.gain);
+      s.connect(bp); bp.connect(v); v.connect(g); g.connect(this.sfx); s.start(); am.start(); return [s, am];
+    });
+  }
+  // Karplus-Strong plucked string
+  pluck(freq, gain = 0.1, pos, when = 0) {
+    if (!this.ctx) return;
+    const key = Math.round(freq);
+    let buf = this.cache.get(key);
+    if (!buf) {
+      const sr = this.ctx.sampleRate, n = Math.floor(sr * 1.4), p = Math.max(2, Math.round(sr / freq));
+      buf = this.ctx.createBuffer(1, n, sr); const d = buf.getChannelData(0); const ring = new Float32Array(p);
+      for (let i = 0; i < p; i++) ring[i] = Math.random() * 2 - 1;
+      let idx = 0; for (let i = 0; i < n; i++) { const a = ring[idx], b = ring[(idx + 1) % p]; d[i] = a; ring[idx] = (a + b) * 0.4985; idx = (idx + 1) % p; }
+      this.cache.set(key, buf);
+    }
+    const src = this.ctx.createBufferSource(); src.buffer = buf;
+    const g = this.ctx.createGain(); g.gain.value = gain;
+    src.connect(g); g.connect(this.out(pos, this.guitarBus || this.music)); src.start(this.t + when);
+  }
+  // ranchera-style waltz on a little radio/jukebox
+  startGuitar(pos) {
+    if (!this.ctx) return;
+    this.guitarBus = this.ctx.createGain(); this.guitarBus.gain.value = 1;
+    const bp = this.ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1300; bp.Q.value = 0.5;
+    this.guitarBus.connect(bp); bp.connect(this.out(pos, this.music));
+    this.gtr = { t: 0, beat: 0, on: true };
+  }
+  stopGuitar() { if (this.gtr) this.gtr.on = false; }
+  guitarLevel(v) { if (this.guitarBus) this.guitarBus.gain.setTargetAtTime(v, this.t, 0.3); }
+
   // ---------- adaptive music ----------
   update(dt, st) {
     if (!this.ctx) return;
+    if (this.gtr && this.gtr.on) {
+      this.gtr.t -= dt;
+      if (this.gtr.t <= 0) {
+        this.gtr.t += 60 / 112;
+        const PROG = [[98, [196, 247, 294]], [98, [196, 247, 294]], [73.4, [185, 220, 262]], [73.4, [185, 220, 262]], [73.4, [185, 220, 262]], [73.4, [185, 220, 262]], [98, [196, 247, 294]], [98, [196, 247, 294]], [130.8, [262, 330, 392]], [130.8, [262, 330, 392]], [98, [196, 247, 294]], [98, [196, 247, 294]], [73.4, [185, 220, 262]], [73.4, [185, 220, 262]], [98, [196, 247, 294]], [98, [196, 247, 294]]];
+        const b = this.gtr.beat++, bar = Math.floor(b / 3) % PROG.length, k = b % 3, [root, ch] = PROG[bar];
+        if (k === 0) this.pluck(root, 0.22, null);
+        else ch.forEach((f, i) => this.pluck(f, 0.07, null, i * 0.018));
+        if (k === 2 && Math.random() < 0.5) this.pluck(ch[2] * 2, 0.06, null, 0.25);
+      }
+    }
     // chase percussion
     const target = st.chase ? 1 : 0;
     this.chaseLvl += (target - this.chaseLvl) * Math.min(1, dt * (target ? 3 : 0.6));
