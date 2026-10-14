@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { AudioEngine } from './audio.js?v=1791998671';
-import { createStreet } from './street.js?v=1791998671';
-import { createRestaurant } from './restaurant.js?v=1791998671';
-import { createStore } from './store.js?v=1791998671';
-import { modelsReady } from './models.js?v=1791998671';
+import { AudioEngine } from './audio.js?v=1791999171';
+import { createStreet } from './street.js?v=1791999171';
+import { createRestaurant } from './restaurant.js?v=1791999171';
+import { createStore } from './store.js?v=1791999171';
+import { modelsReady } from './models.js?v=1791999171';
 
 const $ = (id) => document.getElementById(id);
 const PIX = 3; // render at 1/3 resolution, upscale with nearest-neighbour for the chunky pixel look
@@ -159,8 +159,7 @@ const game = {
     if (P.hidden) { $('hideView').className = 'layer'; P.hidden = null; }
     mode = 'caught'; caughtT = 0; caughtRig = rig; caughtShown = false;
     ui.cancelSay(); ui.prompt(''); ui.bigHint('');
-    const shout = Math.random() < 0.5 ? { id: 'sr_stop', who: 'Agent', text: 'Hey! Stop right there! Don\'t move!', agent: true } : { id: 'sr_found', who: 'Agent', text: 'Don\'t move! Hands where I can see them!', agent: true };
-    ui.bark(shout); audio.tackle(P.pos); audio.tone({ freq: 70, freqTo: 30, dur: 0.6, gain: 0.9 }); ui.shake(0.1, 0.5);
+    audio.muffle(true, 0.05); audio.impact(); audio.tinnitus(); ui.shake(0.12, 0.45); flashV = 0.7;
     caughtRoll = 0; caughtEye = P.eye; caughtYaw = P.yaw;
     $('caughtSub').textContent = sub || 'Luz waited up all night.';
     level.onCaught?.();
@@ -201,7 +200,7 @@ function disposeScene(s) {
 }
 function loadLevel(make) {
   if (level) { level.dispose?.(); camera.parent?.remove(camera); disposeScene(level.scene); }
-  audio.stopAll(); ui.cancelSay();
+  audio.stopAll(); audio.muffle(false, 0.05); ui.cancelSay();
   Object.assign(P, { frozen: false, reading: false, hidden: null, crouch: false, stamina: 1, exhausted: false, breath: 1, pitch: 0, eye: 1.62 });
   $('hideView').className = 'layer'; $('breathM').style.display = 'none';
   ui.post.sat.value = 0.28; ui.post.contrast.value = 1.18; ui.post.tint.value.set(0.94, 1.0, 0.98); ui.post.levels.value = 26;
@@ -213,7 +212,7 @@ function loadLevel(make) {
 }
 function toTitle() {
   if (level) { level.dispose?.(); camera.parent?.remove(camera); disposeScene(level.scene); level = null; }
-  audio.stopAll(); ui.cancelSay(); ui.hud(false);
+  audio.stopAll(); audio.muffle(false, 0.05); ui.cancelSay(); ui.hud(false);
   mode = 'title'; ['caught', 'pause', 'cards'].forEach((id) => $(id).classList.remove('on'));
   $('title').classList.add('on'); $('fade').style.opacity = 1;
   document.exitPointerLock?.();
@@ -427,11 +426,13 @@ function updateCaught(dt) {
   g.rotation.y = Math.atan2(-fx, -fz);
   g.rotation.x = 0.35; // leaning over you
   if (caughtRig.armL) { caughtRig.armL.rotation.x = -1.3; caughtRig.armR.rotation.x = -1.0; }
-  if (caughtT > 0.45 && caughtT - dt <= 0.45) { audio.noise({ dur: 0.35, type: 'lowpass', freq: 300, gain: 1 }); ui.shake(0.06, 0.3); }
+  if (caughtT > 0.45 && caughtT - dt <= 0.45) { audio.impact(); ui.shake(0.06, 0.3); }
+  if (caughtT > 1.0 && caughtT - dt <= 1.0) audio.heartbeat(0.9);
+  if (caughtT > 2.2 && caughtT - dt <= 2.2) audio.heartbeat(0.7);
   flashV = Math.max(flashV, caughtT > 0.5 ? 0.25 + Math.sin(caughtT * 9) * 0.08 : 0);
   if (caughtT > 1.2 && caughtT - dt <= 1.2) { audio.ziptie(P.pos); }
   if (caughtT > 1.6 && caughtT - dt <= 1.6) { audio.ziptie(P.pos); }
-  if (caughtT > 2.0 && caughtT - dt <= 2.0) { audio.radio(null, 1); showSub('Agent (radio)', 'One in custody. Bring the van around.', 'agent', 2.2); }
+  if (caughtT > 2.0 && caughtT - dt <= 2.0) { audio.radio(null, 0.6); showSub('', '<i>(muffled, far away)</i> ...got one.', '', 2.2); }
   if (caughtT > 3.2 && !caughtShown) {
     caughtShown = true; $('fade').style.transition = 'opacity 0.6s'; $('fade').style.opacity = 1;
     ui.hud(false); document.exitPointerLock?.();

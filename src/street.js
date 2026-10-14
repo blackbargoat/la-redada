@@ -1,8 +1,8 @@
 // LEVEL 1 — PART A: "The Walk Home". Calm walk with Rafa → blackout → raid → run.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1791998671';
-import { tex, textTex, facadeTex, rng } from './textures.js?v=1791998671';
-import { makeHumanoid, makeCharacter, animateWalk, makeBeam, makeGlow, makeCar, makeTree, std } from './models.js?v=1791998671';
+import { Grid } from './grid.js?v=1791999171';
+import { tex, textTex, facadeTex, rng } from './textures.js?v=1791999171';
+import { makeHumanoid, makeCharacter, animateWalk, makeBeam, makeGlow, makeCar, makeTree, std } from './models.js?v=1791999171';
 
 const LINES = {
   news: { id: 'st_news', who: 'Radio', text: '...and in Boyle Heights tonight, residents are reporting unmarked vehicles along Whittier Boulevard. Federal officials have not confirmed any enforcement operation...', radio: true },
@@ -243,8 +243,8 @@ export function createStreet(G, opts = {}) {
   P.pos.set(6.4, 0, 6); P.yaw = 0.15; P.pitch = -0.02;
   ui.objective('');
   ui.clock('11:41 PM');
-  audio.rainBed(); audio.setLoop('rain', 0.35, 2);
-  audio.cityBed(); audio.setLoop('city', 0.25, 2);
+  audio.rainBed(); audio.setLoop('rain', 0.16, 2);
+  audio.cityBed(); audio.setLoop('city', 0.14, 2);
   audio.preloadVo(STREET_VO);
   game.retry = () => G.loadLevel((g) => createStreet(g, { blackout: true }));
 
@@ -265,7 +265,7 @@ export function createStreet(G, opts = {}) {
     if (!fast) at(0.2, () => audio.powerDown({ x: 0, y: 5, z: P.pos.z - 30 }));
     order.forEach((lp, i) => at(0.4 + i * step, () => { killLamp(lp, i === 0); if (i === 0) { ui.flash(0.25); } }));
     const tDark = 0.4 + order.length * step;
-    at(tDark - 0.2, () => { neon.forEach((m) => (m.emissiveIntensity = 0)); windowMats.forEach((m) => (m.emissiveIntensity = 0)); dockLamp.intensity = 0; dockGlow.visible = false; hemi.intensity = 0.07; moon.intensity = 0.08; audio.setLoop('city', 0, 0.3); audio.setLoop('rain', 0.18, 1); audio.droneBed(); audio.setLoop('drone', 0.5, 4); });
+    at(tDark - 0.2, () => { neon.forEach((m) => (m.emissiveIntensity = 0)); windowMats.forEach((m) => (m.emissiveIntensity = 0)); dockLamp.intensity = 0; dockGlow.visible = false; hemi.intensity = 0.07; moon.intensity = 0.08; audio.setLoop('city', 0, 0.3); audio.setLoop('rain', 0.1, 1); audio.droneBed(); audio.setLoop('drone', 0.5, 4); });
     at(tDark + 0.8, () => { audio.carAlarm({ x: 3.8, y: 1, z: -38 }, 9); audio.bark({ x: -20, y: 1, z: P.pos.z - 25 }); });
     // silence... then an engine roars up from behind
     at(tDark + 3.2, () => {
@@ -406,7 +406,7 @@ export function createStreet(G, opts = {}) {
     // cat false scare: leaps off the dumpster, runs across the road
     if (catT >= 0) {
       catT += dt;
-      if (catT < 0.05) { audio.can({ x: 8, y: 1.4, z: -26 }); audio.catScreech({ x: 8, y: 1.3, z: -26 }); ui.shake(0.03, 0.25); }
+      if (catT < 0.05) { audio.can({ x: 8, y: 1.4, z: -26 }); audio.catScreech({ x: 8, y: 1.3, z: -26 }); ui.shake(0.03, 0.25); audio.paws({ x: 4, y: 0.2, z: -25 }, 14); setTimeout(() => audio.paws({ x: -3, y: 0.2, z: -24 }, 10), 700); setTimeout(() => audio.meow({ x: -9, y: 0.5, z: -23 }), 1600); }
       const t = Math.min(1, catT / 1.4);
       cat.position.set(8 - t * 22, Math.max(0, catT < 0.3 ? 1.45 - catT * 4.5 : 0), -26 + t * 3);
       cat.rotation.y = -Math.PI / 2 + 0.15;

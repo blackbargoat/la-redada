@@ -1,8 +1,8 @@
 // LEVEL 1 — PART B: Hammerline Depot after dark.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1791998671';
-import { tex, textTex, rng } from './textures.js?v=1791998671';
-import { makeHumanoid, makeCharacter, animateWalk, makeBeam, makeGlow, std } from './models.js?v=1791998671';
+import { Grid } from './grid.js?v=1791999171';
+import { tex, textTex, rng } from './textures.js?v=1791999171';
+import { makeHumanoid, makeCharacter, animateWalk, makeBeam, makeGlow, std } from './models.js?v=1791999171';
 
 const VO = {
   out: { id: 'sr_out', who: 'Agent (radio)', text: 'Back door\'s locked down. He\'s inside. Nobody leaves this building.', radio: true, agent: true },
@@ -594,7 +594,7 @@ export function createStore(G, checkpoint = 0) {
       ambient.gateNoise = (ambient.gateNoise || 0) - dt; if (ambient.gateNoise <= 0) { ambient.gateNoise = 1; L.onNoise(24, 62, 40.5, 'loud'); }
     },
     onRelease: () => { audio.setLoop('motor', 0, 0.1); },
-    action: () => { gateOpen = true; audio.stopLoop('motor', 0.3); audio.clunk({ x: 63, y: 2, z: 40.5 }); grid.rect(63, 38, 63, 42, 0, 0); setStage(6); audio.rainBed(); audio.setLoop('rain', 0.4, 1); },
+    action: () => { gateOpen = true; audio.stopLoop('motor', 0.3); audio.clunk({ x: 63, y: 2, z: 40.5 }); grid.rect(63, 38, 63, 42, 0, 0); setStage(6); audio.rainBed(); audio.setLoop('rain', 0.18, 1); },
   });
 
   // ---------------- initial state per checkpoint ----------------
@@ -645,7 +645,7 @@ export function createStore(G, checkpoint = 0) {
   function updateCats(dt) {
     for (const c of cats) {
       if (!c.done && c.t < 0 && Math.hypot(P.pos.x - c.x, P.pos.z - c.z) < 3.2 && !P.hidden) {
-        c.t = 0; audio.catScreech({ x: c.from[0], y: c.from[1], z: c.from[2] }); audio.can({ x: c.from[0], y: c.from[1], z: c.from[2] });
+        c.t = 0; audio.catScreech({ x: c.from[0], y: c.from[1], z: c.from[2] }); setTimeout(() => audio.paws({ x: c.to[0], y: 0.2, z: c.to[2] }, 14), 500); audio.can({ x: c.from[0], y: c.from[1], z: c.from[2] });
         audio.hit(0.55); ui.shake(0.05, 0.4); ui.flash(0.06); L.onNoise(10, c.x, c.z, 'loud');
       }
       if (c.t >= 0) {
@@ -668,6 +668,67 @@ export function createStore(G, checkpoint = 0) {
   let alarmOn = false, alarmT = 0;
   const strobes = [[31.5, 7, 43], [61, 6, 38], [54.5, 6, 2], [20, 7, 23.5]].map(([x, y, z]) => { const l = new THREE.PointLight(0xffffff, 0, 30, 1.2); l.position.set(x, y, z); scene.add(l); return l; });
   function startAlarm() { if (alarmOn) return; alarmOn = true; audio.alarmBed(); audio.setLoop('alarm', 0.12, 0.2); L.onNoise(200, 62, 40.5, 'loud'); }
+
+  // ---------------- navigation: glow-tape floor arrows, wall maps, objective glow ----------------
+  const GOALS = { 1: [7.5, 2.4], 2: [18.2, 5.5], 3: [42.5, 30.5], 4: [28.5, 2.4], 5: [61.6, 40.5], 6: [62.6, 40.5] };
+  const arrowShape = new THREE.Shape(); arrowShape.moveTo(0, 0.45); arrowShape.lineTo(0.32, 0); arrowShape.lineTo(0.12, 0); arrowShape.lineTo(0.12, -0.4); arrowShape.lineTo(-0.12, -0.4); arrowShape.lineTo(-0.12, 0); arrowShape.lineTo(-0.32, 0); arrowShape.closePath();
+  const arrowGeo = new THREE.ShapeGeometry(arrowShape); arrowGeo.rotateX(-Math.PI / 2);
+  const arrowM = new THREE.MeshBasicMaterial({ color: 0xa8ffc0, transparent: true, opacity: 0.5, depthWrite: false, fog: false });
+  const arrows = []; for (let i = 0; i < 9; i++) { const a = new THREE.Mesh(arrowGeo, arrowM.clone()); a.position.y = 0.02; a.visible = false; scene.add(a); arrows.push(a); }
+  let arrowT = 0;
+  function updateArrows(dt) {
+    arrowT -= dt; if (arrowT > 0) return; arrowT = 0.5;
+    const goal = GOALS[Math.floor(stage)];
+    arrows.forEach((a) => (a.visible = false));
+    if (!goal || P.hidden) return;
+    const path = grid.path(P.pos.x, P.pos.z, goal[0], goal[1]); if (!path || path.length < 2) return;
+    let acc = 0, k = 0, px = P.pos.x, pz = P.pos.z;
+    for (let i = 0; i < path.length - 1 && k < arrows.length; i++) {
+      const p = path[i], n = path[i + 1]; acc += Math.hypot(p.x - px, p.z - pz); px = p.x; pz = p.z;
+      if (acc < 2.2) continue; acc = 0;
+      const a = arrows[k++]; a.visible = true; a.position.set(p.x, 0.02, p.z); a.rotation.y = Math.atan2(n.x - p.x, n.z - p.z) + Math.PI;
+      a.material.opacity = 0.55 * (1 - k / (arrows.length + 2));
+    }
+  }
+  const objGlow = makeGlow(0xd8ffe0, 0.9, 0.7); scene.add(objGlow);
+  const MAPS = [[50, 1.06, 0], [20, 44.94, Math.PI], [0.94 + 0.02, 23.5, Math.PI / 2], [63.06 - 0.02, 23.5, -Math.PI / 2]];
+  const mapT = textTex(512, 360, '#e9e3d3', [{ text: 'STORE DIRECTORY', size: 46, color: '#d2541c', y: 50 }, { text: 'YOU ARE HERE', size: 30, color: '#1d1b17', y: 300 }], { border: '#d2541c' });
+  MAPS.forEach(([x, z, ry]) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.05), std(0xffffff, { map: mapT, emissive: 0x222222 })); m.position.set(x, 1.6, z); m.rotation.y = ry; scene.add(m);
+    const ix = x + Math.sin(ry) * 1.1, iz = z + Math.cos(ry) * 1.1;
+    L.interactables.push({ x: ix, z: iz, r: 1.8, label: 'Read the store map', action: () => {
+      const c = document.createElement('canvas'); c.width = 640; c.height = 460; L.drawMap(c.getContext('2d'), 640, 460);
+      ui.note(`<h3>HAMMERLINE DEPOT #0417 — STORE MAP</h3><img src="${c.toDataURL()}" style="width:100%;display:block">`);
+    } });
+  });
+
+  // ---------------- falling boxes (jumpscare) ----------------
+  const fallM = std(0xffffff, { map: tex('cardboard') });
+  const drops = [{ x: 37.5, z: 16, rackX: 35.6 }, { x: 13.5, z: 28, rackX: 16.4 }, { x: 49.5, z: 20, rackX: 47.6 }, { x: 55.5, z: 33, rackX: 53.6 }].map((d) => {
+    const boxes = [];
+    for (let i = 0; i < 5; i++) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.55, 0.6), fallM); b.position.set(d.rackX, 4.7 + (i % 2) * 0.55, d.z - 1 + i * 0.5); b.castShadow = true; scene.add(b); boxes.push({ m: b, v: new THREE.Vector3(), w: new THREE.Vector3(), rest: false }); }
+    return { ...d, boxes, done: false, t: -1 };
+  });
+  function updateDrops(dt) {
+    for (const d of drops) {
+      if (!d.done && Math.hypot(P.pos.x - d.x, P.pos.z - d.z) < 2.6 && !P.hidden) {
+        d.done = true; d.t = 0;
+        const dir = Math.sign(d.x - d.rackX);
+        d.boxes.forEach((b, i) => { b.v.set(dir * (1.2 + Math.random() * 1.5), 0.5 + Math.random(), (Math.random() - 0.5) * 1.5); b.w.set((Math.random() - 0.5) * 8, (Math.random() - 0.5) * 4, (Math.random() - 0.5) * 8); b.delay = i * 0.07; });
+        setTimeout(() => { audio.boxCrash({ x: d.x, y: 1, z: d.z }); ui.shake(0.07, 0.5); audio.hit(0.5); }, 450);
+        L.onNoise(12, d.x, d.z, 'loud');
+      }
+      if (d.t >= 0) {
+        d.t += dt;
+        for (const b of d.boxes) {
+          if (b.rest || d.t < b.delay) continue;
+          b.v.y -= 14 * dt; b.m.position.addScaledVector(b.v, dt);
+          b.m.rotation.x += b.w.x * dt; b.m.rotation.y += b.w.y * dt; b.m.rotation.z += b.w.z * dt;
+          if (b.m.position.y < 0.28) { b.m.position.y = 0.28; if (Math.abs(b.v.y) > 2) { b.v.y *= -0.25; b.v.x *= 0.5; b.v.z *= 0.5; b.w.multiplyScalar(0.4); } else { b.rest = true; b.m.rotation.set(0, b.m.rotation.y, 0); } }
+        }
+      }
+    }
+  }
 
   // ---------------- update ----------------
   L.update = (dt) => {
@@ -735,7 +796,8 @@ export function createStore(G, checkpoint = 0) {
       else if (k === 3) { for (let i = 0; i < 4; i++) audio.boot({ x: rx, y: 0.2, z: rz }, 0.3); } // footsteps that stop
       else audio.radio({ x: rx, y: 1.5, z: rz }, 0.4);
     }
-    updateCats(dt);
+    updateCats(dt); updateArrows(dt); updateDrops(dt);
+    { const gl = GOALS[Math.floor(stage)]; objGlow.visible = !!gl && stage < 6; if (gl) { objGlow.position.set(gl[0], 1.5 + Math.sin(tl * 2) * 0.1, gl[1]); objGlow.material.opacity = 0.45 + Math.sin(tl * 3) * 0.2; } }
     for (const g of eas) { g.cd -= dt; if (g.cd <= 0 && Math.abs(P.pos.x - g.x) < 0.8 && Math.abs(P.pos.z - g.z) < 0.5) { g.cd = 6; audio.easBeep({ x: g.x, y: 1, z: g.z }); L.onNoise(28, g.x, g.z, 'loud'); ui.toast('SECURITY GATE ALARM'); } }
     for (const n of nightLights) { if (n.l.intensity === 0 && L.power) continue; if (n.flick) { n.f = Math.random() < 0.05 ? Math.random() * 0.2 : Math.min(1, n.f + dt * 4); } n.l.intensity = L.power ? 0 : n.base * n.f; n.tube.visible = !L.power && n.f > 0.5; }
     if (alarmOn) { alarmT += dt; const on = Math.floor(alarmT * 6) % 2 === 0; strobes.forEach((l, i) => (l.intensity = on && (i % 2 === Math.floor(alarmT * 3) % 2) ? 40 : 0)); }

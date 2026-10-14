@@ -10,10 +10,13 @@ export class AudioEngine {
     const comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -12; comp.knee.value = 10; comp.ratio.value = 5; comp.attack.value = 0.003; comp.release.value = 0.25;
     this.master = ctx.createGain(); this.master.gain.value = 0.9;
-    this.master.connect(comp); comp.connect(ctx.destination);
+    this.muffleLP = ctx.createBiquadFilter(); this.muffleLP.type = 'lowpass'; this.muffleLP.frequency.value = 20000;
+    this.master.connect(this.muffleLP); this.muffleLP.connect(comp); comp.connect(ctx.destination);
+    this.dry = ctx.createGain(); this.dry.connect(comp); // bypasses the muffle (inner-ear sounds)
+    this.amb = ctx.createGain(); this.amb.gain.value = 1; this.amb.connect(this.master); this.voActive = 0;
     this.sfx = ctx.createGain(); this.sfx.connect(this.master);
     this.music = ctx.createGain(); this.music.gain.value = 0.8; this.music.connect(this.master);
-    this.voice = ctx.createGain(); this.voice.gain.value = 1.0; this.voice.connect(this.master);
+    this.voice = ctx.createGain(); this.voice.gain.value = 1.5; this.voice.connect(this.master);
     const n = ctx.sampleRate * 3;
     this.noiseBuf = ctx.createBuffer(1, n, ctx.sampleRate);
     const d = this.noiseBuf.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
@@ -96,7 +99,7 @@ export class AudioEngine {
       const s = this.noiseSrc(ctx); const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 900;
       const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 7000;
       const s2 = this.noiseSrc(ctx, true); const lp2 = ctx.createBiquadFilter(); lp2.type = 'lowpass'; lp2.frequency.value = 400; const g2 = ctx.createGain(); g2.gain.value = 0.5;
-      s.connect(hp); hp.connect(lp); lp.connect(g); s2.connect(lp2); lp2.connect(g2); g2.connect(g); g.connect(this.sfx);
+      s.connect(hp); hp.connect(lp); lp.connect(g); s2.connect(lp2); lp2.connect(g2); g2.connect(g); g.connect(this.amb);
       s.start(); s2.start(); return [s, s2];
     });
   }
@@ -104,7 +107,7 @@ export class AudioEngine {
     return this.loop('city', (ctx, g) => {
       const s = this.noiseSrc(ctx, true); const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 260;
       const o = ctx.createOscillator(); o.frequency.value = 60; const og = ctx.createGain(); og.gain.value = 0.04;
-      s.connect(lp); lp.connect(g); o.connect(og); og.connect(g); g.connect(this.sfx); s.start(); o.start(); return [s, o];
+      s.connect(lp); lp.connect(g); o.connect(og); og.connect(g); g.connect(this.amb); s.start(); o.start(); return [s, o];
     });
   }
   droneBed() { // night dread drone
@@ -123,7 +126,7 @@ export class AudioEngine {
     return this.loop('buzz', (ctx, g) => {
       const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 120;
       const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 240; bp.Q.value = 3;
-      o.connect(bp); bp.connect(g); g.connect(this.sfx); o.start(); return [o];
+      o.connect(bp); bp.connect(g); g.connect(this.amb); o.start(); return [o];
     });
   }
   motorBed(pos) {
@@ -305,7 +308,7 @@ export class AudioEngine {
     return this.loop('chatter', (ctx, g) => {
       const s = this.noiseSrc(ctx, true); const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 450; bp.Q.value = 1.2;
       const am = ctx.createOscillator(); am.frequency.value = 3.3; const amg = ctx.createGain(); amg.gain.value = 0.35; const v = ctx.createGain(); v.gain.value = 0.6; am.connect(amg); amg.connect(v.gain);
-      s.connect(bp); bp.connect(v); v.connect(g); g.connect(this.sfx); s.start(); am.start(); return [s, am];
+      s.connect(bp); bp.connect(v); v.connect(g); g.connect(this.amb); s.start(); am.start(); return [s, am];
     });
   }
   // Karplus-Strong plucked string
@@ -334,6 +337,19 @@ export class AudioEngine {
   }
   stopGuitar() { if (this.gtr) this.gtr.on = false; }
   guitarLevel(v) { if (this.guitarBus) this.guitarBus.gain.setTargetAtTime(v, this.t, 0.3); }
+
+  muffle(on, time = 0.15) { if (!this.ctx) return; this.muffleLP.frequency.cancelScheduledValues(this.t); this.muffleLP.frequency.setTargetAtTime(on ? 320 : 20000, this.t, time); }
+  tinnitus() { this.tone({ freq: 4100, dur: 5, type: 'sine', gain: 0.04, attack: 0.05, dest: this.dry }); this.tone({ freq: 4160, dur: 4, type: 'sine', gain: 0.02, attack: 0.3, dest: this.dry }); }
+  impact() { // body hitting the floor
+    this.noise({ dur: 0.5, type: 'lowpass', freq: 180, gain: 1, attack: 0.002, brown: true });
+    this.tone({ freq: 55, freqTo: 22, dur: 0.7, gain: 1, attack: 0.002 });
+    this.noise({ dur: 0.12, type: 'bandpass', freq: 900, q: 0.8, gain: 0.5, attack: 0.002 });
+  }
+  boxCrash(pos) {
+    for (let i = 0; i < 6; i++) { const w = i * 0.11 + Math.random() * 0.05; this.noise({ dur: 0.35, type: 'lowpass', freq: 500 + Math.random() * 400, gain: 0.7, when: w, pos }); this.tone({ freq: 90 + Math.random() * 60, freqTo: 40, dur: 0.25, gain: 0.4, when: w, pos }); }
+    this.noise({ dur: 1.2, type: 'bandpass', freq: 1800, q: 1, gain: 0.15, when: 0.3, pos });
+  }
+  paws(pos, n = 10) { for (let i = 0; i < n; i++) this.noise({ dur: 0.03, type: 'bandpass', freq: 2200 + Math.random() * 800, q: 2, gain: 0.08, when: i * 0.09, pos }); }
 
   // ---------- adaptive music ----------
   update(dt, st) {
@@ -396,6 +412,8 @@ export class AudioEngine {
     const g = this.ctx.createGain(); g.gain.value = o.gain ?? 1;
     node.connect(g); g.connect(this.out(o.pos, this.voice));
     src.start(this.t + (o.delay || 0));
+    this.voActive++; this.amb.gain.setTargetAtTime(0.22, this.t, 0.15);
+    src.onended = () => { this.voActive = Math.max(0, this.voActive - 1); if (!this.voActive) this.amb.gain.setTargetAtTime(1, this.t, 0.6); };
     return buf.duration;
   }
 }
