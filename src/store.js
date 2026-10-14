@@ -1,8 +1,8 @@
 // LEVEL 1 — PART B: Hammerline Depot after dark.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1791999607';
-import { tex, textTex, rng } from './textures.js?v=1791999607';
-import { makeHumanoid, makeCharacter, animateWalk, makeBeam, makeGlow, std } from './models.js?v=1791999607';
+import { Grid } from './grid.js?v=1792000125';
+import { tex, textTex, rng } from './textures.js?v=1792000125';
+import { makeHumanoid, makeCharacter, makeVehicle, animateWalk, makeBeam, makeGlow, std } from './models.js?v=1792000125';
 
 const VO = {
   out: { id: 'sr_out', who: 'Agent (radio)', text: 'Back door\'s locked down. He\'s inside. Nobody leaves this building.', radio: true, agent: true },
@@ -238,7 +238,7 @@ export function createStore(G, checkpoint = 0) {
   cat.position.set(38, 2.6, 3.5); scene.add(cat);
 
   // ---------------- lights ----------------
-  const hemi = new THREE.HemisphereLight(0x5a8078, 0x0a0e0d, 0.12); scene.add(hemi);
+  const hemi = new THREE.HemisphereLight(0x5a8078, 0x0a0e0d, 0.06); scene.add(hemi);
   const overhead = [[16, 18], [48, 18], [16, 31], [48, 31]].map(([x, z]) => { const l = new THREE.PointLight(0xe8f0ff, 0, 45, 1); l.position.set(x, 8, z); scene.add(l); return l; });
   const EM = [[6, 3.0, 10.4], [28.5, 3.0, 10.4], [54.5, 4.6, 1.5], [31.5, 4.6, 44.2], [61.6, 4.4, 40.5], [32, 6.5, 23.5]];
   const emerg = EM.map(([x, y, z]) => {
@@ -249,9 +249,9 @@ export function createStore(G, checkpoint = 0) {
   const police = [0xff1010, 0x1030ff].map((c, i) => { const l = new THREE.PointLight(c, 0, 20, 1.3); l.position.set(29 + i * 5, 2.5, 47); scene.add(l); return l; });
   // overnight security lights: a few dim fixtures stay on even in the blackout (battery backup), some flicker
   const nightLights = [[8, 23.5, 0], [26, 17, 1], [44, 29, 0], [56, 23.5, 1], [20, 38, 0], [44, 39, 0], [40, 6, 1]].map(([x, z, flick]) => {
-    const l = new THREE.PointLight(0xcfe0e8, 7, 16, 1.4); l.position.set(x, 7.6, z); scene.add(l);
+    const l = new THREE.PointLight(0xcfe0e8, 4, 13, 1.5); l.position.set(x, 7.6, z); scene.add(l);
     const tube = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.08, 2.2), new THREE.MeshBasicMaterial({ color: 0xdfeef0 })); tube.position.set(x, 8.2, z); scene.add(tube);
-    return { l, tube, base: 7, flick, f: 1 };
+    return { l, tube, base: 4, flick, f: 1 };
   });
   const AL = [0, 1, 2, 3].map(() => { const s = new THREE.SpotLight(0xdde8ff, 0, 22, 0.34, 0.5, 1.1); s.position.set(0, -50, 0); s.castShadow = true; s.shadow.mapSize.set(512, 512); s.shadow.camera.near = 0.4; s.shadow.camera.far = 24; s.shadow.bias = -0.0005; s.shadow.normalBias = 0.04; scene.add(s); scene.add(s.target); return s; });
 
@@ -259,7 +259,7 @@ export function createStore(G, checkpoint = 0) {
     L.power = on;
     overhead.forEach((l) => (l.intensity = on ? 60 : 0));
     nightLights.forEach((n) => { n.l.intensity = on ? 0 : n.base; });
-    hemi.intensity = on ? 0.55 : 0.12;
+    hemi.intensity = on ? 0.45 : 0.06;
     fixM.emissiveIntensity = on ? 2.2 : 0;
     scene.fog.density = on ? 0.025 : 0.075;
     emerg.forEach((e) => (e.base = on ? 0.5 : 2.6));
@@ -502,6 +502,7 @@ export function createStore(G, checkpoint = 0) {
   // ---------------- noise ----------------
   L.onNoise = (radius, x, z, kind) => {
     if (radius <= 0) return;
+    if (kind === 'loud' && breachArmed && radius >= 10) triggerBreach(radius >= 25);
     for (const a of agents) {
       if (!a.active || a.state === 'chase' || a.state === 'inspect') continue;
       const mul = a.def.hear * (a.state === 'listen' ? 2.2 : 1);
@@ -521,8 +522,14 @@ export function createStore(G, checkpoint = 0) {
   L.onCaught = () => { audio.stopLoop('motor', 0.1); };
 
   // ---------------- story beats ----------------
-  const events = []; let tl = 0, lockT = 0;
+  const events = []; let tl = 0, lockT = 0, breachArmed = false;
+  function triggerBreach(alarm) {
+    if (!breachArmed) return; breachArmed = false;
+    if (alarm) { audio.alarmBed(); audio.setLoop('alarm', 0.1, 0.1); ui.toast('SECURITY ALARM — ZONE 4'); emerg.forEach((e) => (e.stutter = 3)); setTimeout(() => audio.stopLoop('alarm', 1), 7000); }
+    at(alarm ? 5 : 0.5, breach);
+  }
   const at = (t, fn) => events.push({ t: tl + t, fn });
+  const skelState = { moves: 0, cool: 0, pending: false };
   let ghost = null, ghostT = 0, skelDone = false, catDone = false, cartDone = false, gateOpen = false, gateProg = 0, darkLine = false;
   const ambient = { t: 25 + r() * 20 };
 
@@ -539,13 +546,38 @@ export function createStore(G, checkpoint = 0) {
     game.retry = () => G.loadLevel((g) => createStore(g, s));
   }
 
+  // ---------------- the phone ----------------
+  const ph = G.phone;
+  if (checkpoint <= 1) { ph.reset(); ph.state.hasPhone = false; }
+  ph.history('Gus', [[false, 'good work today. same time tmrw'], [true, 'gracias gus']]);
+  ph.history('Rosa', [[false, 'Mijo the pozole is ready. Ten o clock. Both of you.']]);
+  ph.state.noAnswer = { Rafa: 'The number you have dialed is not available.', Rosa: 'No answer', Luz: 'No answer', Chuy: 'No answer', Gus: 'No answer' };
+  function lockerPhone() {
+    return new Promise((res) => {
+      ph.state.hasPhone = true; ph.state.battery = 0.34;
+      ph.voicemail('Luz', '9:14 PM', 'Papi, are you coming home soon? Mami says I can stay up until you get here. I made you a card. Don\'t look at it until Saturday, okay? Te quiero mucho.');
+      ph.open('messages', 'Chuy'); document.exitPointerLock?.();
+      ph.receive('Chuy', 'they took rafa. i saw from the bus', 0.4, 0.8)
+        .then(() => ph.receive('Chuy', 'they have the front and the dock', 0, 1.0))
+        .then(() => ph.receive('Chuy', 'garden center gate nobody is watching. its on the electric lock, needs power', 0, 1.4))
+        .then(() => ph.receive('Chuy', 'breaker blew last week dale never fixed it. fuse is 30 amp aisle 7', 0, 1.3))
+        .then(() => ph.receive('Chuy', 'gate key is in dales desk', 0, 0.9))
+        .then(() => ph.receive('Chuy', 'corre carnal', 0, 0.6))
+        .then(() => ph.replies('Chuy', [
+          { text: 'where are you??', then: () => ph.receive('Chuy', 'bus bench across the street. they cant see me. GO', 1, 1.5) },
+          { text: 'is rafa ok', then: () => ph.receive('Chuy', 'they put him in the van. lo siento carnal', 1, 2) },
+        ]));
+      ph.state.onClose = res;
+    });
+  }
+
   // ---------------- interactables ----------------
   const it = (o) => { L.interactables.push(o); return o; };
   it({ x: 2.6, z: 8.1, label: 'Read the corkboard', action: () => ui.note('<h3>NIGHT CREW — READ THIS</h3>Cash pay is pushed to NEXT Friday. Don\'t talk to anybody about the schedule.\nDon\'t use the front entrance after 11.\n— Dale\n\n<i>(Underneath, in pen: "you said that last friday" — R.)</i>') });
   it({ x: 7.5, z: 2.4, label: 'Open your locker', enabled: () => stage === 1, action: () => {
     audio.creak({ x: 7.5, y: 1, z: 1.7 }); audio.pickup(); myLocker.rotation.y = -1.2; myLocker.position.x -= 0.4; myLocker.position.z += 0.35; phoneGlow.visible = false;
-    audio.vibrate();
-    ui.note('<h3>VOICEMAIL — LUZ — 9:14 PM</h3>"Papi, are you coming home soon? Mami says I can stay up until you get here. I made you a card. Don\'t look at it until Saturday, okay? Te quiero mucho."\n\n<h3>CHUY — 11:59 PM</h3>they took rafa. i saw from the bus\nthey have the front and the dock\ngarden center gate nobody is watching it. its on the electric lock, needs power\nbreaker blew last week dale never fixed it. fuse is 30 amp aisle 7\ngate key is in dales desk\ncorre carnal', 'phone').then(() => {
+    audio.vibrate(); triggerBreach(true);
+    lockerPhone().then(() => {
       setStage(2);
       // fake-out: someone in the doorway
       ghost = makeCharacter('agent', { agent: true, hat: 'cap', gloves: true }, 1.85); ghost.group.position.set(6, 0, 17); ghost.group.rotation.y = Math.PI; scene.add(ghost.group); ghostT = 0;
@@ -558,6 +590,7 @@ export function createStore(G, checkpoint = 0) {
     L.onNoise(26, 17.5, 4, 'loud');
     mon.material.emissive.setHex(0x99aabb);
     setStage(3);
+    setTimeout(() => ph.receive('Luz', 'papi?? the news says police by hammerline. are you ok', 0, 2).then(() => ph.replies('Luz', [{ text: 'Im ok mija. Stay with Rosa. Lock the door.', then: () => ph.receive('Luz', 'ok. te quiero papi', 2, 2) }, { text: 'Go to sleep mija. Im coming.', then: () => ph.receive('Luz', 'promise?', 2, 1.5).then(() => ph.replies('Luz', [{ text: 'I promise.' }])) }])), 20000);
     ui.note('<h3>HAMMERLINE DEPOT #0417 — PRINTOUT ON DALE\'S DESK</h3>TIP CONFIRMATION — submitted 10/13, 4:52 PM\nLocation: Hammerline Depot #0417, loading entrance\nIndividuals: 3–4, night stocking crew (paid cash)\nNotes: crew on site after 11 PM\nSubmitted by: D. Pruitt, Store Manager\n\n<i>A sticky note on the corner: "nights payroll = $0 if nobody\'s here to collect."</i>').then(() => ui.say([VO.m2]));
   } });
   it({ x: 42.5, z: 30.5, label: 'Take the 30-amp fuse', enabled: () => stage === 3, action: () => {
@@ -612,11 +645,9 @@ export function createStore(G, checkpoint = 0) {
     at(2.6, () => { audio.radio({ x: 54.5, y: 1.5, z: -1.5 }); ui.bark({ ...VO.out, pos: { x: 54.5, y: 1.5, z: -1.5 } }); });
     at(7.5, () => { ui.say([VO.m1]); });
     at(9.0, () => { P.frozen = false; setStage(1); ui.bigHint('PRESS <kbd>F</kbd> FLASHLIGHT<small>ONE BATTERY. IT HAS TO LAST ALL NIGHT. TURN IT OFF TO SAVE IT.</small>'); document.getElementById('bigHint').dataset.k = 'F'; });
-    lockT = 120;
+    breachArmed = true;
     at(25, () => { audio.radio({ x: 31.5, y: 1.5, z: 48 }, 0.6); ui.bark({ id: 'sr_wait1', who: 'Agent (radio, outside)', text: 'Entry team\'s on the way. Nobody goes in till they\'re here.', radio: true, agent: true }); });
-    at(90, () => { audio.radio({ x: 31.5, y: 1.5, z: 48 }, 0.6); ui.bark({ id: 'sr_wait2', who: 'Agent (radio, outside)', text: 'Thirty seconds. Cut the chains on my mark.', radio: true, agent: true }); });
-    at(110, () => { audio.chains({ x: 31.5, y: 1.2, z: 45.5 }); });
-    at(120, () => { lockT = 0; breach(); document.getElementById('timer').textContent = ''; });
+    at(240, () => triggerBreach(false)); // they come in eventually, without warning
   } else {
     setStage(stage); ui.clock('12:2' + stage + ' AM');
     police.forEach((l) => (l.userData.on = true));
@@ -630,6 +661,7 @@ export function createStore(G, checkpoint = 0) {
   const catGeoM = std(0x050505, { roughness: 0.4 });
   const catEyeM = new THREE.MeshBasicMaterial({ color: 0xd8f070 });
   function makeCat() {
+    const glb = makeVehicle('cat', 0.6, 0x222222, 0.7); if (glb) { glb.visible = false; scene.add(glb); return glb; }
     const c = new THREE.Group();
     const b = (w, h, d, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), catGeoM); m.position.set(x, y, z); c.add(m); };
     b(0.18, 0.18, 0.45, 0, 0.22, 0); b(0.14, 0.13, 0.14, 0, 0.32, 0.27); b(0.04, 0.04, 0.35, 0, 0.35, -0.33);
@@ -657,7 +689,7 @@ export function createStore(G, checkpoint = 0) {
         const k = Math.min(1, c.t / 0.55), m = c.mesh.position;
         m.x = c.from[0] + (c.to[0] - c.from[0]) * k; m.z = c.from[2] + (c.to[2] - c.from[2]) * k;
         m.y = c.from[1] + (c.to[1] - c.from[1]) * k + Math.sin(k * Math.PI) * 0.8;
-        if (k >= 1) { const run = c.t - 0.55; m.x += Math.sin(c.mesh.rotation.y) * run * 0.12; m.z += Math.cos(c.mesh.rotation.y) * run * 0.12; m.y = 0; }
+        if (k >= 1) { const run = c.t - 0.55; m.x += Math.sin(c.mesh.rotation.y) * run * 0.12; m.z += Math.cos(c.mesh.rotation.y) * run * 0.12; m.y = Math.abs(Math.sin(run * 16)) * 0.12; c.mesh.rotation.x = Math.sin(run * 16) * 0.15; }
         if (c.t > 2.4) { c.mesh.visible = false; c.t = -1; c.done = true; }
       }
     }
@@ -779,6 +811,22 @@ export function createStore(G, checkpoint = 0) {
       jaw.position.y = 5.22;
       setTimeout(() => { skelLight.intensity = 3; jaw.position.y = 5.32; }, 2200);
     }
+    // the skeleton moves when you're not looking
+    {
+      const sp = skel.position, cam = G.camera.position;
+      const dx = sp.x - cam.x, dz = sp.z - cam.z, dist = Math.hypot(dx, dz);
+      tmpV.set(dx, 4.5 - cam.y, dz).normalize();
+      const seen = tmpV.dot(G.camera.getWorldDirection(new THREE.Vector3())) > 0.55 && dist < 22 && grid.los(cam.x, cam.z, sp.x, sp.z);
+      skelState.cool -= dt;
+      if (!seen && skelDone && skelState.moves < 5 && skelState.cool <= 0 && dist > 4 && dist < 24) {
+        const oz = Math.floor(sp.z), nz = Math.max(25, Math.min(34, oz + Math.sign(P.pos.z - sp.z)));
+        if (nz !== oz && Math.floor(P.pos.z) !== nz) { grid.rect(20, oz, 20, oz, 0, 0); sp.z = nz + 0.5; grid.rect(20, nz, 20, nz, 1, 0); }
+        skel.rotation.y = Math.atan2(P.pos.x - sp.x, P.pos.z - sp.z);
+        skelState.moves++; skelState.cool = 7 + r() * 6; skelState.pending = true;
+        skelLight.position.set(sp.x - 0.2, 5.6, sp.z);
+      }
+      if (seen && skelState.pending) { skelState.pending = false; audio.creak({ x: sp.x, y: 3, z: sp.z }); audio.tone({ freq: 60, freqTo: 40, dur: 1.2, gain: 0.35, dest: audio.music }); }
+    }
     // black cat: knocks over a can as you enter the floor from receiving
     if (!catDone && P.pos.z > 9 && P.pos.z < 14 && P.pos.x > 30) { catDone = true; ambient.catT = 0; audio.can({ x: 38, y: 2, z: 4 }); }
     if (ambient.catT != null) {
@@ -803,7 +851,6 @@ export function createStore(G, checkpoint = 0) {
       else { audio.thunder(0.2 + r() * 0.4); ui.flash(0.03); }
     }
     updateCats(dt); updateArrows(dt); updateDrops(dt);
-    if (lockT > 0) { lockT -= dt; const m = Math.floor(lockT / 60), sec = Math.max(0, Math.floor(lockT % 60)); document.getElementById('timer').textContent = `ENTRY TEAM BREACHING IN ${m}:${String(sec).padStart(2, '0')}`; }
     { const gl = GOALS[Math.floor(stage)]; objGlow.visible = !!gl && stage < 6; if (gl) { objGlow.position.set(gl[0], 1.5 + Math.sin(tl * 2) * 0.1, gl[1]); objGlow.material.opacity = 0.45 + Math.sin(tl * 3) * 0.2; } }
     for (const g of eas) { g.cd -= dt; if (g.cd <= 0 && Math.abs(P.pos.x - g.x) < 0.8 && Math.abs(P.pos.z - g.z) < 0.5) { g.cd = 6; audio.easBeep({ x: g.x, y: 1, z: g.z }); L.onNoise(28, g.x, g.z, 'loud'); ui.toast('SECURITY GATE ALARM'); } }
     for (const n of nightLights) { if (n.l.intensity === 0 && L.power) continue; if (n.flick) { n.f = Math.random() < 0.05 ? Math.random() * 0.2 : Math.min(1, n.f + dt * 4); } n.l.intensity = L.power ? 0 : n.base * n.f; n.tube.visible = !L.power && n.f > 0.5; }

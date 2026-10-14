@@ -1,8 +1,8 @@
 // LEVEL 1 — PART A: "The Walk Home". Calm walk with Rafa → blackout → raid → run.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1791999607';
-import { tex, textTex, facadeTex, rng } from './textures.js?v=1791999607';
-import { makeHumanoid, makeCharacter, makeVehicle, animateWalk, makeBeam, makeGlow, makeCar, makeTree, std } from './models.js?v=1791999607';
+import { Grid } from './grid.js?v=1792000125';
+import { tex, textTex, facadeTex, rng } from './textures.js?v=1792000125';
+import { makeHumanoid, makeCharacter, makeVehicle, animateWalk, makeBeam, makeGlow, makeCar, makeTree, std } from './models.js?v=1792000125';
 
 const LINES = {
   news: { id: 'st_news', who: 'Radio', text: '...and in Boyle Heights tonight, residents are reporting unmarked vehicles along Whittier Boulevard. Federal officials have not confirmed any enforcement operation...', radio: true },
@@ -45,7 +45,7 @@ export function createStreet(G, opts = {}) {
   const r = rng(4242);
 
   // ---- lighting ----
-  const hemi = new THREE.HemisphereLight(0x5a8078, 0x0a0f0e, 0.4); scene.add(hemi);
+  const hemi = new THREE.HemisphereLight(0x5a8078, 0x0a0f0e, 0.2); scene.add(hemi);
   const moon = new THREE.DirectionalLight(0x8ab0a8, 0.3); moon.position.set(-20, 40, 10); scene.add(moon);
 
   // ---- ground ----
@@ -69,6 +69,7 @@ export function createStreet(G, opts = {}) {
   const wallCols = ['#5b5048', '#4b5552', '#6a5a46', '#50463f', '#5d5a52', '#47504c'];
   const awnCols = [0x6e1d1a, 0x1d4a3a, 0x24304e, 0x6a4a18, 0x3a1d40];
   const neon = [];
+  const neonLights = [];
   const windowMats = [];
   let shopI = 0;
   function building(side, z0, len) {
@@ -88,7 +89,10 @@ export function createStreet(G, opts = {}) {
     sh.position.set(fx - side * 0.03, 1.5, z0 - len / 2); sh.rotation.y = side < 0 ? Math.PI / 2 : -Math.PI / 2; scene.add(sh);
     const lit = r() < 0.45;
     const signT = textTex(512, 128, '#1a1612', [{ text: n[0], size: 54, color: '#e9dcc0', y: 50 }, { text: n[1], size: 26, color: '#c8b28a', y: 100, weight: 'normal' }], { border: '#3a3026', grime: true });
-    const signM = std(0xffffff, { map: signT, emissiveMap: signT, emissive: lit ? 0xffffff : 0x000000, emissiveIntensity: lit ? 1.3 : 0 });
+    const NEON = [0xff3a4a, 0x3aff8a, 0xff5ac8, 0x4aa8ff, 0xffb040];
+    const ncol = NEON[shopI % NEON.length];
+    const signM = std(0xffffff, { map: signT, emissiveMap: signT, emissive: lit ? ncol : 0x000000, emissiveIntensity: lit ? 1.6 : 0 });
+    if (lit && neonLights.length < 6) { const nl = new THREE.PointLight(ncol, 9, 11, 1.5); nl.position.set(fx - side * 1.6, 3.6, z0 - len / 2); scene.add(nl); neonLights.push(nl); const ng = makeGlow(ncol, 2.2, 0.5); ng.position.set(fx - side * 0.4, 3.75, z0 - len / 2); scene.add(ng); neonLights.push(ng); }
     const sign = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.1, sw), [signM, signM, std(0x111111), std(0x111111), std(0x111111), std(0x111111)]);
     sign.position.set(fx - side * 0.1, 3.75, z0 - len / 2); scene.add(sign);
     if (lit) neon.push(signM);
@@ -126,14 +130,15 @@ export function createStreet(G, opts = {}) {
   // ---- props: cars, trees, poles, wires, dumpsters, bus stop ----
   const carCols = [0x4a4f55, 0x6b1f1f, 0x2b3a4a, 0x8a8478, 0x1e3a2a, 0x3b3b3b];
   const parked = [[-3.8, 2], [-3.8, -12], [-3.8, -24], [-3.8, -45], [3.8, -8], [3.8, -20], [3.8, -38], [3.8, -74], [-3.8, -98], [3.8, -92], [-3.8, -110]];
+  const civTints = [0x6a6a66, 0x3a4658, 0x5a3434, 0x3a4a3c, 0x4a4a48, 0x2e2e36];
   for (const [x, z] of parked) {
-    const c = makeCar(carCols[(r() * carCols.length) | 0]); c.position.set(x, 0, z); c.rotation.y = x < 0 ? 0 : Math.PI; scene.add(c);
+    const c = makeVehicle('suv', 4.3, civTints[(r() * civTints.length) | 0], 0.3) || makeCar(carCols[(r() * carCols.length) | 0]); c.position.set(x, 0, z); c.rotation.y = x < 0 ? 0 : Math.PI; scene.add(c);
     grid.rect(Math.floor(x - 1), Math.floor(z - 2.3), Math.floor(x + 0.9), Math.floor(z + 2.2), 1, 0);
   }
   // ICE vehicles: textured GLB SUV (falls back to the box car)
   const iceLights = [];
   function makeICE() {
-    const v = makeVehicle('suv', 5.3);
+    const v = makeVehicle('suv', 4.8, 0x161616, 0.6); // blacked out
     if (!v) return makeCar(0x0a0b0c, true);
     const hl = [];
     for (const sx of [-0.72, 0.72]) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.12, 0.04), std(0x222222, { emissive: 0x000000 })); m.position.set(sx, 1.05, 2.62); v.add(m); hl.push(m); }
@@ -157,11 +162,12 @@ export function createStreet(G, opts = {}) {
     const side = i % 2 ? -1 : 1, x = side * 7.8;
     const p = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.13, 6.4, 6), std(0x2a2d2e, { metalness: 0.6, roughness: 0.5 })); p.position.set(x, 3.2, z); scene.add(p);
     const arm = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.08, 0.08), std(0x2a2d2e)); arm.position.set(x - side * 0.9, 6.3, z); scene.add(arm);
-    const headM = std(0x222222, { emissive: 0xe0f4e4, emissiveIntensity: 2.5 });
+    const lampCol = i % 3 === 1 ? 0xffaa58 : 0xd6f0dc;
+    const headM = std(0x222222, { emissive: lampCol, emissiveIntensity: 2.5 });
     const head = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.18, 0.35), headM); head.position.set(x - side * 1.7, 6.2, z); scene.add(head);
-    const light = new THREE.PointLight(0xd6f0dc, 46, 28, 1.4); light.position.set(x - side * 1.7, 5.9, z); scene.add(light);
-    const glow = makeGlow(0xd8f4e0, 3.2, 0.85); glow.position.set(x - side * 1.7, 6.0, z); scene.add(glow);
-    const cone = makeBeam(6.2, 3.2, 0xd0eedc, 0.09); cone.position.set(x - side * 1.7, 6.1, z); cone.rotation.x = Math.PI / 2; scene.add(cone);
+    const light = new THREE.PointLight(lampCol, 32, 24, 1.5); light.position.set(x - side * 1.7, 5.9, z); scene.add(light);
+    const glow = makeGlow(lampCol, 3.2, 0.85); glow.position.set(x - side * 1.7, 6.0, z); scene.add(glow);
+    const cone = makeBeam(6.2, 3.2, lampCol, 0.09); cone.position.set(x - side * 1.7, 6.1, z); cone.rotation.x = Math.PI / 2; scene.add(cone);
     lamps.push({ light, headM, glow, cone, z, on: true, x: x - side * 1.7, flick: i === 2 || i === 4, f: 1 });
   });
   // telephone poles + wires
@@ -177,7 +183,7 @@ export function createStreet(G, opts = {}) {
     }
     prevTop = z;
   }
-  [[-7.2, -6], [7.2, -40], [-7.2, -58], [7.2, -108], [-7.2, -92]].forEach(([x, z], i) => { const t = makeTree(i + 3); t.position.set(x, 0, z); scene.add(t); grid.rect(Math.floor(x), Math.floor(z), Math.floor(x), Math.floor(z), 1, 0); });
+  // (trees removed: they didn't fit the look)
   // dumpster (cat jumps off it)
   const dumpM = std(0x1f3a2a, { roughness: 0.6, metalness: 0.3 });
   const dump = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.3, 2.4), dumpM); dump.position.set(8.0, 0.8, -26); dump.castShadow = true; scene.add(dump);
@@ -187,7 +193,9 @@ export function createStreet(G, opts = {}) {
   const shelter = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.1, 3.5), std(0x333333)); shelter.position.set(7.8, 2.5, 8); scene.add(shelter);
   const bench = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.45, 2.5), std(0x3a3a3a)); bench.position.set(8.3, 0.4, 8); scene.add(bench);
   const busT = textTex(256, 128, '#20262a', [{ text: 'METRO', size: 44, color: '#e0d8c0', y: 46 }, { text: '18 · WHITTIER BL', size: 24, color: '#b8b098', y: 94, weight: 'normal' }]);
-  const busSign = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.45), std(0xffffff, { map: busT })); busSign.position.set(7.1, 2.2, 9.6); busSign.rotation.y = -Math.PI / 2; scene.add(busSign);
+  const busPole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.8, 6), std(0x3a3d3e, { metalness: 0.6 })); busPole.position.set(6.2, 1.4, 10.5); scene.add(busPole);
+  const busSign = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.45, 0.9), [std(0xffffff, { map: busT }), std(0xffffff, { map: busT }), std(0x20262a), std(0x20262a), std(0x20262a), std(0x20262a)]); busSign.position.set(6.2, 2.55, 10.5); scene.add(busSign);
+  for (const z of [6.4, 9.6]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.5, 6), std(0x3a3d3e, { metalness: 0.6 })); leg.position.set(7.2, 1.25, z); scene.add(leg); }
 
   // ---- sky glow + rain ----
   const sky = new THREE.Mesh(new THREE.SphereGeometry(300, 16, 8), new THREE.MeshBasicMaterial({ color: 0x15211f, side: THREE.BackSide, fog: false })); scene.add(sky);
@@ -205,6 +213,7 @@ export function createStreet(G, opts = {}) {
   const tail = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.35), catM); tail.position.set(0, 0.32, -0.33); tail.rotation.x = 0.6; cat.add(tail);
   for (const s of [-1, 1]) { const e = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.02, 0.01), new THREE.MeshBasicMaterial({ color: 0xd8f070 })); e.position.set(s * 0.035, 0.34, 0.345); cat.add(e); }
   cat.position.set(8.0, 1.45, -26); cat.visible = true; scene.add(cat);
+  { const glb = makeVehicle('cat', 0.6, 0x222222, 0.7); if (glb) { cat.children.slice().forEach((ch) => cat.remove(ch)); cat.add(glb); } }
   let catT = -1;
 
   // ---- characters ----
@@ -258,6 +267,8 @@ export function createStreet(G, opts = {}) {
   audio.cityBed(); audio.setLoop('city', 0.14, 2);
   audio.preloadVo(STREET_VO);
   game.retry = () => G.loadLevel((g) => createStreet(g, { blackout: true }));
+  G.phone.state.hasPhone = true; G.phone.state.battery = 0.41;
+  if (!G.phone.state.threads.Rosa.length) G.phone.history('Rosa', [[false, 'Mijo the pozole is ready. Ten o clock. Both of you.'], [true, 'Si señora']]);
 
   // Rafa leads the way down the east sidewalk
   const route = [[7.0, 2], [6.8, -10], [6.6, -24], [6.2, -27.5], [6.6, -31], [6.8, -44], [7.0, -55]];
@@ -276,7 +287,7 @@ export function createStreet(G, opts = {}) {
     if (!fast) at(0.2, () => audio.powerDown({ x: 0, y: 5, z: P.pos.z - 30 }));
     order.forEach((lp, i) => at(0.4 + i * step, () => { killLamp(lp, i === 0); if (i === 0) { ui.flash(0.25); } }));
     const tDark = 0.4 + order.length * step;
-    at(tDark - 0.2, () => { neon.forEach((m) => (m.emissiveIntensity = 0)); windowMats.forEach((m) => (m.emissiveIntensity = 0)); dockLamp.intensity = 0; dockGlow.visible = false; hemi.intensity = 0.07; moon.intensity = 0.08; audio.setLoop('city', 0, 0.3); audio.setLoop('rain', 0.1, 1); audio.droneBed(); audio.setLoop('drone', 0.5, 4); });
+    at(tDark - 0.2, () => { neon.forEach((m) => (m.emissiveIntensity = 0)); neonLights.forEach((n) => { if (n.isLight) n.intensity = 0; else n.visible = false; }); windowMats.forEach((m) => (m.emissiveIntensity = 0)); dockLamp.intensity = 0; dockGlow.visible = false; hemi.intensity = 0.05; moon.intensity = 0.05; audio.setLoop('city', 0, 0.3); audio.setLoop('rain', 0.1, 1); audio.droneBed(); audio.setLoop('drone', 0.5, 4); });
     at(tDark + 0.8, () => { audio.carAlarm({ x: 3.8, y: 1, z: -38 }, 9); audio.bark({ x: -20, y: 1, z: P.pos.z - 25 }); });
     // silence... then an engine roars up from behind
     at(tDark + 3.2, () => {
@@ -297,6 +308,7 @@ export function createStreet(G, opts = {}) {
       ui.bark(LINES.r7); rafaState = 'flee';
       phase = 'run'; L.allowSprint = true; L.speedMul = 1; darkT = 0;
       ui.objective('RUN. Down the driveway past the Hammerline sign, to the loading dock.');
+      G.phone.close(); G.phone.state.hasPhone = false; setTimeout(() => { audio.noise({ dur: 0.1, type: 'highpass', freq: 3000, gain: 0.3 }); ui.toast('YOU DROPPED YOUR PHONE'); }, 1500);
       agents.forEach((a) => { if (a.role === 'chase') a.role = 'chaseGo'; });
     });
     at(tDark + 11.0, () => { ui.bark(LINES.a2); });
@@ -318,7 +330,12 @@ export function createStreet(G, opts = {}) {
     at(11.5, () => { P.frozen = false; });
     at(13.0, () => { audio.vibrate(); ui.toast('INCOMING CALL — DOÑA ROSA'); });
     at(14.5, () => { audio.vibrate(); });
-    at(16.0, () => { lines('rosa1', 'mp1', 'rosa2', 'mp2', 'r0', 'rfollow').then(() => { if (phase === 'intro') { phase = 'walk'; ui.objective('Follow Rafa home down Whittier. Stay close to him.'); lines('r1', 'm1'); } }); });
+    at(16.0, () => { lines('rosa1', 'mp1', 'rosa2', 'mp2', 'r0', 'rfollow').then(() => { if (phase === 'intro') { phase = 'walk'; ui.objective('Follow Rafa home down Whittier. Stay close to him.'); lines('r1', 'm1');
+        G.phone.receive('Luz', 'papi mami said i can stay up til you get home', 14, 1.5).then(() => G.phone.replies('Luz', [
+          { text: 'Almost home mija. Go brush your teeth.', then: () => G.phone.receive('Luz', 'ok!! te quiero papi', 2, 1.5) },
+          { text: 'With tio Rafa. 10 min.', then: () => G.phone.receive('Luz', 'tell tio rafa he owes me a quesadilla', 2, 2) },
+        ]));
+      } }); });
   }
   const triggers = [
     { p: 16, fn: () => lines('r2', 'm2') },
@@ -355,13 +372,13 @@ export function createStreet(G, opts = {}) {
       amb.flashT = 0.35; ui.flash(0.06 + near * 0.12);
       setTimeout(() => audio.thunder(near), (1 - near) * 3500 + 200);
     }
-    if (amb.flashT > 0) { amb.flashT -= dt; const on = (amb.flashT > 0.25 || (amb.flashT > 0.05 && amb.flashT < 0.15)); hemi.intensity = on ? 1.6 : (phase === 'walk' || phase === 'intro' ? 0.35 : 0.07); }
+    if (amb.flashT > 0) { amb.flashT -= dt; const on = (amb.flashT > 0.25 || (amb.flashT > 0.05 && amb.flashT < 0.15)); hemi.intensity = on ? 1.4 : (phase === 'walk' || phase === 'intro' ? 0.2 : 0.05); }
     if (amb.drip <= 0) { amb.drip = 0.4 + Math.random() * 1.6; audio.drip({ x: P.pos.x + (Math.random() - 0.5) * 8, y: 2 + Math.random() * 2, z: P.pos.z + (Math.random() - 0.5) * 8 }); }
     if (amb.wind <= 0) { amb.wind = 12 + Math.random() * 15; audio.wind(); }
     // flickering streetlights
     for (const lp of lamps) if (lp.on && lp.flick) {
       lp.f = Math.random() < 0.04 ? Math.random() * 0.25 : Math.min(1, lp.f + dt * 5);
-      lp.light.intensity = 46 * lp.f; lp.headM.emissiveIntensity = 2.5 * lp.f; lp.glow.material.opacity = 0.85 * lp.f;
+      lp.light.intensity = 32 * lp.f; lp.headM.emissiveIntensity = 2.5 * lp.f; lp.glow.material.opacity = 0.85 * lp.f;
       if (lp.f < 0.3 && Math.random() < 0.3 && Math.hypot(lp.x - P.pos.x, lp.z - P.pos.z) < 25) audio.tone({ freq: 120, dur: 0.08, type: 'sawtooth', gain: 0.03, filter: 900, pos: { x: lp.x, y: 6, z: lp.z } });
     }
     // traffic
@@ -429,7 +446,7 @@ export function createStreet(G, opts = {}) {
       catT += dt;
       if (catT < 0.05) { audio.can({ x: 8, y: 1.4, z: -26 }); audio.catScreech({ x: 8, y: 1.3, z: -26 }); ui.shake(0.03, 0.25); audio.paws({ x: 4, y: 0.2, z: -25 }, 14); setTimeout(() => audio.paws({ x: -3, y: 0.2, z: -24 }, 10), 700); setTimeout(() => audio.meow({ x: -9, y: 0.5, z: -23 }), 1600); }
       const t = Math.min(1, catT / 1.4);
-      cat.position.set(8 - t * 22, Math.max(0, catT < 0.3 ? 1.45 - catT * 4.5 : 0), -26 + t * 3);
+      cat.position.set(8 - t * 22, Math.max(0, catT < 0.3 ? 1.45 - catT * 4.5 : Math.abs(Math.sin(catT * 16)) * 0.12), -26 + t * 3); cat.rotation.x = Math.sin(catT * 16) * 0.15;
       cat.rotation.y = -Math.PI / 2 + 0.15;
       if (catT > 0.35 && catT < 0.4) lines('cat');
       if (t >= 1) { catT = -1; cat.visible = false; }

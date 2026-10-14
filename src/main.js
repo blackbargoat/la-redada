@@ -1,9 +1,10 @@
 import * as THREE from 'three';
-import { AudioEngine } from './audio.js?v=1791999607';
-import { createStreet } from './street.js?v=1791999607';
-import { createRestaurant } from './restaurant.js?v=1791999607';
-import { createStore } from './store.js?v=1791999607';
-import { modelsReady } from './models.js?v=1791999607';
+import { AudioEngine } from './audio.js?v=1792000125';
+import { createStreet } from './street.js?v=1792000125';
+import { createRestaurant } from './restaurant.js?v=1792000125';
+import { createStore } from './store.js?v=1792000125';
+import { createPhone } from './phone.js?v=1792000125';
+import { modelsReady } from './models.js?v=1792000125';
 
 const $ = (id) => document.getElementById(id);
 const PIX = 3; // render at 1/3 resolution, upscale with nearest-neighbour for the chunky pixel look
@@ -24,7 +25,7 @@ const post = new THREE.ShaderMaterial({
   uniforms: {
     tDiffuse: { value: rt.texture }, res: { value: new THREE.Vector2(1, 1) }, time: { value: 0 },
     sat: { value: 0.45 }, exposure: { value: 1.0 }, contrast: { value: 1.18 }, flash: { value: 0 }, red: { value: 0 },
-    tint: { value: new THREE.Vector3(0.82, 0.98, 0.97) }, lift: { value: new THREE.Vector3(0.0, 0.018, 0.022) }, levels: { value: 26 }, blackout: { value: 0 }, bright: { value: 1.3 },
+    tint: { value: new THREE.Vector3(0.9, 0.98, 0.96) }, lift: { value: new THREE.Vector3(0.0, 0.01, 0.012) }, levels: { value: 26 }, blackout: { value: 0 }, bright: { value: 1.05 },
   },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
   fragmentShader: `
@@ -74,8 +75,8 @@ flash.shadow.camera.near = 0.3; flash.shadow.camera.far = 32; flash.shadow.bias 
 const audio = new AudioEngine();
 const keys = new Set();
 // rebindable controls
-const DEFAULT_BINDS = { forward: 'KeyW', back: 'KeyS', left: 'KeyA', right: 'KeyD', sprint: 'ShiftLeft', crouch: 'KeyC', flashlight: 'KeyF', interact: 'KeyE', breath: 'Space', map: 'Tab' };
-const BIND_NAMES = { forward: 'Move forward', back: 'Move back', left: 'Move left', right: 'Move right', sprint: 'Sprint', crouch: 'Crouch', flashlight: 'Flashlight', interact: 'Interact / hide', breath: 'Hold breath', map: 'Store map' };
+const DEFAULT_BINDS = { forward: 'KeyW', back: 'KeyS', left: 'KeyA', right: 'KeyD', sprint: 'ShiftLeft', crouch: 'KeyC', flashlight: 'KeyF', interact: 'KeyE', breath: 'Space', map: 'Tab', phone: 'KeyP' };
+const BIND_NAMES = { forward: 'Move forward', back: 'Move back', left: 'Move left', right: 'Move right', sprint: 'Sprint', crouch: 'Crouch', flashlight: 'Flashlight', interact: 'Interact / hide', breath: 'Hold breath', map: 'Store map', phone: 'Phone' };
 let BINDS = { ...DEFAULT_BINDS };
 try { Object.assign(BINDS, JSON.parse(localStorage.getItem('lr_binds') || '{}')); } catch (e) { }
 const held = (a) => keys.has(BINDS[a]);
@@ -85,6 +86,7 @@ const P = {
   hidden: null, frozen: false, reading: false, flashlight: false, battery: 1, lens: 0,
   holdingBreath: false, breath: 1, bob: 0, stepAcc: 0, sprinting: false, speedNow: 0, lookLock: null,
 };
+let phoneMode = false;
 let mode = 'title', paused = false, level = null, time = 0;
 let shakeAmt = 0, shakeT = 0, flashV = 0, caughtT = 0, caughtRig = null, caughtShown = false;
 let currentIt = null, caughtRoll = 0, caughtEye = 1.62, caughtYaw = 0;
@@ -106,9 +108,9 @@ async function speak(l, token) {
   await sleep(dur);
 }
 const ui = {
-  objective(t) { $('objText').textContent = t; if (t) ui.toast('NEW OBJECTIVE'); },
+  objective(t) { $('objText').textContent = t; if (t) ui.toast('NEW OBJECTIVE'); phone.objective(t); },
   toast(t, d = 2.2) { const e = $('toast'); e.textContent = t; e.style.opacity = 1; clearTimeout(e._t); e._t = setTimeout(() => (e.style.opacity = 0), d * 1000); },
-  clock(t) { $('clock').textContent = t; },
+  clock(t) { $('clock').textContent = t; phone.state.gameClock = t.replace(/ [AP]M/, ''); },
   prompt(t, prog) { $('prompt').innerHTML = t ? `${t}${prog != null ? `<div class="bar"><i style="width:${(prog * 100) | 0}%"></i></div>` : ''}` : ''; },
   // queued dialogue
   say(lines) { const tok = sayToken; sayChain = sayChain.then(async () => { for (const l of lines) await speak(l, tok); }); return sayChain; },
@@ -165,6 +167,7 @@ const game = {
   caught(rig, sub) {
     if (mode !== 'play') return;
     if (P.hidden) { $('hideView').className = 'layer'; P.hidden = null; }
+    phone.close();
     mode = 'caught'; caughtT = 0; caughtRig = rig; caughtShown = false;
     ui.cancelSay(); ui.prompt(''); ui.bigHint('');
     audio.muffle(true, 0.05); audio.impact(); audio.tinnitus(); ui.shake(0.12, 0.45); flashV = 0.7;
@@ -198,7 +201,8 @@ const game = {
 };
 
 // ---------------- levels ----------------
-const G = { THREE, renderer, camera, audio, ui, P, game, keys, flash };
+const phone = createPhone(audio);
+const G = { THREE, renderer, camera, audio, ui, P, game, keys, flash, phone };
 G.loadLevel = (m) => loadLevel(m);
 function disposeScene(s) {
   s.traverse((o) => {
@@ -208,10 +212,10 @@ function disposeScene(s) {
 }
 function loadLevel(make) {
   if (level) { level.dispose?.(); camera.parent?.remove(camera); disposeScene(level.scene); }
-  audio.stopAll(); audio.muffle(false, 0.05); ui.cancelSay();
+  audio.stopAll(); audio.muffle(false, 0.05); ui.cancelSay(); phone.close();
   Object.assign(P, { frozen: false, reading: false, hidden: null, crouch: false, stamina: 1, exhausted: false, breath: 1, pitch: 0, eye: 1.62 });
   $('hideView').className = 'layer'; $('breathM').style.display = 'none';
-  ui.post.sat.value = 0.45; ui.post.contrast.value = 1.14; ui.post.tint.value.set(0.82, 0.98, 0.97); ui.post.lift.value.set(0.0, 0.018, 0.022); ui.post.levels.value = 28;
+  ui.post.exposure.value = 0.8; ui.post.sat.value = 0.55; ui.post.contrast.value = 1.16; ui.post.tint.value.set(0.9, 0.98, 0.96); ui.post.lift.value.set(0.0, 0.01, 0.012); ui.post.levels.value = 28;
   level = make(G);
   level.scene.add(camera);
   mode = 'play'; paused = false;
@@ -231,7 +235,8 @@ function lockPointer() { const c = renderer.domElement; if (document.pointerLock
 renderer.domElement.addEventListener('click', () => { if (mode === 'play') lockPointer(); });
 document.addEventListener('pointerlockchange', () => {
   const locked = document.pointerLockElement === renderer.domElement;
-  if (!locked && mode === 'play' && !P.reading) { paused = true; $('pause').classList.add('on'); }
+  if (!locked && mode === 'play' && !P.reading && !phone.isOpen) { paused = true; $('pause').classList.add('on'); }
+  if (!locked && phone.isOpen) { /* phone in hand: mouse is free to tap it */ }
   if (locked) { paused = false; $('pause').classList.remove('on'); }
 });
 document.addEventListener('mousemove', (e) => {
@@ -245,11 +250,18 @@ document.addEventListener('mousemove', (e) => {
   }
 });
 addEventListener('keydown', (e) => {
+  if (e.code === 'Escape' && phone.isOpen) { phone.close(); lockPointer(); return; }
   if (e.code === 'Tab' || is(e, 'map')) e.preventDefault();
   if (rebinding) return;
   if (e.repeat) return;
   keys.add(e.code);
   if (mode !== 'play' || paused) return;
+  if (is(e, 'phone') && !P.hidden) {
+    if (phone.isOpen) { phone.close(); lockPointer(); }
+    else if (phone.open()) { phoneMode = true; document.exitPointerLock?.(); audio.click(); }
+    else ui.toast('NO PHONE');
+    return;
+  }
   if (is(e, 'interact')) {
     if (ui._noteClose) { ui._noteClose(); return; }
     if (P.hidden) { game.unhide(); return; }
@@ -311,7 +323,7 @@ $('chapBack').onclick = () => $('chapters').classList.remove('on');
 // ---------------- brightness calibration ----------------
 function loadBright() { try { const v = parseFloat(localStorage.getItem('lr_bright')); return isFinite(v) ? v : null; } catch (e) { return null; } }
 function saveBright(v) { try { localStorage.setItem('lr_bright', String(v)); } catch (e) { } }
-post.uniforms.bright.value = loadBright() ?? 1.3;
+post.uniforms.bright.value = loadBright() ?? 1.05;
 function drawBrightPreview() {
   const c = $('brightCanvas'), x = c.getContext('2d'), b = post.uniforms.bright.value;
   x.fillStyle = '#000'; x.fillRect(0, 0, c.width, c.height);
@@ -521,4 +533,4 @@ frame();
 })();
 
 // debug hooks (used for testing / screenshots)
-window.__dbg = { P, ui, audio, get level() { return level; }, startStreet: (o) => { $('title').classList.remove('on'); loadLevel((g) => createStreet(g, o)); }, startStore: (c = 0) => { $('title').classList.remove('on'); loadLevel((g) => createStore(g, c)); }, setMode: (m) => { mode = m; paused = false; }, startRest: () => { $('title').classList.remove('on'); loadLevel((g) => createRestaurant(g)); }, get mode() { return mode; }, get paused() { return paused; } };
+window.__dbg = { P, ui, audio, phone, get level() { return level; }, startStreet: (o) => { $('title').classList.remove('on'); loadLevel((g) => createStreet(g, o)); }, startStore: (c = 0) => { $('title').classList.remove('on'); loadLevel((g) => createStore(g, c)); }, setMode: (m) => { mode = m; paused = false; }, startRest: () => { $('title').classList.remove('on'); loadLevel((g) => createRestaurant(g)); }, get mode() { return mode; }, get paused() { return paused; } };

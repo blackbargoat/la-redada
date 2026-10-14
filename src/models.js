@@ -1,6 +1,6 @@
 // Low-poly (PS3-era) procedural models.
 import * as THREE from 'three';
-import { jacketTex } from './textures.js?v=1791999607';
+import { jacketTex } from './textures.js?v=1792000125';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
@@ -8,7 +8,7 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 const GLB = {};
 export const modelsReady = (async () => {
   const loader = new GLTFLoader();
-  await Promise.all(['rafa', 'agent', 'rosa', 'luz', 'gus', 'elena', 'rafa_run', 'agent_run', 'suv'].map(async (k) => {
+  await Promise.all(['rafa', 'agent', 'rosa', 'luz', 'gus', 'elena', 'rafa_run', 'agent_run', 'suv', 'cat'].map(async (k) => {
     try {
       const g = await loader.loadAsync(`assets/models/${k}.glb`);
       // strip root motion: keep the hips' vertical bob, pin x/z to the first frame
@@ -19,7 +19,8 @@ export const modelsReady = (async () => {
     } catch (e) { console.warn('model load failed', k, e); }
   }));
 })();
-export function makeVehicle(kind, length = 5.2) {
+const pixCache = new Map();
+export function makeVehicle(kind, length = 5.2, tint = null, rough = 0.35) {
   const src = GLB[kind]; if (!src) return null;
   const obj = src.scene.clone(true);
   const box = new THREE.Box3().setFromObject(obj), size = box.getSize(new THREE.Vector3());
@@ -29,7 +30,19 @@ export function makeVehicle(kind, length = 5.2) {
   const c = box.getCenter(new THREE.Vector3());
   obj.position.set(-c.x * s, -box.min.y * s, -c.z * s);
   const pivot = new THREE.Group(); pivot.add(obj); if (alongX) pivot.rotation.y = Math.PI / 2;
-  obj.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; if (m.material) { m.material = m.material.clone(); m.material.roughness = 0.35; m.material.metalness = 0.4; } } });
+  obj.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; if (m.material) {
+      m.material = m.material.clone(); m.material.roughness = rough; m.material.metalness = 0.4; if (tint != null) m.material.color.setHex(tint);
+      // chunky PS-era look: shrink the texture and sample it without smoothing
+      const map = m.material.map;
+      if (map && map.image) {
+        if (!pixCache.has(map)) {
+          const c = document.createElement('canvas'); c.width = c.height = 96; c.getContext('2d').drawImage(map.image, 0, 0, 96, 96);
+          const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.flipY = map.flipY; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
+          pixCache.set(map, t);
+        }
+        m.material.map = pixCache.get(map); m.material.flatShading = true; m.material.needsUpdate = true;
+      }
+    } } });
   const g = new THREE.Group(); g.add(pivot); g.userData.pivot = pivot;
   return g;
 }
