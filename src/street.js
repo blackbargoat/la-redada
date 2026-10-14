@@ -1,8 +1,8 @@
 // LEVEL 1 — PART A: "The Walk Home". Juan and Santiago walk home → the street feels wrong → ICE → run.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792004124';
-import { tex, textTex, facadeTex, rng } from './textures.js?v=1792004124';
-import { makeHumanoid, makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeCar, makeTree, std } from './models.js?v=1792004124';
+import { Grid } from './grid.js?v=1792004170';
+import { tex, textTex, facadeTex, rng } from './textures.js?v=1792004170';
+import { makeHumanoid, makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeCar, makeTree, std } from './models.js?v=1792004170';
 
 const LINES = {
   u1: { id: 'st_u1', who: 'Santiago', text: '...Hey. That car. It\'s been behind us since the bus stop.' },
@@ -343,7 +343,7 @@ export function createStreet(G, opts = {}) {
     at(9.4, () => { P.lookLock = { yaw: Math.atan2(-(rafa.group.position.x - P.pos.x), -(rafa.group.position.z - P.pos.z)), pitch: -0.05, k: 3 }; });
     at(13.0, () => { audio.vibrate(); ui.toast('INCOMING CALL — DOÑA ROSA'); });
     at(14.5, () => { audio.vibrate(); });
-    at(16.0, () => { lines('rosa1', 'mp1', 'rosa2', 'mp2', 'r0', 'rfollow').then(() => { P.frozen = false; P.lookLock = null; if (phase === 'intro') { phase = 'walk'; ui.objective('Walk home with Santiago down Whittier. Stay close to him.'); lines('r1', 'm1');
+    at(16.0, () => { lines('rosa1', 'mp1', 'rosa2', 'mp2', 'r0', 'rfollow').then(() => { P.frozen = false; P.lookLock = null; if (phase === 'intro') { phase = 'walk'; ui.objective('Walk home with Santiago. Straight down Whittier, past the Hammerline sign.'); lines('r1', 'm1');
         G.phone.receive('Luz', 'papi mami said i can stay up til you get home', 14, 0).then(() => G.phone.receive('Luz', 'te quiero papi. hurry!!', 6, 0));
       } }); });
   }
@@ -457,20 +457,22 @@ export function createStreet(G, opts = {}) {
     const dPl = Math.hypot(P.pos.x - rg.x, P.pos.z - rg.z);
     if (rafaState === 'walk') {
       let sp = 0;
-      if ((phase === 'walk') && ri < route.length) {
-        const [tx, tz] = route[ri];
+      if (phase === 'walk') {
+        // side by side, at your pace: a step to your right (street side), level with you
+        const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw);
+        const tx = Math.max(5.6, Math.min(8.4, P.pos.x + 1.1)), tz = P.pos.z + (Math.abs(fz) > 0.3 ? 0.15 : 0);
         const dx = tx - rg.x, dz = tz - rg.z, d = Math.hypot(dx, dz);
-        if (d < 0.4) ri++;
-        else if (dPl < 6.5) { sp = 1.6; rg.x += dx / d * sp * dt; rg.z += dz / d * sp * dt; rafa.group.rotation.y = Math.atan2(dx, dz); }
-        else { // waits for you, looks back
-          const want = Math.atan2(P.pos.x - rg.x, P.pos.z - rg.z); rafa.group.rotation.y += (want - rafa.group.rotation.y) * dt * 3;
-          waitCD -= dt; if (waitCD <= 0 && dPl > 9) { waitCD = 16; ui.bark(LINES.rwait); }
+        if (d > 0.25) {
+          sp = Math.min(Math.max(P.speedNow, d > 2 ? 3.4 : 0), d * 3.5, 4.2);
+          if (sp > 0.05) { rg.x += dx / d * sp * dt; rg.z += dz / d * sp * dt; }
         }
+        const want = sp > 0.3 ? Math.atan2(dx, dz) : Math.atan2(fx, fz);
+        let df = want - rafa.group.rotation.y; df = Math.atan2(Math.sin(df), Math.cos(df)); rafa.group.rotation.y += df * Math.min(1, dt * 5);
       } else if (phase === 'intro' || phase === 'blackout') {
         const lookAt = phase === 'blackout' ? Math.atan2(1.5 - rg.x, (suv2.visible ? suv2.position.z : -80) - rg.z) : Math.atan2(P.pos.x - rg.x, P.pos.z - rg.z);
         let df = lookAt - rafa.group.rotation.y; df = Math.atan2(Math.sin(df), Math.cos(df)); rafa.group.rotation.y += df * dt * 3;
       }
-      rafaPhase += sp * dt * 3.2; animateWalk(rafa, rafaPhase, Math.min(1, sp / 1.6), false);
+      rafaPhase += sp * dt * 2.9; animateWalk(rafa, rafaPhase, Math.min(1, sp / 1.2), false, sp);
       marker.visible = phase === 'walk' && dPl > 8; marker.position.set(rg.x, 2.35, rg.z);
     } else if (rafaState === 'flee') {
       rg.x -= dt * 3.2; rg.z += dt * 0.6; rafaPhase += dt * 10; animateWalk(rafa, rafaPhase, 1, false, 4.5);
@@ -480,7 +482,7 @@ export function createStreet(G, opts = {}) {
       rafa.group.rotation.x = -rafaFall * Math.PI / 2 * 0.98; rg.y = 0.15 - rafaFall * 0.05;
       animateWalk(rafa, 0, 0, false);
     }
-    const prog = 6 - rg.z;
+    const prog = 6 - P.pos.z;
     for (let i = triggers.length - 1; i >= 0; i--) if (phase === 'walk' && prog > triggers[i].p) { const t = triggers[i]; triggers.splice(i, 1); t.fn(); }
 
     // cat false scare: leaps off the dumpster, runs across the road
