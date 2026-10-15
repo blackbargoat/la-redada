@@ -18,13 +18,15 @@
   #hideView.locker { background: repeating-linear-gradient(180deg, #000 0 26px, transparent 26px 34px), radial-gradient(ellipse at center, transparent 30%, #000 75%); }
   #hideView.shed { background: linear-gradient(90deg, #000 0 46%, transparent 46% 54%, #000 54% 100%); }
   #hideView.john { background: linear-gradient(180deg, #000 0 30%, transparent 30% 42%, #000 42% 100%); }
+  #hideView.bush { background: radial-gradient(ellipse 62% 48% at 50% 46%, transparent 62%, rgba(5,12,7,0.92) 100%), radial-gradient(circle at 6% 18%, rgba(8,18,10,0.9) 0 11%, transparent 12%), radial-gradient(circle at 95% 22%, rgba(8,18,10,0.9) 0 10%, transparent 11%), radial-gradient(circle at 14% 96%, rgba(9,20,11,0.9) 0 15%, transparent 16%), radial-gradient(circle at 88% 98%, rgba(9,20,11,0.9) 0 14%, transparent 15%), radial-gradient(circle at 50% 108%, rgba(9,20,11,0.85) 0 14%, transparent 15%); }
   #alert { z-index: 6; opacity: 0; background: radial-gradient(ellipse at center, transparent 45%, rgba(150,0,0,0.75) 100%); }
   #hud { z-index: 10; }
   #objective { position: absolute; top: 22px; left: 26px; max-width: 460px; font-size: 17px; letter-spacing: 0.04em; text-shadow: 0 2px 6px #000; opacity: 0.92; }
   #objective small { display: block; font-size: 11px; letter-spacing: 0.3em; color: #c9c2b0; margin-bottom: 4px; }
   #night { position: absolute; top: 22px; right: 26px; text-align: right; font-size: 13px; letter-spacing: 0.3em; text-shadow: 0 2px 6px #000; }
   #night b { display: block; font-size: 26px; letter-spacing: 0.12em; }
-  #prompt { position: absolute; left: 50%; top: 58%; transform: translateX(-50%); font-size: 18px; letter-spacing: 0.08em; text-shadow: 0 2px 8px #000; text-align: center; }
+  #prompt { position: absolute; left: 50%; top: 58%; transform: translateX(-50%); font-size: 18px; letter-spacing: 0.08em; text-shadow: 0 2px 8px #000, 0 0 3px #000; text-align: center; white-space: nowrap; }
+  #prompt:not(:empty) { background: radial-gradient(ellipse at center, rgba(0,0,0,0.5), rgba(0,0,0,0) 72%); padding: 6px 28px; }
   #prompt .bar { width: 180px; height: 4px; background: rgba(255,255,255,0.2); margin: 8px auto 0; }
   #prompt .bar i { display: block; height: 100%; background: var(--ink); width: 0; }
   #dot { position: absolute; left: 50%; top: 50%; width: 3px; height: 3px; margin: -1px; background: rgba(255,255,255,0.6); }
@@ -35,6 +37,15 @@
   .meter { height: 3px; background: rgba(255,255,255,0.15); margin: 3px 0 9px; }
   .meter i { display: block; height: 100%; background: var(--ink); width: 100%; transition: width 0.15s; }
   #breathM { display: none; }
+  #vitals { position: absolute; left: 22px; bottom: 138px; display: flex; gap: 14px; }
+  .vital { width: 50px; text-align: center; font-size: 9px; letter-spacing: 0.25em; text-shadow: 0 2px 6px #000; }
+  .vital svg { width: 50px; height: 50px; display: block; filter: drop-shadow(0 2px 4px #000); }
+  .vital .trk { fill: rgba(0,0,0,0.35); stroke: rgba(255,255,255,0.15); stroke-width: 3; }
+  .vital .arc { fill: none; stroke: var(--ink); stroke-width: 3; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 24px 24px; stroke-dasharray: 125.7; transition: stroke-dashoffset 0.3s, stroke 0.3s; }
+  .vital .ico { fill: var(--ink); transition: fill 0.3s; }
+  .vital .stm { fill: none; stroke: var(--ink); stroke-width: 1.6; stroke-linecap: round; }
+  .vital.low .arc, .vital.low .stm { stroke: var(--red); } .vital.low .ico { fill: var(--red); }
+  .vital b { display: block; font-weight: 400; margin-top: 3px; }
   #bigHint { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); font-size: 30px; letter-spacing: 0.18em; text-align: center; opacity: 0; transition: opacity 0.4s; text-shadow: 0 2px 10px #000; }
   #bigHint kbd { display: inline-block; border: 2px solid var(--ink); padding: 2px 16px; margin: 0 10px; font-family: Oswald, sans-serif; font-size: 34px; }
   #bigHint small { display: block; font-size: 13px; letter-spacing: 0.3em; margin-top: 10px; color: #c9c2b0; }
@@ -43,7 +54,7 @@
   #dirHint i { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-style: normal; font-size: 30px; line-height: 1; color: #e8e4d8; text-shadow: 0 1px 6px #000; transition: transform 0.25s; }
   #dirHint b { position: absolute; left: 0; right: 0; bottom: -18px; text-align: center; font-weight: 400; font-size: 10px; letter-spacing: 0.25em; color: #c9c2b0; }
   #timer { position: absolute; left: 50%; top: 22px; transform: translateX(-50%); font-size: 16px; letter-spacing: 0.25em; color: #e8c2b0; text-shadow: 0 2px 8px #000; }
-  #toast { position: absolute; left: 50%; top: 30%; transform: translateX(-50%); font-size: 15px; letter-spacing: 0.25em; opacity: 0; transition: opacity 0.4s; text-shadow: 0 2px 8px #000; }
+  #toast { position: absolute; left: 50%; top: 22%; transform: translateX(-50%); font-size: 15px; letter-spacing: 0.25em; opacity: 0; transition: opacity 0.4s; text-shadow: 0 2px 8px #000; }
   .screen { position: fixed; inset: 0; z-index: 50; display: none; align-items: center; justify-content: center; flex-direction: column; text-align: center; background: #000; pointer-events: auto; }
   .screen.on { display: flex; }
   #title .btn { min-width: 260px; }
@@ -125,6 +136,10 @@
   <div id="dirHint"><i>&#8963;</i><b></b></div>
   <div id="bigHint"></div>
   <div id="subs"></div>
+  <div id="vitals">
+    <div class="vital" id="vHealth"><svg viewBox="0 0 48 48"><circle class="trk" cx="24" cy="24" r="20"/><circle class="arc" cx="24" cy="24" r="20"/><path class="ico" d="M24 33.5C15.5 27.5 13 23 13 19.5c0-3.2 2.4-5.5 5.2-5.5 2.4 0 4.2 1.4 5.8 3.6 1.6-2.2 3.4-3.6 5.8-3.6 2.8 0 5.2 2.3 5.2 5.5 0 3.5-2.5 8-11 14z"/></svg><b>HEALTH</b></div>
+    <div class="vital" id="vFood"><svg viewBox="0 0 48 48"><circle class="trk" cx="24" cy="24" r="20"/><circle class="arc" cx="24" cy="24" r="20"/><path class="ico" d="M13 24h22c0 5.5-4.6 9.5-11 9.5S13 29.5 13 24z"/><path class="stm" d="M19 21c-1.6-2.2 1.6-3.4 0-6M24 21c-1.6-2.2 1.6-3.4 0-6M29 21c-1.6-2.2 1.6-3.4 0-6"/></svg><b>FOOD</b></div>
+  </div>
   <div id="meters">
     <div id="staM">STAMINA<div class="meter"><i id="staBar"></i></div></div>
     <div id="batM">FLASHLIGHT <span id="batPct" style="float:right">100%</span><div class="meter"><i id="batBar"></i></div></div>
@@ -143,6 +158,7 @@
   <div id="rec"><span id="recDot">&#9679;</span> REC</div>
   <div id="recTime"></div>
   <div id="recBat">&#9646;&#9646;&#9646;&#9647;</div>
+  <button class="btn" id="continueBtn" style="display:none">CONTINUE</button>
   <button class="btn" id="startBtn">NEW GAME</button>
   <button class="btn" id="storeBtn">CHAPTERS</button>
   <button class="btn" id="settingsBtn">SETTINGS</button>
@@ -155,12 +171,12 @@
   <div style="display:flex;gap:8px;margin-top:14px"><button class="btn" id="setReset" style="font-size:13px">RESET CONTROLS</button><button class="btn" id="setBack">BACK</button></div>
   <div class="warn">HEADPHONES RECOMMENDED. CONTAINS JUMPSCARES, FLASHING LIGHTS, AND DEPICTIONS OF IMMIGRATION ENFORCEMENT. A WORK OF FICTION.</div>
 </div>
-<div id="chapters" class="screen" style="z-index:55"><h1 style="letter-spacing:.2em;font-size:34px;margin:0 0 20px">CHAPTERS</h1><div id="chapterList" style="display:flex;flex-direction:column;align-items:stretch;min-width:420px"></div><button class="btn" id="chapBack" style="margin-top:24px;font-size:14px">BACK</button></div>
+<div id="chapters" class="screen" style="z-index:55"><h1 style="letter-spacing:.2em;font-size:34px;margin:0 0 20px">CHAPTERS</h1><div id="chapterList" style="display:flex;flex-direction:column;align-items:stretch;min-width:min(420px,90vw)"></div><button class="btn" id="chapBack" style="margin-top:24px;font-size:14px">BACK</button></div>
 <div id="cards" class="screen"><div id="cardText"></div><div id="cardHint">CLICK TO CONTINUE</div></div>
-<div id="caught" class="screen"><h1>DETAINED</h1><p id="caughtSub">Luz waited up all night.</p><button class="btn" id="retryBtn">TRY AGAIN</button><button class="btn" id="menuBtn">MAIN MENU</button></div>
+<div id="caught" class="screen"><h1 id="caughtTitle">DETAINED</h1><p id="caughtSub">Luz waited up all night.</p><button class="btn" id="retryBtn">TRY AGAIN</button><button class="btn" id="menuBtn">MAIN MENU</button></div>
 <div id="pause" class="screen"><h1 style="letter-spacing:.2em;font-size:42px;margin:0 0 20px">PAUSED</h1><button class="btn" id="resumeBtn">RESUME</button><button class="btn" id="pauseSettingsBtn">SETTINGS</button><button class="btn" id="pauseMenuBtn">MAIN MENU</button></div>
 <div id="bright" class="screen" style="z-index:60"><h1 style="letter-spacing:.2em;font-size:34px;margin:0 0 6px">ADJUST BRIGHTNESS</h1><p style="font-family:'Special Elite',monospace;color:#c9c2b0;margin:0 0 22px">Move the slider until the LEFT symbol is barely visible<br>and the other two are clearly visible.</p><canvas id="brightCanvas" width="520" height="180" style="background:#000"></canvas><input id="brightSlider" type="range" min="0.7" max="2.4" step="0.02" style="width:420px;margin:26px 0"><button class="btn" id="brightOk">CONTINUE</button></div>
 
-<script type="module" src="src/main.js?v=1792005012"></script>
+<script type="module" src="src/main.js?v=1792081431"></script>
 </body>
 </html>

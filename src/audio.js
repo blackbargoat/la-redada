@@ -1,7 +1,7 @@
 // Procedural audio engine: every SFX and music cue is synthesized with WebAudio.
 // Voice-over lines are loaded from assets/vo/<id>.mp3 when present.
 export class AudioEngine {
-  constructor() { this.ctx = null; this.voCache = new Map(); this.loops = {}; this.chaseLvl = 0; this.beatT = 0; this.beat = 0; this.heartT = 0; }
+  constructor() { this.ctx = null; this.voCache = new Map(); this.cache = new Map(); this.loops = {}; this.chaseLvl = 0; this.beatT = 0; this.beat = 0; this.heartT = 0; }
 
   init() {
     if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
@@ -90,7 +90,7 @@ export class AudioEngine {
     setTimeout(() => { for (const n of L.nodes) { try { n.stop(); } catch (e) { } } L.g.disconnect(); }, time * 1000 + 300);
     delete this.loops[name];
   }
-  stopAll() { for (const k of Object.keys(this.loops)) this.stopLoop(k, 0.3); this.chaseLvl = 0; this.gtr = null; }
+  stopAll() { for (const k of Object.keys(this.loops)) this.stopLoop(k, 0.3); this.chaseLvl = 0; this.gtr = null; this.stopCumbia(); }
   noiseSrc(ctx, brown) { const s = ctx.createBufferSource(); s.buffer = brown ? this.brownBuf : this.noiseBuf; s.loop = true; return s; }
 
   // ---------- beds ----------
@@ -278,7 +278,6 @@ export class AudioEngine {
   }
   drip(pos) { this.tone({ freq: 1800 + Math.random() * 1500, freqTo: 900, dur: 0.07, type: 'sine', gain: 0.05, pos }); }
   wind() { this.noise({ dur: 4 + Math.random() * 3, type: 'bandpass', freq: 400, freqTo: 900, q: 0.7, gain: 0.12, attack: 1.5, dest: this.amb }); }
-  siren(pos, dur = 6) { this.tone({ freq: 700, dur, type: 'sawtooth', gain: 0.025, pos, filter: 1400, vib: [0.5, 260] }); }
   carDoor(pos) { this.noise({ dur: 0.25, type: 'lowpass', freq: 700, gain: 0.8, pos }); this.tone({ freq: 90, freqTo: 50, dur: 0.25, gain: 0.5, pos }); }
   tackle(pos) { this.noise({ dur: 0.4, type: 'lowpass', freq: 400, gain: 1, pos }); this.noise({ dur: 0.5, type: 'bandpass', freq: 1500, gain: 0.3, pos, when: 0.05 }); }
   ziptie(pos) { for (let i = 0; i < 9; i++) this.noise({ dur: 0.02, type: 'highpass', freq: 4000, gain: 0.15, pos, when: i * 0.035 }); }
@@ -325,7 +324,7 @@ export class AudioEngine {
     });
   }
   // Karplus-Strong plucked string
-  pluck(freq, gain = 0.1, pos, when = 0) {
+  pluck(freq, gain = 0.1, pos, when = 0, dest) {
     if (!this.ctx) return;
     const key = Math.round(freq);
     let buf = this.cache.get(key);
@@ -338,7 +337,7 @@ export class AudioEngine {
     }
     const src = this.ctx.createBufferSource(); src.buffer = buf;
     const g = this.ctx.createGain(); g.gain.value = gain;
-    src.connect(g); g.connect(this.out(pos, this.guitarBus || this.music)); src.start(this.t + when);
+    src.connect(g); g.connect(dest || this.out(pos, this.guitarBus || this.music)); src.start(this.t + when);
   }
   // ranchera-style waltz on a little radio/jukebox
   startGuitar(pos) {
@@ -374,10 +373,69 @@ export class AudioEngine {
   thump(pos) { this.noise({ dur: 0.3, type: 'lowpass', freq: 220, gain: 0.5, pos, brown: true }); this.tone({ freq: 60, freqTo: 40, dur: 0.25, gain: 0.3, pos }); }
 
   gunshot(pos) {
+    // close, unmistakable: a clipped crack, the boom, then it rolls off the buildings
+    this.tone({ freq: 900, freqTo: 120, dur: 0.09, type: 'square', gain: 0.6, attack: 0.001, dist: true, pos });
+    this.noise({ dur: 0.05, type: 'highpass', freq: 2500, gain: 1, attack: 0.001, dest: this.dry });
     this.noise({ dur: 0.06, type: 'highpass', freq: 1200, gain: 1, attack: 0.001, pos });
     this.noise({ dur: 0.35, type: 'lowpass', freq: 900, freqTo: 120, gain: 1, attack: 0.001, pos });
     this.tone({ freq: 140, freqTo: 38, dur: 0.4, gain: 0.9, attack: 0.001, pos });
     for (const [w, g] of [[0.22, 0.35], [0.5, 0.2], [0.9, 0.12], [1.4, 0.06]]) this.noise({ dur: 0.8, type: 'lowpass', freq: 600, freqTo: 150, gain: g, attack: 0.01, when: w, dest: this.amb });
+  }
+
+  // two police sirens somewhere across the neighborhood, wailing out of sync
+  sirenBed() {
+    return this.loop('siren', (ctx, g) => {
+      const nodes = [];
+      for (const [base, depth, rate, pan] of [[930, 330, 0.21, -0.6], [1010, 380, 0.29, 0.5]]) {
+        const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = base;
+        const l = ctx.createOscillator(); l.type = 'triangle'; l.frequency.value = rate; const lg = ctx.createGain(); lg.gain.value = depth; l.connect(lg); lg.connect(o.frequency);
+        const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1300;
+        const v = ctx.createGain(); v.gain.value = 0.5; const p = ctx.createStereoPanner(); p.pan.value = pan;
+        o.connect(lp); lp.connect(v); v.connect(p); p.connect(g); o.start(); l.start(); nodes.push(o, l);
+      }
+      g.connect(this.amb); return nodes;
+    });
+  }
+  waterBed() { // sewer: running water, low rumble of the street above
+    return this.loop('water', (ctx, g) => {
+      const s = this.noiseSrc(ctx); const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 900; bp.Q.value = 0.6;
+      const am = ctx.createOscillator(); am.frequency.value = 0.4; const amg = ctx.createGain(); amg.gain.value = 0.25; const v = ctx.createGain(); v.gain.value = 0.6; am.connect(amg); amg.connect(v.gain);
+      const b = this.noiseSrc(ctx, true); const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 160; const bg = ctx.createGain(); bg.gain.value = 0.9;
+      s.connect(bp); bp.connect(v); v.connect(g); b.connect(lp); lp.connect(bg); bg.connect(g); g.connect(this.amb);
+      [s, am, b].forEach((n) => n.start()); return [s, am, b];
+    });
+  }
+  // a light fixture shorting out: ballast buzz + the tick of the arc
+  flicker(pos, g = 1) {
+    this.tone({ freq: 120, dur: 0.07 + Math.random() * 0.08, type: 'sawtooth', gain: 0.05 * g, filter: 1400, pos });
+    this.tone({ freq: 240, dur: 0.05, type: 'square', gain: 0.012 * g, filter: 2200, pos, when: 0.01 });
+    if (Math.random() < 0.6) this.noise({ dur: 0.02, type: 'highpass', freq: 4500, gain: 0.08 * g, pos, when: Math.random() * 0.05 });
+  }
+  knock(pos) { for (const w of [0, 0.32, 0.64]) { this.noise({ dur: 0.12, type: 'lowpass', freq: 500, gain: 0.7, when: w, pos }); this.tone({ freq: 140, freqTo: 80, dur: 0.1, gain: 0.35, when: w, pos }); } }
+  spoon() { for (let i = 0; i < 3; i++) this.tone({ freq: 2600 + Math.random() * 600, dur: 0.12, type: 'triangle', gain: 0.04, when: i * (0.5 + Math.random() * 0.4) }); }
+  punch(pos) { this.clunk(pos, 0.4); this.tone({ freq: 1750, dur: 0.12, type: 'square', gain: 0.04, when: 0.15, filter: 3000, pos }); }
+  beep(pos) { this.tone({ freq: 2200, dur: 0.09, type: 'square', gain: 0.04, filter: 4000, pos }); }
+  mop(pos) { this.noise({ dur: 0.35, type: 'bandpass', freq: 1400, freqTo: 700, q: 1, gain: 0.12, attack: 0.05, pos }); }
+  splash(pos, g = 1) { this.noise({ dur: 0.25, type: 'bandpass', freq: 1100 + Math.random() * 600, q: 0.8, gain: 0.14 * g, attack: 0.01, pos }); this.noise({ dur: 0.15, type: 'highpass', freq: 3500, gain: 0.05 * g, pos, when: 0.03 }); }
+  // cumbia from a little radio: bass, güiro, accordion stabs
+  startCumbia(pos) {
+    if (!this.ctx || this.cumbia) return;
+    const bus = this.ctx.createGain(); bus.gain.value = 1;
+    const bp = this.ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1100; bp.Q.value = 0.45;
+    bus.connect(bp); bp.connect(this.out(pos, this.music));
+    this.cumbia = { t: 0, step: 0, bus };
+  }
+  stopCumbia() { if (this.cumbia) { const b = this.cumbia.bus; b.gain.setTargetAtTime(0, this.t, 0.2); setTimeout(() => b.disconnect(), 1500); this.cumbia = null; } }
+  cumbiaLevel(v) { if (this.cumbia) this.cumbia.bus.gain.setTargetAtTime(v, this.t, 0.3); }
+  cumbiaStep() {
+    const c = this.cumbia, s = c.step++ % 8, bar = Math.floor(c.step / 8) % 4, d = c.bus;
+    const CH = [[98, [392, 494, 587]], [73.4, [370, 440, 587]], [98, [392, 494, 587]], [65.4, [392, 523, 659]]][bar];
+    const [root, ch] = CH;
+    if (s === 0 || s === 4) { this.tone({ freq: 120, freqTo: 50, dur: 0.16, gain: 0.35, dest: d }); }
+    if (s === 0) this.pluck(root, 0.3, null, 0, d); if (s === 3) this.pluck(root * 1.5, 0.22, null, 0, d); if (s === 4) this.pluck(root, 0.26, null, 0, d); if (s === 6) this.pluck(root * 1.5, 0.2, null, 0, d);
+    const long = s === 0 || s === 4;
+    this.noise({ dur: long ? 0.16 : 0.05, type: 'bandpass', freq: 3800, q: 2.5, gain: long ? 0.12 : 0.07, attack: long ? 0.06 : 0.005, dest: d });
+    if (s % 2 === 1) for (const f of ch) this.tone({ freq: f, dur: 0.13, type: 'sawtooth', gain: 0.025, filter: 2400, vib: [6, 4], dest: d });
   }
 
   // ---------- adaptive music ----------
@@ -394,6 +452,7 @@ export class AudioEngine {
         if (k === 2 && Math.random() < 0.5) this.pluck(ch[2] * 2, 0.06, null, 0.25);
       }
     }
+    if (this.cumbia) { this.cumbia.t -= dt; while (this.cumbia && this.cumbia.t <= 0) { this.cumbia.t += 60 / 98 / 2; this.cumbiaStep(); } }
     // chase percussion
     const target = st.chase ? 1 : 0;
     this.chaseLvl += (target - this.chaseLvl) * Math.min(1, dt * (target ? 3 : 0.6));

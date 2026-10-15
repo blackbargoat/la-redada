@@ -1,8 +1,8 @@
-// LEVEL 1 — PART B: Hammerline Depot after dark.
+// DAY 2 — Hammerline Depot. mode 'work': the day shift. mode 'close': closing time, the raid, the hatch.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792005012';
-import { tex, textTex, rng } from './textures.js?v=1792005012';
-import { makeHumanoid, makeCharacter, makeVehicle, animateWalk, makeBeam, makeGlow, std } from './models.js?v=1792005012';
+import { Grid } from './grid.js?v=1792081431';
+import { tex, textTex, rng } from './textures.js?v=1792081431';
+import { makeHumanoid, makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, std } from './models.js?v=1792081431';
 
 const VO = {
   out: { id: 'sr_out', who: 'Agent (radio)', text: 'Back door\'s locked down. He\'s inside. Nobody leaves this building.', radio: true, agent: true },
@@ -24,6 +24,24 @@ const VO = {
   mdark: { id: 'sr_mdark', who: 'Juan', text: '(whispering) No, no, no... the light.' },
 };
 export const STORE_VO = Object.values(VO).map((l) => l.id);
+// day shift + closing
+const SVO = {
+  d1: { id: 'w_d1', who: 'Dale', text: 'Reyes. Seven-oh-two. Two minutes is late. Clock in.' },
+  d2: { id: 'w_d2', who: 'Dale', text: 'Truck came in last night. Crates on the pallet in receiving go on the display at the end of six. Then go find somebody to help. And smile for once, you scare the customers.' },
+  ch1: { id: 'w_ch1', who: 'Chuy', text: 'Juan! Lady in plumbing\'s been waving at everybody for ten minutes. All yours, carnal.' },
+  cu1: { id: 'w_cu1', who: 'Customer', text: 'Oh, thank God. Do you work here? I need a wax ring. For a toilet. The man on YouTube made it look so easy.' },
+  jw1: { id: 'w_jw1', who: 'Juan', text: 'Wax ring. One second, señora. Wait here.' },
+  cu2: { id: 'w_cu2', who: 'Customer', text: 'You\'re an angel. Nobody else in here even looked at me.' },
+  d3: { id: 'w_d3', who: 'Dale', text: 'Reyes! Somebody knocked over a gallon of paint in four. Mop\'s in the bucket. Go.' },
+  d4: { id: 'w_d4', who: 'Dale (shouting)', text: 'Reyes! Breaker room! Get it back on before people start walking out with stuff!' },
+  d5: { id: 'w_d5', who: 'Dale', text: 'There he is. Took you long enough. ...Go take your lunch. Thirty minutes. Not thirty-one.' },
+  dphone: { id: 'w_dphone', who: 'Dale (behind the door)', text: '...no, tonight. After close. The dock door, yeah. ...They won\'t. They need the cash.' },
+  d6: { id: 'c_d6', who: 'Dale', text: 'I\'m out. Lock up, Reyes. Carts, garden gate, trash. And don\'t call me tonight. I mean it.' },
+  ag1: { id: 'c_ag1', who: 'Agent (radio, outside)', text: 'All units, go. Dock and front. Nobody leaves this building.', radio: true, agent: true },
+  jc1: { id: 'c_jc1', who: 'Juan', text: '(whispering) No. No, not again... Beto said the hatch. But they\'re coming in the dock. Hide. Hide first.' },
+  ag2: { id: 'c_ag2', who: 'Agent (radio)', text: 'Floor\'s clear. Check the offices and the break room. He\'s in the back.', radio: true, agent: true },
+};
+export const SHIFT_VO = Object.values(SVO).map((l) => l.id);
 
 const AISLES = ['', 'LUMBER', 'PLUMBING', 'SEASONAL', 'PAINT', 'HARDWARE', 'TOOLS', 'ELECTRICAL', 'FLOORING', 'GARDEN'];
 const PAL = {
@@ -31,30 +49,23 @@ const PAL = {
   4: [0xe0e0d8, 0x8aa0b8, 0xb04030], 5: [0x8a8a8a, 0xb02a20, 0x5a5a5a], 6: [0xd8b020, 0x1a1a1a, 0xb83020], 7: [0x2a5aa8, 0xe0e0e0, 0x777777],
   8: [0xb8a080, 0x6a4a30, 0xd0c0a0], 9: [0x3a6a3a, 0x8a6a4a, 0x2a4a2a], 10: [0x5a6a7a, 0x8a8a8a, 0x4a4a4a],
 };
-const STAGE_OBJ = {
-  1: '(1/5) Get your phone. It\'s charging in your locker, Break Room (back left corner).',
-  2: '(2/5) Get the gate key from Dale\'s desk. Manager\'s Office (back wall, next to the Break Room).',
-  3: '(3/5) Find a 30-amp fuse. Aisle 7, Electrical.',
-  4: '(4/5) Replace the blown fuse. Breaker Room (back wall, middle).',
-  5: '(5/5) Open the garden-center gate. East wall, past the sheds. Hold E.',
-  6: 'GO.',
-};
 const savedBattery = {};
 // difficulty presets (Normal for now; Easy/Hard later)
-const DIFF = { notice: 0.35, maxAgents: 2, chaseMul: 0.72, giveUp: 4, vision: 0.85, react: 0.9 };
+const DIFF = { notice: 0.35, maxAgents: 3, chaseMul: 0.72, giveUp: 4, vision: 0.85, react: 0.9 };
 
-export function createStore(G, checkpoint = 0) {
+export function createStore(G, mode = 'close', checkpoint = 0) {
+  const WORK = mode === 'work';
   const { audio, ui, P, game, flash } = G;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x000000);
   scene.fog = new THREE.FogExp2(0x000000, 0.075);
   const grid = new Grid(64, 46, 0, 0);
-  const L = { scene, grid, interactables: [], allowFlashlight: true, surface: 'concrete', power: false, flicker: 1 };
+  const L = { scene, grid, interactables: [], allowFlashlight: true, noDrain: WORK, surface: 'concrete', power: false, flicker: 1 };
   const r = rng(77 + checkpoint);
-  let stage = Math.max(1, checkpoint);
+  let stage = '', goal = null;
 
   // battery: FNAF-style, one charge per night
-  if (checkpoint === 0) { P.battery = 1; P.lens = 0; }
+  if (checkpoint === 0 || WORK) { P.battery = 1; P.lens = 0; }
   else if (savedBattery[checkpoint] != null) { P.battery = savedBattery[checkpoint].b; P.lens = savedBattery[checkpoint].lens; }
   P.flashlight = false;
   const saveCp = (s) => { savedBattery[s] = { b: P.battery, lens: P.lens }; };
@@ -86,10 +97,11 @@ export function createStore(G, checkpoint = 0) {
   const dockDoor = box(5, 4.2, 0.12, std(0x6a6e72, { map: tex('shutter', [1, 1]), metalness: 0.5, roughness: 0.5 }), 54.5, 2.1, 0.95, false);
   box(7, 5.8, 0.3, wallTexM(7, 5.8), 31.5, 6.1, 45.5, false); // above front doors
   const glassM = new THREE.MeshStandardMaterial({ color: 0x223038, transparent: true, opacity: 0.35, roughness: 0.05, metalness: 0.8 });
-  box(7, 3.2, 0.08, glassM, 31.5, 1.6, 45.6, false);
+  const frontGlass = box(7, 3.2, 0.08, glassM, 31.5, 1.6, 45.6, false);
   // chain on the front door handles
   const chainM = std(0x888888, { metalness: 0.9, roughness: 0.3 });
-  for (let i = 0; i < 9; i++) { const t = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.015, 4, 8), chainM); t.position.set(31.1 + i * 0.09, 1.1 + Math.sin(i) * 0.02, 45.5); t.rotation.y = i % 2 ? Math.PI / 2 : 0; scene.add(t); }
+  const chainMeshes = [];
+  for (let i = 0; i < 9; i++) { const t = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.015, 4, 8), chainM); t.position.set(31.1 + i * 0.09, 1.1 + Math.sin(i) * 0.02, 45.5); t.rotation.y = i % 2 ? Math.PI / 2 : 0; scene.add(t); chainMeshes.push(t); }
   // garden gate (rolling) on east wall
   const gate = box(0.12, 4, 5, std(0x6a6e72, { map: tex('shutter', [1, 1]), metalness: 0.5 }), 63.05, 2, 40.5, false);
   box(0.3, 5, 5, wallTexM(5, 5), 63.5, 6.5, 40.5, false);
@@ -294,11 +306,7 @@ export function createStore(G, checkpoint = 0) {
   for (let a = 1; a <= 9; a++) { const x = 6 * a + 2; if (a % 2) sweepRoute.push([x, 11.5], [x, 23.5], [x, 35.5]); else sweepRoute.push([x, 35.5], [x, 23.5], [x, 11.5]); }
   sweepRoute.push([55, 38], [30, 38], [8, 37]);
   const listenPosts = [[8, 23.5], [20, 23.5], [32, 23.5], [44, 23.5], [56, 23.5], [20, 11], [44, 11], [32, 37.5], [50, 37.5], [40, 7]];
-  const gatePosts = {
-    1: [[6, 11], [17.5, 11], [9, 6], [3, 12]], 2: [[17.5, 11], [18, 6.5], [28.5, 11], [12, 12]],
-    3: [[44, 11], [44, 23.5], [44, 36], [38, 30]], 4: [[28.5, 11], [28.5, 6], [22, 12], [36, 11]],
-    5: [[56, 37.5], [60.5, 34], [52, 38.5], [61, 38.5]], 6: [[61, 38.5]],
-  };
+  const gatePosts = { raid: [[44, 7], [36, 11], [28.5, 11], [17.5, 11], [50, 11]] };
   const wander = []; for (let a = 1; a <= 9; a++) for (const z of [11.5, 23.5, 35.5]) wander.push([6 * a + 2, z]);
   wander.push([40, 7], [55, 6], [20, 42], [45, 42], [6, 6], [18, 6], [28.5, 5]);
 
@@ -316,7 +324,7 @@ export function createStore(G, checkpoint = 0) {
     if (a.def.role === 'sweeper') { let bd = 1e9; sweepRoute.forEach((p, k) => { const d = Math.hypot(p[0] - x, p[1] - z); if (d < bd) { bd = d; a.routeI = k; } }); }
   }
   // agents always enter through the entry point farthest from the player
-  const ENTRIES = [[31.5, 43.5], [45, 7], [58, 36], [6, 42], [3, 12], [40, 23.5]];
+  const ENTRIES = [[31.5, 43.5], [45, 7], [58, 36], [7, 42.5], [3, 12], [40, 23.5]];
   function spawnFar(a) {
     let best = ENTRIES[0], bd = -1;
     for (const e of ENTRIES) { const d = Math.hypot(e[0] - P.pos.x, e[1] - P.pos.z); if (d > bd && !agents.some((o) => o.active && Math.hypot(o.g.position.x - e[0], o.g.position.z - e[1]) < 4)) { bd = d; best = e; } }
@@ -377,7 +385,7 @@ export function createStore(G, checkpoint = 0) {
     else if (role === 'hunter') {
       const t = director.hunterTarget || wander[(r() * wander.length) | 0]; director.hunterTarget = null;
       goTo(a, t[0], t[1]); a.wait = 0;
-    } else { const posts = gatePosts[stage] || gatePosts[1]; const p = posts[(r() * posts.length) | 0]; goTo(a, p[0], p[1]); a.wait = 0; }
+    } else { const posts = gatePosts.raid; const p = posts[(r() * posts.length) | 0]; goTo(a, p[0], p[1]); a.wait = 0; }
   }
 
   // AI director (Alien: Isolation style): knows your general area, manages pacing
@@ -523,166 +531,224 @@ export function createStore(G, checkpoint = 0) {
       }
     }
   };
-  L.onHide = (spot) => {
-    for (const a of agents) if (canSee(a, true) || (a.state === 'chase' && Math.hypot(a.g.position.x - P.pos.x, a.g.position.z - P.pos.z) < 6 && grid.los(a.g.position.x, a.g.position.z, spot.ex, spot.ez))) { a.sawHide = spot; a.lastKnown = [spot.ex, spot.ez]; }
-  };
   L.onGasp = () => L.onNoise(7, P.pos.x, P.pos.z, 'gasp');
   L.onCaught = () => { audio.stopLoop('motor', 0.1); };
 
   // ---------------- story beats ----------------
-  const events = []; let tl = 0, lockT = 0, breachArmed = false;
-  function triggerBreach(alarm) {
-    if (!breachArmed) return; breachArmed = false;
-    if (alarm) { audio.alarmBed(); audio.setLoop('alarm', 0.1, 0.1); ui.toast('SECURITY ALARM — ZONE 4'); emerg.forEach((e) => (e.stutter = 3)); setTimeout(() => audio.stopLoop('alarm', 1), 7000); }
-    at(alarm ? 5 : 0.5, breach);
-  }
+  const events = []; let tl = 0, breachArmed = false;
   const at = (t, fn) => events.push({ t: tl + t, fn });
   const skelState = { moves: 0, cool: 0, pending: false };
-  let ghost = null, ghostT = 0, skelDone = false, catDone = false, cartDone = false, gateOpen = false, gateProg = 0, darkLine = false;
+  let ghost = null, ghostT = 0, skelDone = false, catDone = WORK, cartDone = WORK, darkLine = false;
   const ambient = { t: 25 + r() * 20 };
+  const say = (...k) => ui.say(k.map((x) => SVO[x]));
+  audio.preloadVo(Object.values(SVO).map((l) => l.id));
+  function setStage(s, obj, g) { stage = s; goal = g || null; ui.objective(obj || ''); }
 
+  // the raid: chains on the front doors, the dock door goes up
   function breach() {
     audio.boltCut({ x: 31.5, y: 1.2, z: 45.5 }); ui.shake(0.015, 0.4);
     at(1.2, () => { audio.chains({ x: 31.5, y: 1.2, z: 45.5 }); police.forEach((l) => (l.userData.on = true)); });
-    at(2.0, () => { spawn(agents[0], 30.5, 43.5); spawn(agents[1], 33, 43.2); });
-    at(3.0, () => radio(VO.hollis, null));
-    at(7.0, () => radio(VO.dunn, null));
-  }
-  function setStage(s) {
-    stage = s; ui.objective(STAGE_OBJ[s]);
-    saveCp(s);
-    game.retry = () => G.loadLevel((g) => createStore(g, s));
+    at(2.0, () => { audio.motorBed({ x: 54.5, y: 2, z: 0.5 }); audio.setLoop('motor', 0.3, 0.2); dockOpen = true; });
+    at(4.5, () => { audio.stopLoop('motor', 0.3); audio.clunk({ x: 54.5, y: 2, z: 0.5 }); spawn(agents[0], 54.5, 2.6); radio(VO.hollis, null, 0.3); });
+    at(6.5, () => { spawn(agents[1], 31.5, 43.5); radio(VO.dunn, null, 0.5); });
+    at(16, () => { if (DIFF.maxAgents > 2 && !agents[2].active) { spawnFar(agents[2]); radio(VO.kowal, null, 0.3); } });
   }
 
-  // ---------------- the phone ----------------
+  // ---------------- shared props ----------------
+  phoneGlow.visible = false; keyMesh.visible = false; keyGlow.visible = false;
   const ph = G.phone;
-  if (checkpoint <= 1) { ph.reset(); ph.state.hasPhone = false; }
-  ph.history('Gus', [[false, 'good work today. same time tmrw'], [true, 'gracias gus']]);
-  ph.history('Rosa', [[false, 'Mijo the pozole is ready. Ten o clock. Both of you.']]);
-  ph.state.noAnswer = { Rafa: 'The number you have dialed is not available.', Rosa: 'No answer', Luz: 'No answer', Chuy: 'No answer', Gus: 'No answer' };
-  function lockerPhone() {
-    return new Promise((res) => {
-      ph.state.hasPhone = true; ph.state.battery = 0.34;
-            ui.note('<h3>VOICEMAIL — LUZ — 9:14 PM</h3>"Papi, are you coming home soon? Mami says I can stay up until you get here. I made you a card. Don\'t look at it until Saturday, okay? Te quiero mucho."\n\n<h3>CHUY — 11:59 PM</h3>they got santiago. i heard the shot from the bus. lo siento\nthey have the front and the dock\ngarden center gate nobody is watching it. its on the electric lock, needs power\nbreaker blew last week dale never fixed it. fuse is 30 amp aisle 7\ngate key is in dales desk\ncorre carnal', 'phone').then(res);
-
-    });
-  }
-
-  // ---------------- interactables ----------------
   const it = (o) => { L.interactables.push(o); return o; };
-  it({ x: 2.6, z: 8.1, label: 'Read the corkboard', action: () => ui.note('<h3>NIGHT CREW — READ THIS</h3>Cash pay is pushed to NEXT Friday. Don\'t talk to anybody about the schedule.\nDon\'t use the front entrance after 11.\n— Dale\n\n<i>(Underneath, in pen: "you said that last friday" — S.)</i>') });
-  it({ x: 7.5, z: 2.4, label: 'Open your locker', enabled: () => stage === 1, action: () => {
-    audio.creak({ x: 7.5, y: 1, z: 1.7 }); audio.pickup(); myLocker.rotation.y = -1.2; myLocker.position.x -= 0.4; myLocker.position.z += 0.35; phoneGlow.visible = false;
-    audio.vibrate(); triggerBreach(true);
-    lockerPhone().then(() => {
-      setStage(2);
-      // fake-out: someone in the doorway
-      ghost = makeCharacter('agent', { agent: true, hat: 'cap', gloves: true }, 1.85); ghost.group.position.set(6, 0, 17); ghost.group.rotation.y = Math.PI; scene.add(ghost.group); ghostT = 0;
-      if (DIFF.maxAgents > 2) at(6, () => { if (!agents[2].active) { spawnFar(agents[2]); radio(VO.kowal, null, 0.5); } });
-    });
-  } });
-  it({ x: 18.2, z: 5.5, label: 'Take the gate key', enabled: () => stage === 2, action: () => {
-    keyMesh.visible = false; keyGlow.visible = false; audio.pickup();
-    audio.deskPhone({ x: 16.2, y: 0.9, z: 3.6 }); ui.shake(0.02, 0.4); audio.hit(0.6);
-    L.onNoise(26, 17.5, 4, 'loud');
-    mon.material.emissive.setHex(0x99aabb);
-    setStage(3);
-    setTimeout(() => ph.receive('Luz', 'papi?? the news says police by hammerline. are you ok', 0, 0), 20000);
-    ui.note('<h3>HAMMERLINE DEPOT #0417 — PRINTOUT ON DALE\'S DESK</h3>TIP CONFIRMATION — submitted 10/13, 4:52 PM\nLocation: Hammerline Depot #0417, loading entrance\nIndividuals: 3–4, night stocking crew (paid cash)\nNotes: crew on site after 11 PM\nSubmitted by: D. Pruitt, Store Manager\n\n<i>A sticky note on the corner: "nights payroll = $0 if nobody\'s here to collect."</i>').then(() => ui.say([VO.m2]));
-  } });
-  it({ x: 42.5, z: 30.5, label: 'Take the 30-amp fuse', enabled: () => stage === 3, action: () => {
-    audio.pickup(); fuseMesh.visible = false; fuseGlow.visible = false; setStage(4); ui.toast('GOT THE FUSE');
-    if (DIFF.maxAgents > 3) at(5, () => { if (!agents[3].active) { spawnFar(agents[3]); radio(VO.price, null, 0.4); } });
-  } });
-  const lensIt = it({ x: 42.5, z: 27.5, label: 'Take the LED lens kit (brighter light, drains faster)', enabled: () => !P.lens, action: () => { P.lens = 1; audio.pickup(); ui.toast('FLASHLIGHT UPGRADED: LED LENS'); lensMesh.visible = false; } });
-  const fuseMesh = box(0.25, 0.08, 0.08, std(0xc8b070, { metalness: 0.6 }), 41.85, 1.62, 30.5, false);
-  const fuseGlow = makeGlow(0xffe0a0, 0.3, 0.5); fuseGlow.position.set(41.9, 1.65, 30.5); scene.add(fuseGlow);
-  const lensMesh = box(0.2, 0.2, 0.2, std(0x2a5aa8), 41.85, 1.62, 27.5, false);
-  if (stage > 3) { fuseMesh.visible = false; fuseGlow.visible = false; }
-  if (stage > 2) { keyMesh.visible = false; keyGlow.visible = false; }
-  if (stage > 1) { phoneGlow.visible = false; }
-  if (P.lens) lensMesh.visible = false;
-  // Beto: night crew, hiding in the electrical room in the dark
-  const BT = {
-    1: { id: 'bt_1', who: 'Beto', text: 'Shh! Shh, shh. Don\'t scream. It\'s me. Beto. It\'s Beto.' },
-    2: { id: 'bt_2', who: 'Beto', text: 'They walked past this door twice. Do it. Fix it. I\'ll watch the door.' },
-    radio: { id: 'bt_radio', who: 'Agent (radio)', text: 'Got one more in the electrical room. Taking him out the back.', radio: true, agent: true },
-    3: { id: 'bt_3', who: 'Beto', text: 'Juan! Juan, go! Don\'t stop!' },
-  };
-  audio.preloadVo(['bt_1', 'bt_2', 'bt_radio', 'bt_3']);
-  const beto = makeCharacter('gus', { shirt: 0x2a2a2a, pants: 0x2a2a2a }, 1.7);
-  beto.group.traverse((m) => { if (m.isMesh && m.material) m.material.color.multiplyScalar(0.45); });
-  beto.group.position.set(28.4, 0, 3.6); beto.group.rotation.y = Math.PI; beto.group.visible = stage <= 4; scene.add(beto.group);
-  animateWalk(beto, 0, 0, false);
-  const betoLight = new THREE.PointLight(0xbfd0d8, 0, 3, 1.6); betoLight.position.set(28.4, 1.2, 2.6); scene.add(betoLight);
-  function restorePower() {
-    audio.clunk({ x: 28.5, y: 1.5, z: 1.2 }); stage = 4.5;
-    at(0.7, () => { fixM.emissiveIntensity = 1; audio.tone({ freq: 2000, dur: 0.05, type: 'square', gain: 0.05 }); });
-    at(0.8, () => { fixM.emissiveIntensity = 0; });
-    at(1.1, () => { fixM.emissiveIntensity = 1.5; });
-    at(1.2, () => { fixM.emissiveIntensity = 0; });
-    at(1.6, () => {
-      setPower(true); ui.flash(0.4); audio.hit(0.7);
-      L.onNoise(200, 28.5, 4, 'loud');
-      agents.forEach((a) => { if (a.active && a.state !== 'chase') { a.invSpeed = 2.4; } });
-      radio(VO.power, null, 0.6);
-      setStage(5); ui.say([{ ...VO.m3, wait: 2.2 }]);
-    });
-    // they find Beto
-    at(9, () => { radio(BT.radio, null); });
-    at(11.5, () => { ui.bark({ ...BT[3], pos: { x: 28.5, y: 1.5, z: 6 } }); audio.tackle({ x: 28.5, y: 0.5, z: 5 }); setTimeout(() => audio.ziptie({ x: 28.5, y: 0.5, z: 5 }), 1500); beto.group.visible = false; });
-  }
-  it({ x: 28.5, z: 2.4, label: 'Replace the fuse', enabled: () => stage === 4, action: () => {
-    // the game takes your camera: open the panel, hear breathing behind you, turn around
-    stage = 4.2; P.frozen = true; P.flashlight = P.flashlight;
-    P.lookLock = { yaw: 0, pitch: -0.12, k: 3 };
-    audio.creak({ x: 28.5, y: 1.5, z: 1.2 });
-    at(1.4, () => { audio.noise({ dur: 0.9, type: 'bandpass', freq: 900, q: 0.8, gain: 0.16, attack: 0.3, pos: { x: 28.4, y: 1.6, z: 3.5 } }); });
-    at(2.7, () => { audio.noise({ dur: 1.0, type: 'bandpass', freq: 800, q: 0.8, gain: 0.18, attack: 0.3, pos: { x: 28.4, y: 1.6, z: 3.5 } }); });
-    at(3.6, () => { audio.noise({ dur: 0.12, type: 'lowpass', freq: 600, gain: 0.25, pos: { x: 28.4, y: 0.1, z: 3.5 } }); });
-    at(4.2, () => { P.lookLock = { yaw: Math.PI, pitch: 0.02, k: 1.4 }; betoLight.intensity = 1.2; });
-    at(5.6, () => { audio.hit(1); audio.stinger(0.8); ui.flash(0.25); ui.shake(0.07, 0.6); ui.bark(BT[1]); });
-    at(9.5, () => { ui.bark(BT[2]); });
-    at(14, () => { P.lookLock = { yaw: 0, pitch: -0.1, k: 3 }; betoLight.intensity = 0.4; });
-    at(15, () => { P.lookLock = null; P.frozen = false; restorePower(); });
-  } });
-  it({ x: 61.6, z: 40.5, r: 2.0, label: 'Open the garden-center gate', hold: 6, enabled: () => stage === 5 && !gateOpen,
-    onHold: (dt) => {
-      audio.motorBed({ x: 63, y: 2, z: 40.5 }); audio.setLoop('motor', 0.35, 0.1);
-      if (gateProg > 1.5) startAlarm();
-      gateProg += dt; gate.position.y = 2 + (gateProg / 6) * 3.6;
-      ambient.gateNoise = (ambient.gateNoise || 0) - dt; if (ambient.gateNoise <= 0) { ambient.gateNoise = 1; L.onNoise(24, 62, 40.5, 'loud'); }
-    },
-    onRelease: () => { audio.setLoop('motor', 0, 0.1); },
-    action: () => { gateOpen = true; audio.stopLoop('motor', 0.3); audio.clunk({ x: 63, y: 2, z: 40.5 }); grid.rect(63, 38, 63, 42, 0, 0); setStage(6); audio.rainBed(); audio.setLoop('rain', 0.18, 1); },
-  });
+  it({ x: 2.6, z: 8.1, label: 'Read the corkboard', action: () => ui.note('<h3>CREW — READ THIS</h3>Cash pay is pushed to NEXT Friday. Don\'t talk to anybody about the schedule.\nDon\'t use the front entrance after 11.\n— Dale\n\n<i>(Underneath, in pen: "you said that last friday" — S.)</i>') });
+  // the burger counter in the corner room
+  wall(1, 37, 3, 37, 3.4); wall(6, 37, 6, 44, 3.4);
+  box(2, 0.6, 1, wallTexM(2, 0.6), 4.5, 3.1, 37.5, false);
+  const grillSignT = textTex(512, 128, '#1a1612', [{ text: 'HAMMERLINE GRILL', size: 52, color: '#f0d27a', y: 52 }, { text: 'BURGERS · HOT DOGS · AGUAS FRESCAS', size: 22, color: '#e8e0c8', y: 100, weight: 'normal' }], { border: '#d2541c' });
+  const grillSign = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.65), std(0xffffff, { map: grillSignT, emissiveMap: grillSignT, emissive: 0xffffff, emissiveIntensity: WORK ? 0.7 : 0 })); grillSign.position.set(3.5, 2.9, 36.9); grillSign.rotation.y = Math.PI; scene.add(grillSign);
+  box(0.8, 1.0, 4, std(0x8a2a1a, { roughness: 0.6 }), 1.6, 0.5, 41); grid.rect(1, 39, 1, 42, 1, 0);
+  const flatTop = box(0.7, 0.05, 1.6, std(0x1a1a1a, { roughness: 0.4, emissive: 0x401000, emissiveIntensity: WORK ? 0.6 : 0 }), 1.6, 1.03, 40.6);
+  for (const [x, z] of [[4, 40], [4, 42.6]]) { box(0.8, 0.05, 0.8, std(0xc8c0b0), x, 0.76, z); box(0.08, 0.74, 0.08, metalM, x, 0.37, z); grid.rect(Math.floor(x), Math.floor(z), Math.floor(x), Math.floor(z), 1, 0); }
+  const grillL = new THREE.PointLight(0xffc880, WORK ? 6 : 0, 7, 1.5); grillL.position.set(3.5, 2.8, 41); scene.add(grillL);
+  // pro desk + appliances along the east wall
+  box(3, 1.05, 0.8, std(0x3a3e42), 46.5, 0.52, 36.2); grid.rect(45, 36, 47, 36, 1, 0);
+  const proT = textTex(256, 64, '#d2541c', [{ text: 'PRO DESK', size: 40, color: '#fff' }]);
+  const pro = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.4), std(0xffffff, { map: proT })); pro.position.set(46.5, 2.6, 36.2); scene.add(pro);
+  const applM = std(0xe8e8e2, { roughness: 0.35, metalness: 0.2 });
+  for (let z = 13; z <= 21; z += 2) { box(0.8, z % 4 === 1 ? 1.8 : 1.0, 0.8, applM, 62.4, z % 4 === 1 ? 0.9 : 0.5, z + 0.5); grid.rect(62, z, 62, z, 1, 0); }
+  const apT = textTex(256, 64, '#d2541c', [{ text: 'APPLIANCES', size: 38, color: '#fff' }]);
+  const ap = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.6), std(0xffffff, { map: apT })); ap.position.set(62.9, 3.4, 17.5); ap.rotation.y = -Math.PI / 2; scene.add(ap);
+  // time clock on the break room wall
+  box(0.35, 0.45, 0.12, std(0xb8b4a8, { metalness: 0.3 }), 9.5, 1.45, 8.9, false);
+  const tcScreen = box(0.22, 0.08, 0.02, std(0x1a2a1a, { emissive: 0x3a8a4a, emissiveIntensity: WORK ? 0.8 : 0.3 }), 9.5, 1.55, 8.83, false);
+  // the floor hatch in receiving, behind the last pallet rack
+  box(1.2, 0.03, 1.2, std(0x1a1a1a, { metalness: 0.5 }), 62, 0.015, 6.2, false);
+  const hatch = box(1.0, 0.05, 1.0, std(0x8a7a62, { metalness: 0.6, roughness: 0.55, map: tex('shutter', [2, 2]) }), 62, 0.03, 6.2, false);
+  const hatchRing = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.015, 4, 10), std(0x777777, { metalness: 0.8 })); hatchRing.rotation.x = Math.PI / 2; hatchRing.position.set(62, 0.05, 6.5); scene.add(hatchRing);
+  box(0.9, 2.2, 1.2, std(0x5a6066, { metalness: 0.5 }), 62.4, 1.1, 8.6); grid.rect(62, 8, 62, 9, 1, 1); // electrical box that hides it from the floor
+  let dockOpen = false;
 
-  // ---------------- initial state per checkpoint ----------------
-  setPower(stage >= 5);
-  const cpPos = { 1: [54.5, 2.2, Math.PI], 2: [8.5, 4, 0], 3: [18, 6.5, 0], 4: [42.5, 31, Math.PI / 2], 5: [28.5, 4, Math.PI] };
-  const [sx, sz, syaw] = cpPos[stage] || cpPos[1];
-  P.pos.set(sx, 0, sz); P.yaw = syaw;
-  audio.droneBed(); audio.setLoop('drone', 0.55, 3);
-  audio.preloadVo(STORE_VO);
-  if (checkpoint === 0) {
-    P.frozen = true;
-    ui.objective(''); ui.clock('11:58 PM');
-    at(0.6, () => { audio.slam({ x: 54.5, y: 1.5, z: -0.5 }); ui.shake(0.03, 0.4); });
-    at(1.6, () => { audio.slam({ x: 54.5, y: 1.5, z: -0.5 }); });
-    at(2.6, () => { audio.radio({ x: 54.5, y: 1.5, z: -1.5 }); ui.bark({ ...VO.out, pos: { x: 54.5, y: 1.5, z: -1.5 } }); });
-    at(7.5, () => { ui.say([VO.m1]); });
-    at(9.0, () => { P.frozen = false; setStage(1); ui.bigHint('PRESS <kbd>F</kbd> FLASHLIGHT<small>ONE BATTERY. IT HAS TO LAST ALL NIGHT. TURN IT OFF TO SAVE IT.</small>'); document.getElementById('bigHint').dataset.k = 'F'; });
-    breachArmed = true;
-    at(25, () => { audio.radio({ x: 31.5, y: 1.5, z: 48 }, 0.6); ui.bark({ id: 'sr_wait1', who: 'Agent (radio, outside)', text: 'Entry team\'s on the way. Nobody goes in till they\'re here.', radio: true, agent: true }); });
-    at(240, () => triggerBreach(false)); // they come in eventually, without warning
+  // ---------------- people (day shift) ----------------
+  const npcs = [];
+  function npc(kind, fb, h, x, z, yaw, name) { const c = makeCharacter(kind, fb, h); c.group.position.set(x, 0, z); c.group.rotation.y = yaw; c.baseYaw = yaw; c.phase = r() * 6; c.name = name; scene.add(c.group); npcs.push(c); return c; }
+  const dale = npc('dale', { shirt: 0x8ab0d0, pants: 0xb0a080, skin: 0xd8a888 }, 1.78, 18, 11, Math.PI, 'Dale');
+  let chuy = null, beto = null, cook = null, lady = null, watcher = null;
+  const wanderers = [];
+
+  // ---------------- carrying ----------------
+  const carry = new THREE.Group(); G.camera.add(carry); carry.position.set(0.05, -0.42, -0.75); carry.visible = false;
+  const crateM = std(0xffffff, { map: tex('cardboard') });
+  const carryCrate = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.38, 0.4), crateM); carry.add(carryCrate);
+  const carryBag = new THREE.Mesh(new THREE.SphereGeometry(0.24, 8, 6), std(0x111111, { roughness: 0.3 })); carryBag.scale.set(1, 1.3, 1); carryBag.position.set(0.25, 0.05, 0.1); carry.add(carryBag);
+  const carryRing = box(0.12, 0.03, 0.12, std(0xe8d48a), 0, 0, 0, false); scene.remove(carryRing); carryRing.position.set(0.22, 0.1, 0.12); carry.add(carryRing);
+  function hold(what) { P.carrying = what; carry.visible = !!what; carryCrate.visible = what === 'crate'; carryBag.visible = what === 'trash'; carryRing.visible = what === 'ring'; }
+  hold(null);
+
+  if (WORK) {
+    // ================= THE DAY SHIFT =================
+    chuy = npc('chuy', { shirt: 0x5a5a5a, pants: 0x2a3a5a, skin: 0x9a6644 }, 1.74, 46, 9, -Math.PI / 2, 'Chuy');
+    beto = npc('beto', { shirt: 0x6a3a2a, pants: 0x5a4a3a, skin: 0x8a5a3a, mustache: true }, 1.72, 51, 4.5, Math.PI, 'Beto');
+    cook = npc('gus', { shirt: 0xe8e8e0, pants: 0x2a2a2a, skin: 0x8a5a3a }, 1.7, 1.0, 40.4, Math.PI / 2, 'Cook');
+    lady = npc('lady', { shirt: 0x8aa08a, pants: 0xc8b898, skin: 0xd8b8a0 }, 1.62, 13.5, 24, Math.PI / 2, 'Customer');
+    const cashier = npc('elena', { shirt: 0xd2541c, pants: 0x2a2a3a, skin: 0x8a5a3a }, 1.6, 15.2, 40, -Math.PI / 2, 'Elena');
+    for (const [k, fb, x, z] of [['gus', { shirt: 0x2a4a2a }, 32, 30], ['elena', { shirt: 0x6a3a6a }, 44, 18], ['lady', { shirt: 0x6a6a8a }, 20, 36], ['gus', { shirt: 0x5a2a2a }, 56, 28], ['chuy', { shirt: 0x2a2a6a }, 8, 30]]) {
+      const w = npc(k, fb, 1.7 + r() * 0.12, x, z, r() * 6, 'Customer'); w.wander = { path: null, pi: 0, wait: r() * 4 }; wanderers.push(w);
+    }
+    // something is wrong: a man in a windbreaker who never buys anything, a black SUV in the lot
+    const w0 = makeStatic('watcher', 1.82); if (w0) { watcher = { group: w0, gone: false }; w0.position.set(32.5, 0, 20); w0.rotation.y = -Math.PI / 2; scene.add(w0); }
+    const suvLot = makeVehicle('suv', 4.8, 0x161616, 0.6); if (suvLot) { suvLot.position.set(24, 0, 51); suvLot.rotation.y = Math.PI / 2; scene.add(suvLot); }
+    // daylight: the front doors stand open on the parking lot
+    const lot = new THREE.Mesh(new THREE.PlaneGeometry(80, 30), std(0x8a8a84, { map: tex('asphalt', [10, 4]), emissive: 0x6a6a64, emissiveIntensity: 0.6 })); lot.rotation.x = -Math.PI / 2; lot.position.set(32, -0.01, 61); scene.add(lot);
+    const skyWall = new THREE.Mesh(new THREE.PlaneGeometry(120, 30), new THREE.MeshBasicMaterial({ color: 0xc8d8dc, fog: false })); skyWall.position.set(32, 10, 80); skyWall.rotation.y = Math.PI; scene.add(skyWall);
+    const sun = new THREE.SpotLight(0xfff0d8, 220, 40, 0.7, 0.6, 1.2); sun.position.set(31.5, 6, 52); sun.target.position.set(31.5, 0, 36); scene.add(sun); scene.add(sun.target);
+    for (const c of chainMeshes) c.visible = false;
+    frontGlass.visible = false; grid.rect(28, 45, 34, 45, 0, 0); grid.rect(28, 46, 34, 47, 1, 1);
+    // sounds of a store open for business
+    audio.chatterBed(); audio.setLoop('chatter', 0.035, 2);
+    audio.sizzleBed({ x: 1.6, y: 1, z: 40.6 }); audio.setLoop('sizzle', 0.1, 2);
+    ui.clock('7:02 AM');
+    P.pos.set(6, 0, 11); P.yaw = Math.PI * 0.75; P.flashlight = false;
+    setPower(true);
+    const CRATES = 3; let crates = 0, crateStack = [];
+    const displayT = box(1.4, 0.5, 0.8, std(0xd2541c, { roughness: 0.6 }), 38, 0.25, 11.6); grid.rect(37, 11, 38, 11, 1, 0);
+    at(1.5, () => { say('d1'); setStage('clock', 'Clock in. The time clock is in the Break Room.', [9.5, 8.1]); });
+    it({ x: 9.5, z: 8.1, r: 1.4, label: 'Clock in', enabled: () => stage === 'clock', action: () => {
+      audio.punch({ x: 9.5, y: 1.4, z: 8.9 }); stage = 'clock2'; ui.objective(''); ui.toast('CLOCKED IN — 7:04 AM');
+      dale.walk = [[12, 10.5]];
+      say('d2').then(() => { dale.walk = [[17.5, 10.5], [17.5, 6.5]]; setStage('crates', `Move the crates from the pallet in Receiving to the display at the end of Aisle 6. (0/${CRATES})`, [44, 7.4]); });
+    } });
+    it({ x: 44, z: 7.4, r: 1.7, label: 'Pick up a crate', enabled: () => stage === 'crates' && !P.carrying, action: () => { audio.pickup(); hold('crate'); goal = [38, 12.6]; } });
+    it({ x: 38, z: 12.6, r: 1.7, label: 'Stack the crate', enabled: () => stage === 'crates' && P.carrying === 'crate', action: () => {
+      hold(null); audio.thump({ x: 38, y: 0.6, z: 11.6 }); crates++;
+      const c = box(0.55, 0.38, 0.4, crateM, 37.6 + (crates % 2) * 0.6, 0.69 + Math.floor((crates - 1) / 2) * 0.38, 11.6, true); crateStack.push(c);
+      if (crates < CRATES) { setStage('crates', `Move the crates from the pallet in Receiving to the display at the end of Aisle 6. (${crates}/${CRATES})`, [44, 7.4]); return; }
+      stage = 'crates2'; ui.objective(''); ui.clock('9:48 AM');
+      at(1.5, () => ui.say([{ ...SVO.ch1, pos: chuy.group.position }]).then(() => setStage('lady', 'Help the customer in Aisle 2, Plumbing.', [13.5, 24])));
+    } });
+    it({ x: 13.5, z: 24, r: 2.0, label: 'Help her', enabled: () => stage === 'lady', action: () => {
+      stage = 'lady2'; ui.objective(''); ui.clock('11:20 AM');
+      say('cu1', 'jw1').then(() => { setStage('ring', 'Find a toilet wax ring. Aisle 2, bottom shelf.', [12.4, 29]); ringGlow.visible = true; });
+    } });
+    const ringMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.05, 12), std(0xe8d48a)); ringMesh.position.set(11.75, 0.33, 29); scene.add(ringMesh);
+    const ringGlow = makeGlow(0xd8ffe0, 0.35, 0.6); ringGlow.position.set(11.8, 0.4, 29); ringGlow.visible = false; scene.add(ringGlow);
+    it({ x: 12.4, z: 29, r: 1.5, label: 'Take the wax ring', enabled: () => stage === 'ring', action: () => { audio.pickup(); ringMesh.visible = false; ringGlow.visible = false; hold('ring'); setStage('ring2', 'Bring the wax ring to the customer.', [lady.group.position.x, lady.group.position.z]); } });
+    it({ x: 13.5, z: 24, r: 2.0, label: 'Give her the wax ring', enabled: () => stage === 'ring2', action: () => {
+      hold(null); audio.pickup(); stage = 'ring3'; ui.objective('');
+      say('cu2').then(() => { lady.wander = { path: null, pi: 0, wait: 0 }; wanderers.push(lady); at(2, () => say('d3').then(() => setStage('mop', 'Mop up the paint spill in Aisle 4. Hold E.', [26, 20]))); });
+    } });
+    // the spill
+    const spill = new THREE.Mesh(new THREE.CircleGeometry(0.9, 14), std(0x3a5aa8, { roughness: 0.1 })); spill.rotation.x = -Math.PI / 2; spill.position.set(26, 0.012, 20); scene.add(spill);
+    const can = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.2, 10), std(0xd8d8d0, { metalness: 0.5 })); can.rotation.z = Math.PI / 2; can.position.set(26.6, 0.12, 20.3); scene.add(can);
+    const bucket = box(0.4, 0.35, 0.4, std(0xd8b020), 24.6, 0.18, 19.2);
+    let mopProg = 0;
+    it({ x: 26, z: 20, r: 1.9, label: 'Mop up the paint', hold: 6, enabled: () => stage === 'mop', onHold: (dt) => {
+      mopProg += dt; spill.scale.setScalar(Math.max(0.15, 1 - mopProg / 6));
+      if (Math.random() < dt * 2.5) audio.mop({ x: 26, y: 0.3, z: 20 });
+      if (mopProg > 3.6) powerCut();
+    }, action: () => {} });
+    // the power goes out in the middle of the day. It's nothing. It's an old building.
+    function powerCut() {
+      if (stage !== 'mop') return;
+      stage = 'cut'; ui.objective(''); spill.scale.setScalar(0.3); ui.clock('12:08 PM');
+      audio.powerDown({ x: 30, y: 6, z: 20 }); setPower(false); grillL.intensity = 0; flatTop.material.emissiveIntensity = 0; grillSign.material.emissiveIntensity = 0;
+      audio.setLoop('chatter', 0.07, 0.4); audio.setLoop('sizzle', 0, 1); ui.shake(0.02, 0.3);
+      npcs.forEach((n) => { n.walk = null; if (n.wander) n.wander.wait = 99; });
+      at(2.0, () => say('d4').then(() => {
+        setStage('breaker', 'Get the power back on. Electrical room, back wall.', [28.5, 2.4]);
+        ui.bigHint('PRESS <kbd>F</kbd> FLASHLIGHT'); document.getElementById('bigHint').dataset.k = 'F';
+      }));
+    }
+    let breakerProg = 0;
+    it({ x: 28.5, z: 2.4, r: 1.6, label: 'Reset the main breaker', hold: 2.5, enabled: () => stage === 'breaker', onHold: (dt) => { breakerProg += dt; if (Math.random() < dt * 3) audio.flicker({ x: 28.5, y: 1.6, z: 1.2 }, 0.6); }, action: () => {
+      stage = 'back'; ui.objective(''); audio.clunk({ x: 28.5, y: 1.5, z: 1.2 });
+      at(0.5, () => { fixM.emissiveIntensity = 1.2; audio.flicker({ x: 28, y: 8, z: 18 }); }); at(0.6, () => { fixM.emissiveIntensity = 0; });
+      at(0.9, () => { fixM.emissiveIntensity = 1.6; audio.flicker({ x: 40, y: 8, z: 30 }); }); at(1.0, () => { fixM.emissiveIntensity = 0; });
+      at(1.4, () => {
+        setPower(true); grillL.intensity = 6; flatTop.material.emissiveIntensity = 0.6; grillSign.material.emissiveIntensity = 0.7;
+        audio.setLoop('chatter', 0.035, 2); audio.setLoop('sizzle', 0.1, 2); npcs.forEach((n) => { if (n.wander) n.wander.wait = r() * 3; });
+        dale.group.position.set(24, 0, 11.2); dale.walk = null;
+        at(1.2, () => say('d5').then(() => setStage('lunch', 'Lunch break. Go out the front doors.', [31.5, 44])));
+      });
+    } });
+    it({ x: 31.5, z: 44.2, r: 2.2, label: 'Go to lunch', enabled: () => stage === 'lunch', action: () => { stage = 'done'; ui.objective(''); game.nextChapter(); } });
   } else {
-    setStage(stage); ui.clock('12:2' + stage + ' AM');
-    police.forEach((l) => (l.userData.on = true));
-    spawnFar(agents[0]); spawnFar(agents[1]);
-    if (stage >= 2 && DIFF.maxAgents > 2) spawnFar(agents[2]);
-    if (stage >= 4 && DIFF.maxAgents > 3) spawnFar(agents[3]);
-    if (stage >= 5) agents.forEach((a) => { if (a.active) { a.state = 'investigate'; goTo(a, 28.5, 11); a.invSpeed = 3; } });
+    // ================= CLOSING TIME =================
+    chuy = null; beto = null;
+    ui.clock('9:52 PM'); P.pos.set(20, 0, 34.5); P.yaw = Math.PI * 0.1; P.flashlight = false;
+    setPower(true);
+    audio.preloadVo(STORE_VO);
+    dale.group.position.set(24, 0, 36); dale.group.rotation.y = 0;
+    const strays = [[44, 31.5], [55.5, 34], [9, 25]].map(([x, z]) => { const c = box(0.6, 0.9, 1.0, cartM, x, 0.7, z, false); c.rotation.y = r() * 3; return c; });
+    let cartsIn = 0, gateProg = 0;
+    gate.position.y = 5.6;
+    const bags = box(0.8, 0.5, 0.5, std(0x111111, { roughness: 0.3 }), 26.5, 0.25, 38.3);
+    const compactor = box(2, 2.2, 1.6, std(0x2a5a3a, { metalness: 0.4 }), 57.5, 1.1, 2.2); grid.rect(56, 1, 58, 2, 1, 1);
+    const compT = textTex(256, 64, '#e8d020', [{ text: 'COMPACTOR', size: 36, color: '#111' }]);
+    const compS = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.3), std(0xffffff, { map: compT })); compS.position.set(57.5, 1.6, 3.02); scene.add(compS);
+    at(1.2, () => say('d6').then(() => { dale.walk = [[31.5, 41], [31.5, 44.6]]; setStage('carts', 'Close up (1/3): Bring in the stray carts. (0/3)', [strays[0].position.x, strays[0].position.z]); }));
+    strays.forEach((c, i) => it({ x: c.position.x, z: c.position.z, r: 1.6, label: 'Bring in the cart', enabled: () => stage === 'carts' && c.visible, action: () => {
+      c.visible = false; cartsIn++; audio.noise({ dur: 1.2, type: 'bandpass', freq: 900, q: 2, gain: 0.1 }); audio.clunk({ x: c.position.x, y: 0.5, z: c.position.z }, 0.3);
+      const next = strays.find((s) => s.visible);
+      if (next) setStage('carts', `Close up (1/3): Bring in the stray carts. (${cartsIn}/3)`, [next.position.x, next.position.z]);
+      else setStage('gate', 'Close up (2/3): Pull down the garden-center gate. Hold E.', [61.6, 40.5]);
+    } }));
+    it({ x: 61.6, z: 40.5, r: 2.0, label: 'Pull down the gate', hold: 3, enabled: () => stage === 'gate', onHold: (dt) => { audio.motorBed({ x: 63, y: 2, z: 40.5 }); audio.setLoop('motor', 0.3, 0.1); gateProg += dt; gate.position.y = 5.6 - Math.min(1, gateProg / 3) * 3.6; }, onRelease: () => audio.setLoop('motor', 0, 0.1), action: () => {
+      audio.stopLoop('motor', 0.2); audio.clunk({ x: 63, y: 0.5, z: 40.5 }); gate.position.y = 2;
+      setStage('trash', 'Close up (3/3): Take the trash from the registers to the compactor in Receiving.', [26.5, 39]);
+    } });
+    it({ x: 26.5, z: 39.2, r: 1.6, label: 'Pick up the trash', enabled: () => stage === 'trash' && !P.carrying, action: () => { bags.visible = false; audio.rustle({ x: 26.5, y: 0.5, z: 38.3 }); hold('trash'); goal = [57.5, 3.6]; } });
+    it({ x: 57.5, z: 3.6, r: 1.7, label: 'Throw it in the compactor', enabled: () => stage === 'trash' && P.carrying === 'trash', action: () => { hold(null); audio.thump({ x: 57.5, y: 1.5, z: 2.5 }); stage = 'quiet'; ui.objective(''); at(2.5, lightsOut); } });
+    // closing is done. The lights go.
+    function lightsOut() {
+      audio.powerDown({ x: 40, y: 6, z: 20 }); setPower(false); ui.shake(0.02, 0.4); ui.clock('10:31 PM');
+      at(1.5, () => { audio.sirenBed(); audio.setLoop('siren', 0.05, 3); police.forEach((l) => (l.userData.on = true)); });
+      at(3.0, () => { audio.carDoor({ x: 50, y: 1, z: -4 }); audio.carDoor({ x: 30, y: 1, z: 50 }); audio.radio({ x: 54.5, y: 1.5, z: -2 }, 0.8); ui.bark({ ...SVO.ag1, pos: { x: 54.5, y: 1.5, z: -2 } }); });
+      at(6.5, () => { say('jc1'); });
+      at(8.5, () => { setStage('hide', 'HIDE. The storage sheds by the garden center.', [50.5, 39.3]); ui.bigHint('HIDE<small>THEY\'RE COMING IN THE DOCK AND THE FRONT</small>'); setTimeout(() => ui.bigHint(''), 3500); breach(); });
+    }
+    it({ x: 62, z: 6.4, r: 1.5, label: 'Pry the hatch open', hold: 3, enabled: () => stage === 'hatch', onHold: (dt) => { if (Math.random() < dt * 2) { audio.clunk({ x: 62, y: 0.1, z: 6.2 }, 0.25); L.onNoise(6, 62, 6.2, 'pry'); } }, action: () => {
+      stage = 'down'; ui.objective(''); P.frozen = true; audio.clunk({ x: 62, y: 0.1, z: 6.2 }, 0.8); hatch.position.y = 0.6; hatch.rotation.x = -1.2;
+      at(0.8, () => { audio.splash({ x: 62, y: -1, z: 6.2 }); P.lookLock = { yaw: P.yaw, pitch: -1.3, k: 3 }; });
+      at(1.8, () => game.nextChapter());
+    } });
+    // optional: what's on Dale's desk tonight
+    it({ x: 18.2, z: 5.5, r: 1.5, label: 'Read the printout on Dale\'s desk', enabled: () => stage !== 'quiet', action: () => ui.note('<h3>HAMMERLINE DEPOT #0417 — PRINTOUT ON DALE\'S DESK</h3>TIP CONFIRMATION — submitted 10/14, 4:52 PM\nLocation: Hammerline Depot #0417, loading entrance\nIndividuals: night stocking crew (paid cash)\nNotes: crew on site after close\nSubmitted by: D. Pruitt, Store Manager\n\n<i>A sticky note on the corner: "nights payroll = $0 if nobody\'s here to collect."</i>').then(() => ui.say([VO.m2])) });
+    it({ x: 42.5, z: 27.5, label: 'Take the LED lens kit (brighter light, drains faster)', enabled: () => !P.lens, action: () => { P.lens = 1; audio.pickup(); ui.toast('FLASHLIGHT UPGRADED: LED LENS'); lensMesh.visible = false; } });
   }
+  const lensMesh = box(0.2, 0.2, 0.2, std(0x2a5aa8), 41.85, 1.62, 27.5, false);
+  if (P.lens || WORK) lensMesh.visible = false;
+  audio.droneBed(); audio.setLoop('drone', WORK ? 0 : 0.3, 3);
+  L.onHide = (spot) => {
+    for (const a of agents) if (canSee(a, true) || (a.state === 'chase' && Math.hypot(a.g.position.x - P.pos.x, a.g.position.z - P.pos.z) < 6 && grid.los(a.g.position.x, a.g.position.z, spot.ex, spot.ez))) { a.sawHide = spot; a.lastKnown = [spot.ex, spot.ez]; }
+    if (stage === 'hide') {
+      stage = 'hiding'; ui.objective('Stay still. Hold your breath (Space) if they get close.');
+      // one of them checks the shed next to yours
+      at(5, () => { const near = sheds.length ? spots.filter((s2) => s2.kind === 'shed' && s2 !== spot) : []; const a = agents.find((x) => x.active && x.state !== 'chase'); const sp = near.sort((p, q) => Math.abs(p.ex - spot.ex) - Math.abs(q.ex - spot.ex))[0]; if (a && sp) beginInspect(a, sp); });
+      at(20, () => {
+        radio(SVO.ag2, null);
+        agents.forEach((a) => { if (a.active && a.state !== 'chase') { a.state = 'investigate'; a.invSpeed = 2.2; a.wait = 0; goTo(a, 6 + r() * 20, 5 + r() * 2); } });
+        at(4, () => { if (stage === 'hiding') setStage('hatch', 'Get to the drain hatch in Receiving. Behind the last pallet rack, by the east wall.', [62, 6.4]); });
+      });
+    }
+  };
 
   // ---------------- cats (jumpscares) ----------------
   const catGeoM = std(0x050505, { roughness: 0.4 });
@@ -733,7 +799,6 @@ export function createStore(G, checkpoint = 0) {
   function startAlarm() { if (alarmOn) return; alarmOn = true; audio.alarmBed(); audio.setLoop('alarm', 0.12, 0.2); L.onNoise(200, 62, 40.5, 'loud'); }
 
   // ---------------- navigation: glow-tape floor arrows, wall maps, objective glow ----------------
-  const GOALS = { 1: [7.5, 2.4], 2: [18.2, 5.5], 3: [42.5, 30.5], 4: [28.5, 2.4], 5: [61.6, 40.5], 6: [62.6, 40.5] };
   // subtle HUD chevron pointing the general way (no floor arrows)
   const dirEl = document.getElementById('dirHint');
   let arrowT = 0, guide = null;
@@ -741,7 +806,6 @@ export function createStore(G, checkpoint = 0) {
     arrowT -= dt;
     if (arrowT <= 0) {
       arrowT = 0.4; guide = null;
-      const goal = GOALS[Math.floor(stage)];
       if (goal && !P.hidden) {
         const path = grid.path(P.pos.x, P.pos.z, goal[0], goal[1]);
         if (path && path.length) { let k = 0, acc = 0, px = P.pos.x, pz = P.pos.z; for (; k < path.length - 1; k++) { acc += Math.hypot(path[k].x - px, path[k].z - pz); px = path[k].x; pz = path[k].z; if (acc > 3.5) break; } guide = { x: path[k].x, z: path[k].z, d: Math.hypot(goal[0] - P.pos.x, goal[1] - P.pos.z) }; }
@@ -809,7 +873,7 @@ export function createStore(G, checkpoint = 0) {
   function strangerUpdate(dt) {
     const g = stranger.group;
     if (cr.state === 'wait') {
-      if (stage >= 1 && !P.hidden && !P.frozen && Math.hypot(P.pos.x - 44.5, P.pos.z - 8.5) < 3.2) {
+      if (!P.hidden && !P.frozen && Math.hypot(P.pos.x - 44.5, P.pos.z - 8.5) < 3.2) {
         cr.state = 'lunge'; cr.t = 0; g.visible = true; g.position.set(42.3, 0, 5.6);
         audio.hit(1.1); audio.stinger(0.8); ui.flash(0.3); ui.shake(0.1, 0.6); P.frozen = true; P.flashlight = P.flashlight;
         ui.bark(CR[1]);
@@ -862,6 +926,49 @@ export function createStore(G, checkpoint = 0) {
     return false;
   };
 
+  // ---------------- people ----------------
+  let phoneHeard = false;
+  const tmpD = new THREE.Vector3(), tmpC = new THREE.Vector3();
+  function updatePeople(dt) {
+    for (const c of npcs) {
+      const g = c.group.position; let moving = false;
+      if (c.walk && c.walk.length) {
+        const [tx, tz] = c.walk[0], dx = tx - g.x, dz = tz - g.z, d = Math.hypot(dx, dz);
+        if (d < 0.2) { c.walk.shift(); if (!c.walk.length && c === dale && !WORK && Math.hypot(g.x - 31.5, g.z - 44.6) < 1) { c.group.visible = false; audio.doorBell({ x: 31.5, y: 2.6, z: 45 }); } }
+        else { g.x += dx / d * 1.3 * dt; g.z += dz / d * 1.3 * dt; c.group.rotation.y = Math.atan2(dx, dz); moving = true; c.phase += dt * 4; }
+      } else if (c.wander && L.power) {
+        const w = c.wander;
+        if (w.wait > 0) w.wait -= dt;
+        else if (!w.path) { const t = wander[(r() * wander.length) | 0]; w.path = grid.path(g.x, g.z, t[0] + (r() - 0.5) * 2, t[1] + (r() - 0.5) * 4) || []; w.pi = 0; }
+        else {
+          const p = w.path[w.pi];
+          if (!p) { w.path = null; w.wait = 3 + r() * 7; c.baseYaw = c.group.rotation.y + (r() < 0.5 ? 1.57 : -1.57); }
+          else { const dx = p.x - g.x, dz = p.z - g.z, d = Math.hypot(dx, dz); if (d < 0.2) w.pi++; else { g.x += dx / d * 1.0 * dt; g.z += dz / d * 1.0 * dt; c.group.rotation.y = Math.atan2(dx, dz); moving = true; c.phase += dt * 3; } }
+        }
+        if (!moving && w.wait > 0) { let df = c.baseYaw - c.group.rotation.y; df = Math.atan2(Math.sin(df), Math.cos(df)); c.group.rotation.y += df * Math.min(1, dt * 2); }
+      } else {
+        const dx = P.pos.x - g.x, dz = P.pos.z - g.z, near = Math.hypot(dx, dz) < 4;
+        const want = near ? Math.atan2(dx, dz) : c.baseYaw; let df = want - c.group.rotation.y; df = Math.atan2(Math.sin(df), Math.cos(df));
+        c.group.rotation.y += df * Math.min(1, dt * 3);
+      }
+      animateWalk(c, c.phase, moving ? 1 : 0, false);
+    }
+    // Dale on the phone behind his office door
+    if (WORK && !phoneHeard && stage === 'crates' && Math.hypot(P.pos.x - 17.5, P.pos.z - 10.5) < 3.5) { phoneHeard = true; ui.bark({ ...SVO.dphone, pos: { x: 17.5, y: 1.5, z: 6 }, gain: 0.6 }); }
+    // the man in the windbreaker: when you look right at him, he walks away
+    if (watcher && !watcher.gone) {
+      const wg = watcher.group.position;
+      tmpD.set(wg.x, 1.6, wg.z).sub(G.camera.position); const d = tmpD.length(); tmpD.normalize();
+      if (!watcher.leaving && d < 16 && tmpD.dot(G.camera.getWorldDirection(tmpC)) > 0.94 && grid.los(P.pos.x, P.pos.z, wg.x, wg.z)) { watcher.leaving = true; watcher.path = grid.path(wg.x, wg.z, 31.5, 44) || []; watcher.pi = 0; }
+      if (watcher.leaving) {
+        const p = watcher.path[watcher.pi];
+        if (!p) { watcher.gone = true; watcher.group.visible = false; }
+        else { const dx = p.x - wg.x, dz = p.z - wg.z, dd = Math.hypot(dx, dz); if (dd < 0.2) watcher.pi++; else { wg.x += dx / dd * 1.2 * dt; wg.z += dz / dd * 1.2 * dt; watcher.group.rotation.y = Math.atan2(dx, dz); } }
+        if (Math.hypot(wg.x - P.pos.x, wg.z - P.pos.z) > 30) { watcher.gone = true; watcher.group.visible = false; }
+      }
+    }
+  }
+
   // ---------------- update ----------------
   L.update = (dt) => {
     tl += dt;
@@ -913,7 +1020,7 @@ export function createStore(G, checkpoint = 0) {
       tmpV.set(dx, 4.5 - cam.y, dz).normalize();
       const seen = tmpV.dot(G.camera.getWorldDirection(new THREE.Vector3())) > 0.55 && dist < 22 && grid.los(cam.x, cam.z, sp.x, sp.z);
       skelState.cool -= dt;
-      if (!seen && skelDone && skelState.moves < 5 && skelState.cool <= 0 && dist > 4 && dist < 24) {
+      if (!seen && skelDone && !WORK && !L.power && skelState.moves < 5 && skelState.cool <= 0 && dist > 4 && dist < 24) {
         const oz = Math.floor(sp.z), nz = Math.max(25, Math.min(34, oz + Math.sign(P.pos.z - sp.z)));
         if (nz !== oz && Math.floor(P.pos.z) !== nz) { grid.rect(20, oz, 20, oz, 0, 0); sp.z = nz + 0.5; grid.rect(20, nz, 20, nz, 1, 0); }
         skel.rotation.y = Math.atan2(P.pos.x - sp.x, P.pos.z - sp.z);
@@ -923,18 +1030,18 @@ export function createStore(G, checkpoint = 0) {
       if (seen && skelState.pending) { skelState.pending = false; audio.creak({ x: sp.x, y: 3, z: sp.z }); audio.tone({ freq: 60, freqTo: 40, dur: 1.2, gain: 0.35, dest: audio.music }); }
     }
     // black cat: knocks over a can as you enter the floor from receiving
-    if (!catDone && P.pos.z > 9 && P.pos.z < 14 && P.pos.x > 30) { catDone = true; ambient.catT = 0; audio.can({ x: 38, y: 2, z: 4 }); }
+    if (!catDone && !L.power && P.pos.z > 9 && P.pos.z < 14 && P.pos.x > 30) { catDone = true; ambient.catT = 0; audio.can({ x: 38, y: 2, z: 4 }); }
     if (ambient.catT != null) {
       ambient.catT += dt; const t = Math.min(1, ambient.catT / 1.3);
       cat.position.set(38 + t * 4, Math.max(0, 2.6 - ambient.catT * 8), 3.5 + t * 9); cat.rotation.y = 0.4;
       if (t >= 1) { cat.visible = false; ambient.catT = null; }
     }
     // shopping cart rolls out on its own near the checkouts
-    if (!cartDone && P.pos.z > 33 && P.pos.x < 30) { cartDone = true; ambient.cartT = 0; audio.noise({ dur: 2.5, type: 'bandpass', freq: 900, q: 2, gain: 0.12, pos: { x: 12, y: 0.5, z: 37 } }); }
+    if (!cartDone && !L.power && P.pos.z > 33 && P.pos.x < 30) { cartDone = true; ambient.cartT = 0; audio.noise({ dur: 2.5, type: 'bandpass', freq: 900, q: 2, gain: 0.12, pos: { x: 12, y: 0.5, z: 37 } }); }
     if (ambient.cartT != null) { ambient.cartT += dt; rogueCart.position.x += dt * 1.2 * Math.max(0, 1 - ambient.cartT / 2.5); rogueCart.rotation.y += dt * 0.2; if (ambient.cartT > 2.5) ambient.cartT = null; }
     // ambient false scares: sounds with nothing behind them
     ambient.t -= dt;
-    if (ambient.t <= 0 && stage < 6) {
+    if (ambient.t <= 0 && !WORK) {
       ambient.t = 14 + r() * 20;
       const k = (r() * 10) | 0, ang = r() * Math.PI * 2, rx = P.pos.x + Math.cos(ang) * 9, rz = P.pos.z + Math.sin(ang) * 9;
       if (k === 0) audio.chains({ x: 31.5, y: 1.2, z: 45.5 });
@@ -948,12 +1055,15 @@ export function createStore(G, checkpoint = 0) {
       else if (k === 9) audio.thump({ x: rx, y: 3, z: rz });
       else { audio.thunder(0.2 + r() * 0.4); ui.flash(0.03); }
     }
-    updateCats(dt); updateArrows(dt); updateDrops(dt); strangerUpdate(dt);
-    { const gl = GOALS[Math.floor(stage)]; objGlow.visible = !!gl && stage < 6; if (gl) { objGlow.position.set(gl[0], 1.5 + Math.sin(tl * 2) * 0.1, gl[1]); objGlow.material.opacity = 0.45 + Math.sin(tl * 3) * 0.2; } }
-    for (const g of eas) { g.cd -= dt; if (g.cd <= 0 && Math.abs(P.pos.x - g.x) < 0.8 && Math.abs(P.pos.z - g.z) < 0.5) { g.cd = 6; audio.easBeep({ x: g.x, y: 1, z: g.z }); L.onNoise(28, g.x, g.z, 'loud'); ui.toast('SECURITY GATE ALARM'); } }
+    const scary = !WORK && !L.power;
+    if (scary) { updateCats(dt); updateDrops(dt); }
+    updateArrows(dt); strangerUpdate(dt);
+    { const gl = goal; objGlow.visible = !!gl; if (gl) { objGlow.position.set(gl[0], 1.5 + Math.sin(tl * 2) * 0.1, gl[1]); objGlow.material.opacity = 0.45 + Math.sin(tl * 3) * 0.2; } }
+    if (!WORK) for (const g of eas) { g.cd -= dt; if (g.cd <= 0 && Math.abs(P.pos.x - g.x) < 0.8 && Math.abs(P.pos.z - g.z) < 0.5) { g.cd = 6; audio.easBeep({ x: g.x, y: 1, z: g.z }); L.onNoise(28, g.x, g.z, 'loud'); ui.toast('SECURITY GATE ALARM'); } }
     for (const n of nightLights) { if (n.l.intensity === 0 && L.power) continue; if (n.flick) { n.f = Math.random() < 0.05 ? Math.random() * 0.2 : Math.min(1, n.f + dt * 4); } n.l.intensity = L.power ? 0 : n.base * n.f; n.tube.visible = !L.power && n.f > 0.5; }
     if (alarmOn) { alarmT += dt; const on = Math.floor(alarmT * 6) % 2 === 0; strobes.forEach((l, i) => (l.intensity = on && (i % 2 === Math.floor(alarmT * 3) % 2) ? 40 : 0)); }
-    if (stage === 6 && P.pos.x > 62.4) { stage = 7; audio.stopLoop('alarm', 1.5); game.win(); }
+    updatePeople(dt);
+    if (dockOpen && dockDoor.position.y < 5.5) dockDoor.position.y += dt * 1.6;
   };
 
   L.danger = () => {
@@ -970,13 +1080,13 @@ export function createStore(G, checkpoint = 0) {
       const k = z * 64 + x; if (grid.solid[k]) { c.fillStyle = grid.opaque[k] ? '#3a3632' : '#9a9286'; c.fillRect(x * sx, z * sz, sx + 0.5, sz + 0.5); }
     }
     c.fillStyle = '#1d1b17'; c.font = 'bold 13px Oswald, sans-serif'; c.textAlign = 'center';
-    [['BREAK ROOM', 6.5, 5], ['OFFICE', 18, 7], ['BREAKER', 28.5, 7], ['RECEIVING / DOCK', 48, 9.5], ['CHECKOUT', 20, 43.5], ['GARDEN', 53, 44], ['ENTRANCE (CHAINED)', 31.5, 44]].forEach(([t, x, z]) => c.fillText(t, x * sx, z * sz));
+    const label = (t, x, z) => { const w = c.measureText(t).width + 8; c.fillStyle = 'rgba(233,227,211,0.92)'; c.fillRect(x * sx - w / 2, z * sz - 11, w, 15); c.fillStyle = '#1d1b17'; c.fillText(t, x * sx, z * sz); };
+    [['BREAK ROOM', 6.5, 5], ['OFFICE', 18, 7], ['ELECTRICAL', 28.5, 7], ['RECEIVING / DOCK', 48, 9.5], ['GRILL', 3.5, 41], ['CHECKOUT', 20, 38.2], ['PRO DESK', 46.5, 37.9], ['SHEDS', 53, 38.6], ['APPLIANCES', 57.5, 11.4], ['ENTRANCE', 31.5, 44]].forEach(([t, x, z]) => label(t, x, z));
     for (let a = 1; a <= 9; a++) c.fillText(String(a), (6 * a + 2) * sx, 24 * sz);
-    const goal = { 1: [7.5, 2.4], 2: [18, 5], 3: [42.5, 30.5], 4: [28.5, 2.4], 5: [62, 40.5], 6: [62.5, 40.5] }[Math.floor(stage)];
     if (goal) { c.strokeStyle = '#b3261e'; c.lineWidth = 3; c.beginPath(); c.arc(goal[0] * sx, goal[1] * sz, 9, 0, Math.PI * 2); c.stroke(); }
     c.save(); c.translate(P.pos.x * sx, P.pos.z * sz); c.rotate(-P.yaw); c.fillStyle = '#b3261e'; c.beginPath(); c.moveTo(0, -8); c.lineTo(5, 6); c.lineTo(-5, 6); c.closePath(); c.fill(); c.restore();
-    c.fillStyle = '#1d1b17'; c.font = '11px Oswald, sans-serif'; c.textAlign = 'left'; c.fillText('YOU ARE HERE (red arrow) · OBJECTIVE (red circle)', 8, H - 8);
+    c.font = '11px Oswald, sans-serif'; c.textAlign = 'left'; const lg = 'YOU ARE HERE (red arrow) · OBJECTIVE (red circle)'; c.fillStyle = 'rgba(233,227,211,0.95)'; c.fillRect(W - c.measureText(lg).width - 16, 2, c.measureText(lg).width + 12, 15); c.fillStyle = '#1d1b17'; c.fillText(lg, W - c.measureText(lg).width - 10, 13);
   };
-  L.dispose = () => { police.forEach((l) => (l.userData.on = false)); document.getElementById('timer').textContent = ''; dirEl.style.opacity = 0; };
+  L.dispose = () => { police.forEach((l) => (l.userData.on = false)); document.getElementById('timer').textContent = ''; dirEl.style.opacity = 0; G.camera.remove(carry); ui.bigHint(''); };
   return L;
 }

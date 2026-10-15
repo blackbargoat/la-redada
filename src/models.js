@@ -1,6 +1,6 @@
 // Low-poly (PS3-era) procedural models.
 import * as THREE from 'three';
-import { jacketTex } from './textures.js?v=1792005012';
+import { jacketTex } from './textures.js?v=1792081431';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
@@ -8,7 +8,7 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 const GLB = {};
 export const modelsReady = (async () => {
   const loader = new GLTFLoader();
-  await Promise.all(['rafa', 'agent', 'rosa', 'luz', 'gus', 'elena', 'rafa_run', 'agent_run', 'suv', 'cat', 'watcher'].map(async (k) => {
+  await Promise.all(['rafa', 'agent', 'rosa', 'luz', 'gus', 'elena', 'rafa_run', 'agent_run', 'suv', 'cat', 'watcher', 'hobo', 'dale', 'chuy', 'beto', 'lady'].map(async (k) => {
     try {
       const g = await loader.loadAsync(`assets/models/${k}.glb`);
       // strip root motion: keep the hips' vertical bob, pin x/z to the first frame

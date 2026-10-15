@@ -1,10 +1,13 @@
 import * as THREE from 'three';
-import { AudioEngine } from './audio.js?v=1792005012';
-import { createStreet } from './street.js?v=1792005012';
-import { createRestaurant } from './restaurant.js?v=1792005012';
-import { createStore } from './store.js?v=1792005012';
-import { createPhone } from './phone.js?v=1792005012';
-import { modelsReady } from './models.js?v=1792005012';
+import { AudioEngine } from './audio.js?v=1792081431';
+import { createStreet } from './street.js?v=1792081431';
+import { createRestaurant } from './restaurant.js?v=1792081431';
+import { createStore } from './store.js?v=1792081431';
+import { createHouse } from './house.js?v=1792081431';
+import { createGasStation } from './gasstation.js?v=1792081431';
+import { createSewer } from './sewer.js?v=1792081431';
+import { createPhone } from './phone.js?v=1792081431';
+import { modelsReady } from './models.js?v=1792081431';
 
 const $ = (id) => document.getElementById(id);
 const PIX = 3; // render at 1/3 resolution, upscale with nearest-neighbour for the chunky pixel look
@@ -88,6 +91,7 @@ const P = {
   pos: new THREE.Vector3(), yaw: 0, pitch: 0, eye: 1.62, crouch: false, stamina: 1, exhausted: false,
   hidden: null, frozen: false, reading: false, flashlight: false, battery: 1, lens: 0,
   holdingBreath: false, breath: 1, bob: 0, stepAcc: 0, sprinting: false, speedNow: 0, lookLock: null,
+  health: 1, food: 0.45, carrying: null,
 };
 let phoneMode = false;
 let mode = 'title', paused = false, level = null, time = 0;
@@ -113,7 +117,7 @@ async function speak(l, token) {
   await sleep(dur);
 }
 const ui = {
-  objective(t) { $('objText').textContent = t; if (t) ui.toast('NEW OBJECTIVE'); phone.objective(t); },
+  objective(t) { $('objText').textContent = t; $('objective').style.visibility = t ? 'visible' : 'hidden'; if (t) ui.toast('NEW OBJECTIVE'); phone.objective(t); },
   toast(t, d = 2.2) { const e = $('toast'); e.textContent = t; e.style.opacity = 1; clearTimeout(e._t); e._t = setTimeout(() => (e.style.opacity = 0), d * 1000); },
   clock(t) { $('clock').textContent = t; phone.state.gameClock = t.replace(/ [AP]M/, ''); },
   prompt(t, prog) { $('prompt').innerHTML = t ? `${t}${prog != null ? `<div class="bar"><i style="width:${(prog * 100) | 0}%"></i></div>` : ''}` : ''; },
@@ -160,13 +164,13 @@ const ui = {
 const game = {
   retry: null,
   hide(spot) {
-    P.hidden = spot; P.pos.set(spot.ix, 0, spot.iz); P.yaw = spot.yaw; P.pitch = 0; P.crouch = false;
-    $('hideView').className = 'layer on ' + spot.kind; audio.creak(spot.pos); level.onHide?.(spot);
+    P.hidden = spot; P.pos.set(spot.ix, 0, spot.iz); P.yaw = spot.yaw; P.pitch = 0; P.crouch = false; if (spot.eye) P.eye = spot.eye;
+    $('hideView').className = 'layer on ' + spot.kind; if (spot.kind === 'bush') audio.rustle(spot.pos); else audio.creak(spot.pos); level.onHide?.(spot);
     $('breathM').style.display = 'block';
   },
   unhide() {
     const s = P.hidden; if (!s) return;
-    P.hidden = null; P.pos.set(s.ex, 0, s.ez); $('hideView').className = 'layer'; audio.creak(s.pos);
+    P.hidden = null; P.pos.set(s.ex, 0, s.ez); $('hideView').className = 'layer'; if (s.kind === 'bush') audio.rustle(s.pos); else audio.creak(s.pos); level.onUnhide?.(s);
     $('breathM').style.display = 'none'; P.holdingBreath = false;
   },
   caught(rig, sub) {
@@ -178,30 +182,27 @@ const game = {
     audio.hit(1.2); audio.stinger(0.9); ui.shake(0.16, 0.5); flashV = 0.95;
     setTimeout(() => { audio.muffle(true, 0.05); audio.impact(); audio.tinnitus(); }, 550);
     caughtRoll = 0; caughtEye = P.eye; caughtYaw = P.yaw;
+    $('caughtTitle').textContent = 'DETAINED';
     $('caughtSub').textContent = sub || 'Luz waited up all night.';
     level.onCaught?.();
   },
-  async toStore() {
-    mode = 'cutscene';
-    await ui.fade(1, 0.2);
-    audio.slam({ x: P.pos.x, y: 1, z: P.pos.z });
-    ui.hud(false); audio.stopAll(); ui.cancelSay();
-    await sleep(1.2);
-    await ui.cards(['The door comes down behind him like a guillotine.']);
-    startChapter(1);
+  // hunger: you pass out on the floor, someone finds you
+  collapse() {
+    if (mode !== 'play') return;
+    if (P.hidden) { $('hideView').className = 'layer'; P.hidden = null; }
+    mode = 'cutscene'; ui.cancelSay(); ui.prompt(''); ui.bigHint('');
+    audio.impact(); audio.muffle(true, 0.4); audio.tinnitus();
+    $('caughtTitle').textContent = 'COLLAPSED';
+    $('caughtSub').textContent = 'He hadn\'t eaten in two days. Eat when you can.';
+    ui.fade(1, 2.2).then(() => { ui.hud(false); document.exitPointerLock?.(); $('caught').classList.add('on'); });
   },
-  async win() {
+  // vitals carried between chapters
+  eat(amount = 1) { P.food = Math.min(1, P.food + amount); P.health = Math.min(1, P.health + amount * 0.25); hungerWarned = false; audio.pickup(); },
+  async win(lines) {
     mode = 'cutscene'; ui.cancelSay();
     await ui.fade(1, 2.5);
     ui.hud(false); audio.stopAll();
-    audio.rainBed(); audio.setLoop('rain', 0.5, 2);
-    await ui.cards([
-      'Juan ran until the sirens were behind him. Then he kept running.',
-      'At 3:10 AM he climbed the stairs of his building on Soto Street.\nLuz was asleep on the couch, still holding the card she made.',
-      'He carried her to bed. He lay down on the floor next to her and listened to the street until the sky turned grey.',
-      'Santiago did not come home.',
-      'NIGHT 1 SURVIVED.\n\nDAY 2 — The Fields — coming next.',
-    ]);
+    await ui.cards(lines);
     audio.stopAll(); toTitle();
   },
 };
@@ -221,6 +222,7 @@ function loadLevel(make) {
   audio.stopAll(); audio.muffle(false, 0.05); ui.cancelSay(); phone.close();
   Object.assign(P, { lookLock: null, frozen: false, reading: false, hidden: null, crouch: false, stamina: 1, exhausted: false, breath: 1, pitch: 0, eye: 1.62 });
   $('hideView').className = 'layer'; $('breathM').style.display = 'none';
+  P.carrying = null; hungerWarned = false; game.retry = null;
   ui.post.exposure.value = 0.8; ui.post.sat.value = 0.55; ui.post.contrast.value = 1.16; ui.post.tint.value.set(0.9, 0.98, 0.96); ui.post.lift.value.set(0.0, 0.01, 0.012); ui.post.levels.value = 28;
   level = make(G);
   level.scene.add(camera);
@@ -229,6 +231,7 @@ function loadLevel(make) {
   lockPointer();
 }
 function toTitle() {
+  refreshContinue();
   if (level) { level.dispose?.(); camera.parent?.remove(camera); disposeScene(level.scene); level = null; }
   audio.stopAll(); audio.muffle(false, 0.05); ui.cancelSay(); ui.hud(false);
   mode = 'title'; ['caught', 'pause', 'cards'].forEach((id) => $(id).classList.remove('on'));
@@ -280,28 +283,54 @@ addEventListener('keyup', (e) => { keys.delete(e.code); if (is(e, 'map')) $('map
 addEventListener('blur', () => keys.clear());
 
 // ---------------- chapters ----------------
+// food: where the bar starts when a chapter is opened from the menu
 const CHAPTERS = [
-  { key: 'night1', name: 'NIGHT 1 — The Walk Home', hud: 'NIGHT', cards: ['NIGHT 1\nThe Walk Home\n11:40 PM'], make: createStreet },
-  { key: 'store', name: 'NIGHT 1 — Hammerline Depot', hud: 'NIGHT', cards: ['HAMMERLINE DEPOT\nStore #0417 — Boyle Heights\n11:58 PM'], make: (g) => createStore(g, 0) },
+  { key: 'night1', name: 'NIGHT 1 — The Walk Home', hud: 'NIGHT', num: 1, food: 0.45, cards: ['NIGHT 1\nThe Walk Home\n11:40 PM'], make: createStreet },
+  { key: 'rosa', name: 'NIGHT 1 — Doña Rosa\'s House', hud: 'NIGHT', num: 1, food: 0.2, cards: ['DOÑA ROSA\'S HOUSE\nMott Street\n12:16 AM'], make: createHouse },
+  { key: 'shift', name: 'DAY 2 — The Shift', hud: 'DAY', num: 2, food: 0.8, cards: ['DAY 2\nThe Shift\nHammerline Depot #0417 — 7:02 AM'], make: (g) => createStore(g, 'work') },
+  { key: 'lunch', name: 'DAY 2 — Lunch Break', hud: 'DAY', num: 2, food: 0.25, cards: ['LUNCH BREAK\n12:31 PM'], make: createGasStation },
+  { key: 'close', name: 'DAY 2 — Closing Time', hud: 'NIGHT', num: 2, food: 0.7, cards: ['CLOSING TIME\nHammerline Depot #0417 — 9:52 PM'], make: (g) => createStore(g, 'close') },
+  { key: 'sewer', name: 'NIGHT 2 — Under the City', hud: 'NIGHT', num: 2, food: 0.5, cards: ['UNDER THE CITY\n10:47 PM'], make: createSewer },
 ];
 let chapterI = 0;
-function loadProgress() { try { return parseInt(localStorage.getItem('lr_chapter') || '0', 10) || 0; } catch (e) { return 0; } }
-function saveProgress(i) { try { if (i > loadProgress()) localStorage.setItem('lr_chapter', String(i)); } catch (e) { } }
-async function startChapter(i, skipCards) {
-  chapterI = i; saveProgress(i);
+function loadSave() { try { return JSON.parse(localStorage.getItem('lr_save') || 'null'); } catch (e) { return null; } }
+function writeSave(o) { try { localStorage.setItem('lr_save', JSON.stringify(o)); } catch (e) { } refreshContinue(); }
+function refreshContinue() { const s = loadSave(); $('continueBtn').style.display = s && CHAPTERS[s.chapter] ? '' : 'none'; }
+// fromMenu: the chapter was picked on the title screen, so the food bar starts at that chapter's default
+async function startChapter(i, fromMenu) {
+  chapterI = i;
   const ch = CHAPTERS[i];
-  $('nightLbl').textContent = ch.hud;
-  if (!skipCards) await ui.cards(ch.cards);
+  if (fromMenu) { P.food = ch.food; P.health = 1; }
+  writeSave({ chapter: i, food: P.food, health: P.health, done: false });
+  $('nightLbl').textContent = ch.hud; $('nightNum').textContent = ch.num;
+  await ui.cards(ch.cards);
   loadLevel(ch.make);
 }
 game.nextChapter = async () => {
   mode = 'cutscene'; ui.cancelSay();
   await ui.fade(1, 1.6); ui.hud(false); audio.stopAll();
-  if (chapterI + 1 < CHAPTERS.length) startChapter(chapterI + 1); else game.win();
+  if (chapterI + 1 < CHAPTERS.length) startChapter(chapterI + 1);
 };
+// a save point inside a chapter (the sewer exit): CONTINUE comes back to the ending
+game.saveHere = () => { writeSave({ chapter: chapterI, food: P.food, health: P.health, done: true }); ui.toast('GAME SAVED', 3); };
+game.retryChapter = () => G.loadLevel(CHAPTERS[chapterI].make);
 async function boot() { audio.init(); try { const v = parseFloat(localStorage.getItem('lr_vol')); if (isFinite(v)) audio.master.gain.value = v; } catch (e) { } $('title').classList.remove('on'); $('chapters').classList.remove('on'); await ensureBrightness(); await modelsReady; }
+$('continueBtn').onclick = async () => {
+  const s = loadSave(); if (!s) return;
+  await boot();
+  P.food = s.food ?? CHAPTERS[s.chapter].food; P.health = s.health ?? 1;
+  if (s.done) { $('fade').style.opacity = 1; await ui.cards(SEWER_END); toTitle(); return; }
+  startChapter(s.chapter);
+};
+const SEWER_END = [
+  'Juan came up out of the street at 1:40 in the morning, a mile from the store, soaked to the knees and shaking.',
+  'He walked to Soto Street with his hood up. He didn\'t look at any car twice.',
+  'DAY 2 SURVIVED.\n\nDAY 3 — coming next.',
+];
+game.sewerEnd = () => game.win(SEWER_END);
 $('startBtn').onclick = async () => {
   await boot();
+  P.food = CHAPTERS[0].food; P.health = 1;
   await ui.cards([
     'Los Angeles.\nFourteen years ago, Juan Reyes crossed the desert with a backpack and his cousin\'s phone number.',
     'He built the apartments you live in.\nHe poured the sidewalks you walk on.',
@@ -314,7 +343,7 @@ $('storeBtn').onclick = () => {
   const unlocked = CHAPTERS.length; // all chapters open
   CHAPTERS.forEach((ch, i) => {
     const b = document.createElement('button'); b.className = 'btn'; b.textContent = i <= unlocked ? ch.name : 'LOCKED'; b.disabled = i > unlocked; b.style.opacity = i > unlocked ? 0.35 : 1;
-    b.onclick = async () => { await boot(); startChapter(i); };
+    b.onclick = async () => { await boot(); startChapter(i, true); };
     list.appendChild(b);
   });
   $('chapters').classList.add('on');
@@ -375,7 +404,7 @@ $('optJuan').onclick = () => { OPTS.juanVoice = !OPTS.juanVoice; saveOpts(); dra
 $('setReset').onclick = () => { BINDS = { ...DEFAULT_BINDS }; try { localStorage.removeItem('lr_binds'); } catch (e) { } drawBinds(); };
 $('volSlider').oninput = (e) => { audio.init(); audio.master.gain.value = parseFloat(e.target.value); try { localStorage.setItem('lr_vol', e.target.value); } catch (er) { } };
 
-$('retryBtn').onclick = () => { $('caught').classList.remove('on'); mode = 'play'; game.retry?.(); };
+$('retryBtn').onclick = () => { $('caught').classList.remove('on'); mode = 'play'; if (P.health <= 0 || P.food <= 0) { P.health = 1; P.food = Math.max(P.food, 0.35); } audio.muffle(false, 0.2); (game.retry || game.retryChapter)(); };
 $('menuBtn').onclick = toTitle; $('pauseMenuBtn').onclick = toTitle;
 $('resumeBtn').onclick = () => { $('pause').classList.remove('on'); lockPointer(); };
 
@@ -398,12 +427,12 @@ function updatePlayer(dt) {
   if (held('right') || keys.has('ArrowRight')) s += 1;
   if (held('left') || keys.has('ArrowLeft')) s -= 1;
   const moving = f || s;
-  const wantSprint = (L.chaseRun || held('sprint') || (BINDS.sprint === 'ShiftLeft' && keys.has('ShiftRight'))) && moving && f >= 0 && L.allowSprint !== false;
+  const wantSprint = (L.chaseRun || held('sprint') || (BINDS.sprint === 'ShiftLeft' && keys.has('ShiftRight'))) && moving && f >= 0 && L.allowSprint !== false && !P.carrying;
   if (wantSprint && P.crouch) P.crouch = false;
   P.sprinting = wantSprint && !P.exhausted && P.stamina > 0;
   if (P.sprinting && !L.chaseRun) { P.stamina -= dt / 7.5; if (P.stamina <= 0) { P.stamina = 0; P.exhausted = true; } }
-  else { P.stamina = Math.min(1, P.stamina + dt / (P.exhausted ? 8 : 4.5)); if (P.exhausted && P.stamina > 0.4) P.exhausted = false; }
-  const speed = (P.crouch ? 1.6 : P.sprinting ? 6.2 : 3.1) * (P.exhausted ? 0.8 : 1) * (L.speedMul || 1);
+  else { P.stamina = Math.min(1, P.stamina + dt / (P.exhausted ? 8 : 4.5) * (P.food < 0.15 ? 0.6 : 1)); if (P.exhausted && P.stamina > 0.4) P.exhausted = false; }
+  const speed = (P.crouch ? 1.6 : P.sprinting ? 6.2 : 3.1) * (P.exhausted ? 0.8 : 1) * (L.speedMul ?? 1) * (P.carrying ? 0.75 : 1);
   const len = Math.hypot(f, s) || 1;
   const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
   const dx = ((fx * f + rx * s) / len) * speed * dt, dz = ((fz * f + rz * s) / len) * speed * dt;
@@ -444,6 +473,22 @@ function updateInteract(dt) {
     else best.onRelease?.();
     ui.prompt(`HOLD ${keyName(BINDS.interact)} — ` + best.label, (best.progress || 0) / best.hold);
   } else ui.prompt(`${keyName(BINDS.interact)} — ` + best.label);
+}
+
+let hungerWarned = false;
+function updateVitals(dt) {
+  const on = level && level.vitals !== false;
+  $('vitals').style.display = on ? 'flex' : 'none';
+  if (!on) return;
+  if (mode === 'play' && !paused) {
+    P.food = Math.max(0, P.food - dt / 600 * (P.sprinting ? 2.2 : 1) * (level.hunger ?? 1));
+    if (P.food <= 0) P.health = Math.max(0, P.health - dt / 90);
+    else if (P.food > 0.4) P.health = Math.min(1, P.health + dt / 240);
+    if (P.food < 0.2 && !hungerWarned) { hungerWarned = true; ui.toast('YOU\'RE HUNGRY — EAT SOMETHING', 3); }
+    if (P.health <= 0) game.collapse();
+  }
+  const ring = (id, v) => { const el = $(id); el.querySelector('.arc').style.strokeDashoffset = (125.7 * (1 - v)).toFixed(1); el.classList.toggle('low', v < 0.25); };
+  ring('vHealth', P.health); ring('vFood', P.food);
 }
 
 function updateFlashlight(dt) {
@@ -503,14 +548,14 @@ function updateCaught(dt) {
 const clock = new THREE.Clock();
 function frame() {
   requestAnimationFrame(frame);
-  const dt = Math.min(clock.getDelta(), 0.05);
+  const dt = Math.min(clock.getDelta(), 0.05) * (window.__ts ?? 1); // __ts: debug slow-motion
   time += dt;
   post.uniforms.time.value = time;
   if (!level) return;
   if (mode === 'play' && !paused) { updatePlayer(dt); level.update(dt); updateInteract(dt); }
   else if (mode === 'cutscene') level.update(dt);
   else if (mode === 'caught') { level.update(dt * 0.15); updateCaught(dt); }
-  updateFlashlight(dt);
+  updateFlashlight(dt); updateVitals(dt);
   // scripted camera control (forced looks)
   if (P.lookLock && mode === 'play') {
     let dy = P.lookLock.yaw - P.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
@@ -550,4 +595,8 @@ frame();
 })();
 
 // debug hooks (used for testing / screenshots)
-window.__dbg = { P, ui, audio, phone, get level() { return level; }, startStreet: (o) => { $('title').classList.remove('on'); loadLevel((g) => createStreet(g, o)); }, startStore: (c = 0) => { $('title').classList.remove('on'); loadLevel((g) => createStore(g, c)); }, setMode: (m) => { mode = m; paused = false; }, startRest: () => { $('title').classList.remove('on'); loadLevel((g) => createRestaurant(g)); }, get mode() { return mode; }, get paused() { return paused; } };
+refreshContinue();
+// test helpers: walk to a spot and press/hold E on the nearest live interactable; wait for an objective
+const dbgE = async (x, z, hold = 0) => { P.pos.set(x, 0, z); await sleep(0.15); const it = level.interactables.filter((i) => !i.enabled || i.enabled()).sort((a, b) => Math.hypot(a.x - x, a.z - z) - Math.hypot(b.x - x, b.z - z))[0]; if (!it) return 'none'; P.yaw = Math.atan2(-(it.x - x), -(it.z - z)); await sleep(0.15); const pr = $('prompt').textContent; dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE' })); await sleep(hold + 0.1); dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyE' })); return pr; };
+const dbgWait = async (pre, ms = 60000) => { const t0 = performance.now(); while (!$('objText').textContent.startsWith(pre) && performance.now() - t0 < ms) await sleep(0.25); return $('objText').textContent + ' (' + ((performance.now() - t0) / 1000 | 0) + 's)'; };
+window.__dbg = { E: dbgE, waitObj: dbgWait, P, ui, audio, phone, game, get level() { return level; }, chapter: (i) => { $('title').classList.remove('on'); boot().then(() => startChapter(i, true)); }, startStreet: (o) => { $('title').classList.remove('on'); loadLevel((g) => createStreet(g, o)); }, startStore: (c = 0) => { $('title').classList.remove('on'); loadLevel((g) => createStore(g, c)); }, setMode: (m) => { mode = m; paused = false; }, startRest: () => { $('title').classList.remove('on'); loadLevel((g) => createRestaurant(g)); }, get mode() { return mode; }, get paused() { return paused; } };
