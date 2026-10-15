@@ -26,6 +26,8 @@ export class Grid {
     return false;
   }
   move(pos, dx, dz, r) {
+    // never trap anyone: if you're already inside something (a seat, a scripted spot), you can walk out
+    if (this.blocked(pos.x, pos.z, r)) { pos.x += dx; pos.z += dz; return; }
     const steps = Math.ceil(Math.max(Math.abs(dx), Math.abs(dz)) / 0.2) || 1;
     const sx = dx / steps, sz = dz / steps;
     for (let k = 0; k < steps; k++) {

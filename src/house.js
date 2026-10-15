@@ -1,8 +1,8 @@
 // NIGHT 1 — Doña Rosa's house on Mott St. The power is out. He tells her, he eats, he sleeps in Santiago's room.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792084803';
-import { tex, textTex, rng } from './textures.js?v=1792084803';
-import { makeCharacter, animateWalk, makeGlow, std } from './models.js?v=1792084803';
+import { Grid } from './grid.js?v=1792088139';
+import { tex, textTex, rng } from './textures.js?v=1792088139';
+import { makeCharacter, animateWalk, makeGlow, std } from './models.js?v=1792088139';
 
 const VO = {
   r1: { id: 'h_r1', who: 'Doña Rosa', text: '¡Juan! Ay, gracias a Dios. The lights went out on the whole street, I heard the sirens... ¿Y Santiago? Where\'s my son?' },
@@ -145,7 +145,7 @@ export function createHouse(G) {
 
   const it = (o) => { L.interactables.push(o); return o; };
   it({ x: 4, z: 4.6, r: 1.6, label: 'Sit down and eat', enabled: () => stage === 1, action: () => {
-    stage = 2; ui.objective(''); P.frozen = true; sitT = 0; chairs[0].visible = false;
+    stage = 2; ui.objective(''); P.frozen = true; sitT = 0; chairs[0].visible = false; ui.toast('E — STAND UP', 3);
     at(1.2, () => { eatT = 0; });
     at(2.0, () => say('r6', 'j4').then(() => at(1.5, () => {
       G.phone.receive('Luz', 'papi?? you didnt come home. mami keeps calling you', 0, 1.2).then(() => at(2.2, () => {
@@ -174,7 +174,14 @@ export function createHouse(G) {
   it({ x: 6.9, z: 7.5, r: 1.4, label: 'Look at the altar', enabled: () => stage >= 1, action: () => ui.note('<h3>THE ALTAR</h3>La Virgen de Guadalupe, three veladoras, a plastic rose.\n\nSantiago at his first communion, maybe eight years old, in a white suit two sizes too big. Someone has written on the back in pen: <i>"Santi, 1997. Mi angelito."</i>\n\nTucked in the frame: his Hammerline badge photo, laminated, with the corner bent.') });
   it({ x: 1.5, z: 2.0, r: 1.3, label: 'Look at the fridge', enabled: () => stage >= 1, action: () => ui.note('<h3>THE FRIDGE</h3>A church bulletin. A dentist reminder card for Santiago, "Thursday 3:15, please call to confirm."\n\nA crayon drawing of a house with a purple roof, signed <b>LUZ</b>, and under it in Santiago\'s handwriting: "para mi tía Rosa."') });
 
-  const tmpQ = new THREE.Vector3();
+  function standUp() { sitT = -1; P.frozen = false; chairs[0].visible = true; }
+  // you can always get up: E or any movement key stands you up; the scene keeps going
+  L.onKey = (code, B) => {
+    if (sitT < 0 || !P.frozen) return false;
+    if (code === B.interact || code === B.forward || code === B.back || code === B.left || code === B.right) { standUp(); return true; }
+    return false;
+  };
+
   L.update = (dt) => {
     tl += dt;
     for (let i = events.length - 1; i >= 0; i--) if (tl >= events[i].t) { const e = events[i]; events.splice(i, 1); e.fn(); }

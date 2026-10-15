@@ -1,8 +1,8 @@
 // DAY 2 — Lunch break. The gas station across from Hammerline: cumbia on the radio, a burrito, Chuy and Beto.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792084803';
-import { tex, textTex, rng, facadeTex } from './textures.js?v=1792084803';
-import { makeCharacter, makeVehicle, animateWalk, makeGlow, makeCar, std } from './models.js?v=1792084803';
+import { Grid } from './grid.js?v=1792088139';
+import { tex, textTex, rng, facadeTex } from './textures.js?v=1792088139';
+import { makeCharacter, makeVehicle, animateWalk, makeGlow, makeCar, std } from './models.js?v=1792088139';
 
 const VO = {
   k1: { id: 'l_k1', who: 'Cashier', text: '¡Buenas, mijo! Burritos are fresh. The tamales are from yesterday, but don\'t tell nobody.' },
@@ -149,14 +149,21 @@ export function createGasStation(G) {
     say('k2').then(() => { stage = 'bench'; ui.objective('Eat with Chuy and Beto. The bench outside.'); goal = [19, 5.9]; });
   } });
   it({ x: 19, z: 6.0, r: 1.6, label: 'Sit down and eat', enabled: () => stage === 'bench', action: () => {
-    stage = 'eat'; ui.objective(''); P.frozen = true; sitT = 0; goal = null;
+    stage = 'eat'; ui.objective(''); P.frozen = true; sitT = 0; goal = null; ui.toast('E — STAND UP', 3);
     at(1.2, () => { eatT = 0; carry.position.set(0.2, -0.26, -0.55); });
     at(1.6, () => say('ch1', 'j1', 'b1', 'ch2', 'b2', 'j2', 'b3', 'ch3').then(() => {
-      sitT = -1; P.frozen = false; P.eye = 1.62; carry.visible = false; stage = 'back';
+      if (sitT >= 0) P.pos.set(19, 0, 6.1); sitT = -1; P.frozen = false; P.eye = 1.62; carry.visible = false; stage = 'back';
       ui.objective('Back to work. Cross the street to Hammerline.'); goal = [10, 28];
     }));
   } });
 
+  function standUp() { sitT = -1; P.frozen = false; P.pos.set(19, 0, 6.1); }
+  // you can always get up: E or any movement key stands you up; the scene keeps going
+  L.onKey = (code, B) => {
+    if (sitT < 0 || !P.frozen) return false;
+    if (code === B.interact || code === B.forward || code === B.back || code === B.left || code === B.right) { standUp(); return true; }
+    return false;
+  };
   L.update = (dt) => {
     tl += dt;
     for (let i = events.length - 1; i >= 0; i--) if (tl >= events[i].t) { const e = events[i]; events.splice(i, 1); e.fn(); }
