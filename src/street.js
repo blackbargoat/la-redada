@@ -1,8 +1,8 @@
 // LEVEL 1 — "The Walk Home". Juan follows Santiago home → the street feels wrong → ICE → run, hide, get to Rosa's.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792088139';
-import { tex, textTex, facadeTex, rng } from './textures.js?v=1792088139';
-import { makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeCar, std } from './models.js?v=1792088139';
+import { Grid } from './grid.js?v=1792107186';
+import { tex, textTex, facadeTex, rng } from './textures.js?v=1792107186';
+import { makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeCar, std } from './models.js?v=1792107186';
 
 const LINES = {
   u1: { id: 'st_u1', who: 'Santiago', text: '...Hey. That car. It\'s been behind us since the bus stop.' },

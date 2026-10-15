@@ -1,8 +1,8 @@
 // NIGHT 2 — Under the City. The storm drain under Hammerline: a maze, green water, rats, an old man who lives down here.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792088139';
-import { tex, textTex, rng } from './textures.js?v=1792088139';
-import { makeCharacter, animateWalk, makeGlow, makeBeam, std } from './models.js?v=1792088139';
+import { Grid } from './grid.js?v=1792107186';
+import { tex, textTex, rng } from './textures.js?v=1792107186';
+import { makeCharacter, animateWalk, makeGlow, makeBeam, std } from './models.js?v=1792107186';
 
 const VO = {
   h1: { id: 's_h1', who: 'Old man', text: 'Easy... easy, mijo. Get that light out of my eyes. I\'m not one of them.' },
@@ -189,7 +189,22 @@ export function createSewer(G) {
   // his things: a shopping cart, a mattress, cans
   const cart = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.9, 1.0), std(0x8a8e90, { metalness: 0.8, roughness: 0.3, wireframe: true })); cart.position.set(HX + (along === 'x' ? 1.4 : -0.3), 0.6, HZ + (along === 'z' ? 1.4 : -0.3)); scene.add(cart);
   const mattress = new THREE.Mesh(new THREE.BoxGeometry(along === 'x' ? 1.8 : 0.9, 0.15, along === 'x' ? 0.9 : 1.8), std(0x6a5a40, { roughness: 1 })); mattress.position.set(HX - (along === 'x' ? 1.4 : 0), 0.08, HZ - (along === 'z' ? 1.4 : 0)); scene.add(mattress);
-  let hoboState = 'wait', hoboT = 0;
+  let hoboState = 'wait', hoboT = 0, lurk = null;
+  // a walkable spot you can't see from where you stand, right beside your line of sight to the ladder
+  function findCorner() {
+    const dx = LADX - P.pos.x, dz = LADZ - P.pos.z, dl = Math.hypot(dx, dz) || 1, ux = dx / dl, uz = dz / dl;
+    let best = null, bs = -1e9;
+    for (let a = 0; a < 48; a++) for (const rr of [1.8, 2.4, 3, 3.6, 4.4]) {
+      const ang = (a / 48) * Math.PI * 2, x = P.pos.x + Math.cos(ang) * rr, z = P.pos.z + Math.sin(ang) * rr;
+      if (!typeAt(x, z) || grid.blocked(x, z, 0.3) || grid.los(P.pos.x, P.pos.z, x, z)) continue;
+      const ahead = (x - P.pos.x) * ux + (z - P.pos.z) * uz; if (ahead < 0.8) continue;
+      for (const f of [1.6, 2.2, 2.8]) { const fx = P.pos.x + ux * f, fz = P.pos.z + uz * f; if (!grid.los(x, z, fx, fz)) continue; const sc = -Math.hypot(x - fx, z - fz) - Math.abs(rr - 2.8) * 0.3; if (sc > bs) { bs = sc; best = { x, z, fx, fz }; } }
+    }
+    if (best) return best;
+    // no corner to hide behind: he comes in from the side, just outside your light
+    const sx = P.pos.x + ux * 1.8 - uz * 2.6, sz = P.pos.z + uz * 1.8 + ux * 2.6;
+    return { x: sx, z: sz, fx: P.pos.x + ux * 1.8, fz: P.pos.z + uz * 1.8 };
+  }
 
   // ---------------- rats ----------------
   const ratM = std(0x2a2622, { roughness: 0.8 });
@@ -278,7 +293,9 @@ export function createSewer(G) {
       fixtures.forEach((f, k) => { setTimeout(() => { f.on = false; f.gl.visible = false; f.lens.emissiveIntensity = 0; if (Math.hypot(f.x - P.pos.x, f.z - P.pos.z) < 14) audio.flicker({ x: f.x, y: 2.8, z: f.z }, 1); }, Math.min(900, Math.hypot(f.x - P.pos.x, f.z - P.pos.z) * 25)); });
       audio.setLoop('water', 0.12, 1); audio.setLoop('drone', 0.5, 2);
       // he steps out of the dark between you and the ladder
-      hoboState = 'lurk'; hobo.group.visible = false;
+      // he's already down here, hiding just around the corner between you and the ladder
+      hoboState = 'lurk'; lurk = findCorner(); hobo.group.position.set(lurk.x, L.groundAt(lurk.x, lurk.z), lurk.z);
+      hobo.group.rotation.y = Math.atan2(lurk.fx - lurk.x, lurk.fz - lurk.z); animateWalk(hobo, 0, 0, false); hobo.group.visible = true;
     }
     if (stage === 'cut') {
       cutT += dt;
@@ -289,18 +306,25 @@ export function createSewer(G) {
       if (cutT > 1.5 && lit && facing) {
         stage = 'scare'; scareT = 0; ui.bigHint('');
         hoboState = 'scare'; hobo.group.visible = true;
-        const fx = tmpB.x, fz = tmpB.z;
-        hobo.group.position.set(P.pos.x + fx * 1.6, P.gy, P.pos.z + fz * 1.6); hobo.group.rotation.y = Math.atan2(-fx, -fz);
         audio.scream(); audio.hit(1.2); audio.stinger(1); ui.flash(0.5); ui.shake(0.12, 0.8);
       }
     }
     if (stage === 'scare') {
       scareT += dt;
       const fx = tmpB.x, fz = tmpB.z;
-      const d = scareT < 0.16 ? 1.6 - scareT / 0.16 * 0.85 : 0.75;
       // the light stutters and drops right as he's in your face
       L.flicker = scareT < 1.6 ? (Math.random() < 0.25 ? 0.05 : 0.28) : 1;
-      if (scareT < 1.6) { hobo.group.position.set(P.pos.x + fx * d, P.gy + 0.14 + Math.sin(scareT * 40) * 0.012, P.pos.z + fz * d); P.pitch += (0.04 - P.pitch) * Math.min(1, dt * 8); }
+      const hp = hobo.group.position;
+      if (scareT < 0.3) {
+        // he lunges out from behind the corner into the beam
+        const k = scareT / 0.3, e = k * k * (3 - 2 * k), tx = P.pos.x + fx * 1.4, tz = P.pos.z + fz * 1.4;
+        hp.set(lurk.x + (tx - lurk.x) * e, P.gy + 0.14 * e, lurk.z + (tz - lurk.z) * e);
+        hobo.group.rotation.y = Math.atan2(P.pos.x - hp.x, P.pos.z - hp.z); animateWalk(hobo, scareT * 30, 1, false, 5);
+      } else if (scareT < 1.6) {
+        const d = scareT < 0.42 ? 1.4 - (scareT - 0.3) / 0.12 * 0.65 : 0.75;
+        hp.set(P.pos.x + fx * d, P.gy + 0.14 + Math.sin(scareT * 40) * 0.012, P.pos.z + fz * d); hobo.group.rotation.y = Math.atan2(-fx, -fz); animateWalk(hobo, 0, 0, false);
+        P.pitch += (0.04 - P.pitch) * Math.min(1, dt * 8);
+      }
       else hobo.group.position.y += (L.groundAt(hobo.group.position.x, hobo.group.position.z) - hobo.group.position.y) * Math.min(1, dt * 4);
       if (scareT > 1.4 && scareT - dt <= 1.4) ui.bark({ ...VO.h5, pos: { x: hobo.group.position.x, y: 1.6, z: hobo.group.position.z } });
       if (scareT > 1.6) { // he backs off into the dark, laughing
