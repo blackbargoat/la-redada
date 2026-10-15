@@ -132,6 +132,39 @@ const GEN = {
     x.beginPath(); x.moveTo(0, 32); x.lineTo(32, 0); x.lineTo(64, 32); x.lineTo(32, 64); x.closePath(); x.stroke();
     return c;
   },
+  // sewer brick: dark mortar, uneven bricks, grime running down, moss and slime near the waterline
+  sewerBrick() {
+    const [c, x] = mk(256, 256); const r = rng(41);
+    x.fillStyle = '#1c1d16'; x.fillRect(0, 0, 256, 256);
+    for (let row = 0; row < 16; row++) {
+      const off = row % 2 ? 16 : 0;
+      for (let col = -1; col < 9; col++) {
+        const v = 0.6 + r() * 0.4, g = r() < 0.25 ? 1.15 : 1;
+        x.fillStyle = `rgb(${(122 * v) | 0},${(110 * v * g) | 0},${(84 * v) | 0})`;
+        x.fillRect(off + col * 32 + 2, row * 16 + 2, 28 + (r() < 0.2 ? -3 : 0), 12);
+        x.fillStyle = 'rgba(255,255,230,0.05)'; x.fillRect(off + col * 32 + 2, row * 16 + 2, 28, 2);
+      }
+    }
+    speckle(x, 256, 256, r, 5000, ['#121310', '#3a3a2c', '#2a2c20'], 0.6);
+    // grime streaks running down
+    for (let i = 0; i < 46; i++) { const sx = r() * 256, len = 40 + r() * 200, w = 1 + r() * 4; const g = x.createLinearGradient(0, 0, 0, len); g.addColorStop(0, 'rgba(10,12,6,0.55)'); g.addColorStop(1, 'rgba(10,12,6,0)'); x.fillStyle = g; x.fillRect(sx, 0, w, len); }
+    // moss + slime at the bottom
+    const m = x.createLinearGradient(0, 160, 0, 256); m.addColorStop(0, 'rgba(40,70,20,0)'); m.addColorStop(1, 'rgba(46,82,24,0.8)'); x.fillStyle = m; x.fillRect(0, 160, 256, 96);
+    blotches(x, 256, 256, r, 18, 'rgba(30,60,16,0.45)', 'rgba(8,10,6,0.4)', 8, 40);
+    return c;
+  },
+  sewerConcrete() {
+    const [c, x] = mk(256, 256); const r = rng(43);
+    x.fillStyle = '#5a5a4c'; x.fillRect(0, 0, 256, 256);
+    blotches(x, 256, 256, r, 40, 'rgba(20,24,14,0.5)', 'rgba(120,120,100,0.12)', 12, 70);
+    speckle(x, 256, 256, r, 9000, ['#3a3a30', '#6e6e60', '#2a2c22'], 0.7);
+    x.strokeStyle = 'rgba(10,10,8,0.6)'; x.lineWidth = 1.2;
+    for (let i = 0; i < 8; i++) { let px = r() * 256, py = r() * 256; x.beginPath(); x.moveTo(px, py); for (let k = 0; k < 7; k++) { px += (r() - 0.5) * 40; py += (r() - 0.5) * 40; x.lineTo(px, py); } x.stroke(); }
+    // slab joints
+    x.strokeStyle = 'rgba(14,14,10,0.7)'; x.lineWidth = 3; x.strokeRect(1, 1, 254, 254); x.beginPath(); x.moveTo(128, 0); x.lineTo(128, 256); x.stroke();
+    blotches(x, 256, 256, r, 12, 'rgba(30,60,18,0.35)', 'rgba(30,60,18,0.2)', 10, 50);
+    return c;
+  },
   bark() {
     const [c, x] = mk(64, 128); const r = rng(29);
     x.fillStyle = '#3b2e24'; x.fillRect(0, 0, 64, 128);

@@ -1,13 +1,13 @@
 import * as THREE from 'three';
-import { AudioEngine } from './audio.js?v=1792081431';
-import { createStreet } from './street.js?v=1792081431';
-import { createRestaurant } from './restaurant.js?v=1792081431';
-import { createStore } from './store.js?v=1792081431';
-import { createHouse } from './house.js?v=1792081431';
-import { createGasStation } from './gasstation.js?v=1792081431';
-import { createSewer } from './sewer.js?v=1792081431';
-import { createPhone } from './phone.js?v=1792081431';
-import { modelsReady } from './models.js?v=1792081431';
+import { AudioEngine } from './audio.js?v=1792084803';
+import { createStreet } from './street.js?v=1792084803';
+import { createRestaurant } from './restaurant.js?v=1792084803';
+import { createStore } from './store.js?v=1792084803';
+import { createHouse } from './house.js?v=1792084803';
+import { createGasStation } from './gasstation.js?v=1792084803';
+import { createSewer } from './sewer.js?v=1792084803';
+import { createPhone } from './phone.js?v=1792084803';
+import { modelsReady } from './models.js?v=1792084803';
 
 const $ = (id) => document.getElementById(id);
 const PIX = 3; // render at 1/3 resolution, upscale with nearest-neighbour for the chunky pixel look
@@ -91,7 +91,7 @@ const P = {
   pos: new THREE.Vector3(), yaw: 0, pitch: 0, eye: 1.62, crouch: false, stamina: 1, exhausted: false,
   hidden: null, frozen: false, reading: false, flashlight: false, battery: 1, lens: 0,
   holdingBreath: false, breath: 1, bob: 0, stepAcc: 0, sprinting: false, speedNow: 0, lookLock: null,
-  health: 1, food: 0.45, carrying: null,
+  health: 1, food: 0.45, carrying: null, gy: 0,
 };
 let phoneMode = false;
 let mode = 'title', paused = false, level = null, time = 0;
@@ -222,7 +222,7 @@ function loadLevel(make) {
   audio.stopAll(); audio.muffle(false, 0.05); ui.cancelSay(); phone.close();
   Object.assign(P, { lookLock: null, frozen: false, reading: false, hidden: null, crouch: false, stamina: 1, exhausted: false, breath: 1, pitch: 0, eye: 1.62 });
   $('hideView').className = 'layer'; $('breathM').style.display = 'none';
-  P.carrying = null; hungerWarned = false; game.retry = null;
+  P.carrying = null; P.gy = 0; hungerWarned = false; game.retry = null;
   ui.post.exposure.value = 0.8; ui.post.sat.value = 0.55; ui.post.contrast.value = 1.16; ui.post.tint.value.set(0.9, 0.98, 0.96); ui.post.lift.value.set(0.0, 0.01, 0.012); ui.post.levels.value = 28;
   level = make(G);
   level.scene.add(camera);
@@ -561,11 +561,12 @@ function frame() {
     let dy = P.lookLock.yaw - P.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
     P.yaw += dy * Math.min(1, dt * P.lookLock.k); P.pitch += (P.lookLock.pitch - P.pitch) * Math.min(1, dt * P.lookLock.k);
   }
-  // camera
+  // camera (levels with uneven floors report a ground height: the sewer channel)
+  { const gy = level.groundAt ? level.groundAt(P.pos.x, P.pos.z) : 0; P.gy += (gy - P.gy) * Math.min(1, dt * 8); }
   shakeT = Math.max(0, shakeT - dt); const sk = shakeT > 0 ? shakeAmt : 0; if (!shakeT) shakeAmt = 0;
   const bobY = P.speedNow > 0.1 ? Math.sin(P.bob) * (P.sprinting ? 0.055 : 0.03) : 0;
   const bobX = P.speedNow > 0.1 ? Math.cos(P.bob * 0.5) * (P.sprinting ? 0.03 : 0.015) : 0;
-  camera.position.set(P.pos.x + bobX * Math.cos(P.yaw) + (Math.random() - 0.5) * sk, P.eye + bobY + (Math.random() - 0.5) * sk, P.pos.z - bobX * Math.sin(P.yaw));
+  camera.position.set(P.pos.x + bobX * Math.cos(P.yaw) + (Math.random() - 0.5) * sk, P.eye + P.gy + bobY + (Math.random() - 0.5) * sk, P.pos.z - bobX * Math.sin(P.yaw));
   camera.rotation.set(P.pitch + (Math.random() - 0.5) * sk * 0.5, P.yaw + (Math.random() - 0.5) * sk * 0.5, (mode === 'caught' ? caughtRoll : 0) + (P.sprinting ? Math.sin(P.bob * 0.5) * 0.012 : 0));
   flashV = Math.max(0, flashV - dt * 2.2); post.uniforms.flash.value = flashV;
   audio.setListener(camera);
