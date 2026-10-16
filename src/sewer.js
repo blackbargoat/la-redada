@@ -1,8 +1,8 @@
 // NIGHT 2 — Under the City. The storm drain under Hammerline: a maze, green water, rats, an old man who lives down here.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792113485';
-import { tex, textTex, rng } from './textures.js?v=1792113485';
-import { makeCharacter, animateWalk, makeGlow, makeBeam, std } from './models.js?v=1792113485';
+import { Grid } from './grid.js?v=1792113937';
+import { tex, textTex, rng } from './textures.js?v=1792113937';
+import { makeCharacter, animateWalk, makeGlow, makeBeam, std } from './models.js?v=1792113937';
 
 const VO = {
   h1: { id: 's_h1', who: 'Old man', text: 'Easy... easy, mijo. Get that light out of my eyes. I\'m not one of them.' },
@@ -59,11 +59,38 @@ export function createSewer(G) {
     }
   }
   const typeAt = (x, z) => { const i = Math.floor(x), k = Math.floor(z); return i < 0 || k < 0 || i >= W || k >= W ? 0 : type[k * W + i]; };
-  L.groundAt = (x, z) => (typeAt(x, z) === 2 ? -0.32 : 0);
+  // ---- catwalk bridges over the channel (type 3). Every junction and corner gets one across each arm,
+  // a few straight runs get one mid-way, then we prove the ladder can be reached on foot and add more if not.
+  const bridges = []; // [x, z, acrossZ]
+  const bridgeArm = (i, j, d) => {
+    const x0 = i * CS + 1, z0 = j * CS + 1;
+    const cellsFor = { e: [[4, 2], [4, 3]], w: [[1, 2], [1, 3]], s: [[2, 4], [3, 4]], n: [[2, 1], [3, 1]], mx: [[2, 2], [2, 3]], mz: [[2, 2], [3, 2]] }[d];
+    if (cellsFor.some(([a, b]) => type[(z0 + b) * W + x0 + a] !== 2)) return;
+    cellsFor.forEach(([a, b]) => { type[(z0 + b) * W + x0 + a] = 3; });
+    const acrossZ = d === 'e' || d === 'w' || d === 'mx';
+    bridges.push([x0 + cellsFor[0][0] + 0.5 + (acrossZ ? 0 : 0.5), z0 + cellsFor[0][1] + 0.5 + (acrossZ ? 0.5 : 0), acrossZ]);
+  };
+  const bridgeCell = (i, j) => { const o = opens(i, j); for (const d of ['e', 'w', 's', 'n']) if (o[d]) bridgeArm(i, j, d); };
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+    const o = opens(i, j), n = +o.e + +o.w + +o.s + +o.n, both = (o.e || o.w) && (o.n || o.s);
+    if (n >= 3 || both || (i === 0 && j === 0) || (i === N - 1 && j === N - 1)) bridgeCell(i, j);
+    else if (n === 2 && (i * 3 + j) % 3 === 0) bridgeArm(i, j, o.e ? 'mx' : 'mz');
+  }
+  const walkT = (x, z) => { const t = typeAt(x, z); return t === 1 || t === 3; };
+  const reach = (sx, sz, tx, tz) => { const seen = new Uint8Array(W * W), q = [[Math.floor(sx), Math.floor(sz)]]; seen[q[0][1] * W + q[0][0]] = 1;
+    while (q.length) { const [x, z] = q.shift(); if (x === Math.floor(tx) && z === Math.floor(tz)) return true; for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + a, nz = z + b; if (nx < 0 || nz < 0 || nx >= W || nz >= W || seen[nz * W + nx] || !walkT(nx + 0.5, nz + 0.5)) continue; seen[nz * W + nx] = 1; q.push([nx, nz]); } }
+    return false; };
+  L.groundAt = (x, z) => (typeAt(x, z) === 2 ? -0.95 : 0); // waist-deep in the channel
   // the way through, cell by cell (for placing the old man)
   const solve = (() => { const prev = {}, q = [[0, 0]], key = (i, j) => i + ',' + j; prev[key(0, 0)] = null;
     while (q.length) { const [i, j] = q.shift(); if (i === N - 1 && j === N - 1) break; for (const [a, b] of [[i + 1, j], [i - 1, j], [i, j + 1], [i, j - 1]]) if (a >= 0 && b >= 0 && a < N && b < N && !(key(a, b) in prev) && linked(i, j, a, b)) { prev[key(a, b)] = [i, j]; q.push([a, b]); } }
     const path = []; let c = [N - 1, N - 1]; while (c) { path.unshift(c); c = prev[key(c[0], c[1])]; } return path; })();
+
+  // make sure you can get from the hatch to the ladder without wading: if not, bridge every cell on the way
+  { const sx = cc(0) + 2, sz = 2.3, tx = cc(N - 1) + 2, tz = (N - 1) * CS + 6.05;
+    if (!reach(sx, sz, tx, tz)) for (const [i, j] of solve) bridgeCell(i, j);
+    if (!reach(sx, sz, tx, tz)) for (const [i, j] of solve) for (const d of ['mx', 'mz']) bridgeArm(i, j, d);
+    L.ladderReachable = reach(sx, sz, tx, tz); }
 
   // ---------------- geometry ----------------
   const m4 = new THREE.Matrix4(), s3 = new THREE.Vector3(), q0 = new THREE.Quaternion(), v3 = new THREE.Vector3();
@@ -89,25 +116,60 @@ export function createSewer(G) {
     if (o.s) gapV.push([cc(i), j * CS + 7.5, false]);
   }
   const placeV = (list, geo, mat) => { const im = new THREE.InstancedMesh(geo, mat, list.length); list.forEach(([x, z, ew], k) => { m4.compose(v3.set(x, SPRING, z), ew ? qY : q0, s3.set(1, 1, 1)); im.setMatrixAt(k, m4); }); scene.add(im); };
-  placeV(cellV, vaultGeo(6), vaultM([3, 2])); placeV(gapV, vaultGeo(1), vaultM([3, 0.34]));
+  // straight runs get the barrel vault; junctions and corners become square chambers with a flat brick ceiling,
+  // and each tunnel meets the chamber through a brick headwall with an arch cut in it (no vaults poking through each other)
+  const isChamber = (i, j) => { const o = opens(i, j); return (o.e || o.w) && (o.n || o.s); };
+  placeV(cellV.filter(([x, z]) => !isChamber((x - 4) / CS, (z - 4) / CS)), vaultGeo(6), vaultM([3, 2])); placeV(gapV, vaultGeo(1), vaultM([3, 0.34]));
+  const chambers = []; for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) if (isChamber(i, j)) chambers.push([i, j]);
+  const ceilIM = new THREE.InstancedMesh(new THREE.BoxGeometry(6.02, 0.3, 6.02), std(0xffffff, { map: tex('sewerBrick', [3, 3]), roughness: 0.85 }), chambers.length);
+  chambers.forEach(([i, j], k) => { m4.makeTranslation(cc(i), SPRING + RAD + 0.15, cc(j)); ceilIM.setMatrixAt(k, m4); }); scene.add(ceilIM);
+  const head = new THREE.Shape([new THREE.Vector2(-3, 0), new THREE.Vector2(3, 0), new THREE.Vector2(3, RAD + 0.05), new THREE.Vector2(-3, RAD + 0.05)]);
+  const arch = new THREE.Path(); arch.absarc(0, 0, RAD - 0.01, 0, Math.PI, false); head.holes.push(arch);
+  const headGeo = new THREE.ShapeGeometry(head, 20);
+  const heads = []; for (const [i, j] of chambers) { const o = opens(i, j); if (o.e) heads.push([cc(i) + 2.99, cc(j), -Math.PI / 2]); if (o.w) heads.push([cc(i) - 2.99, cc(j), Math.PI / 2]); if (o.s) heads.push([cc(i), cc(j) + 2.99, Math.PI]); if (o.n) heads.push([cc(i), cc(j) - 2.99, 0]); }
+  const headIM = new THREE.InstancedMesh(headGeo, std(0xffffff, { map: tex('sewerBrick', [0.5, 0.5]), roughness: 0.8, side: THREE.DoubleSide }), heads.length);
+  heads.forEach(([x, z, ry], k) => { m4.compose(v3.set(x, SPRING, z), q0.clone().setFromAxisAngle(new THREE.Vector3(0, 1, 0), ry), s3.set(1, 1, 1)); headIM.setMatrixAt(k, m4); }); scene.add(headIM);
   // the walkways: raised concrete ledges on both sides; the water runs in the channel between them
   const ledges = []; for (let z = 0; z < W; z++) for (let x = 0; x < W; x++) if (type[z * W + x] === 1) ledges.push([x + 0.5, z + 0.5]);
   const ledgeM = std(0xffffff, { map: tex('sewerConcrete', [1, 1]), roughness: 0.75 });
-  const ledgeIM = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.55, 1), ledgeM, ledges.length);
-  ledges.forEach(([x, z], k) => { m4.makeTranslation(x, -0.275, z); ledgeIM.setMatrixAt(k, m4); }); ledgeIM.receiveShadow = true; scene.add(ledgeIM);
+  const ledgeIM = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1.4, 1), ledgeM, ledges.length);
+  ledges.forEach(([x, z], k) => { m4.makeTranslation(x, -0.7, z); ledgeIM.setMatrixAt(k, m4); }); ledgeIM.receiveShadow = true; scene.add(ledgeIM);
   // a rusty curb along the edge of each ledge
   const curbs = []; for (let z = 0; z < W; z++) for (let x = 0; x < W; x++) if (type[z * W + x] === 1) for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (typeAt(x + a, z + b) === 2) curbs.push([x + 0.5 + a * 0.47, z + 0.5 + b * 0.47, a !== 0]);
   const curbIM = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.06, 0.08), std(0x3a2e22, { metalness: 0.5, roughness: 0.6 }), curbs.length);
   curbs.forEach(([x, z, alongZ], k) => { m4.compose(v3.set(x, 0.01, z), alongZ ? qY : q0, s3.set(1, 1, 1)); curbIM.setMatrixAt(k, m4); }); scene.add(curbIM);
-  const bed = new THREE.Mesh(new THREE.PlaneGeometry(W, W), std(0x1a2016)); bed.rotation.x = -Math.PI / 2; bed.position.set(W / 2, -0.55, W / 2); scene.add(bed);
-  // the water: green, faintly glowing, always moving
-  const wc = document.createElement('canvas'); wc.width = wc.height = 128; const wx = wc.getContext('2d');
-  wx.fillStyle = '#1c3a1a'; wx.fillRect(0, 0, 128, 128);
-  for (let k = 0; k < 160; k++) { const y = r() * 128, x0 = r() * 128, l = 6 + r() * 26; wx.strokeStyle = `rgba(${110 + r() * 80},${190 + r() * 60},${90 + r() * 60},${0.06 + r() * 0.14})`; wx.lineWidth = 1 + r() * 1.5; wx.beginPath(); wx.moveTo(x0, y); wx.quadraticCurveTo(x0 + l / 2, y + (r() - 0.5) * 4, x0 + l, y); wx.stroke(); }
-  for (let k = 0; k < 40; k++) { wx.fillStyle = `rgba(60,70,30,${0.2 + r() * 0.3})`; wx.fillRect(r() * 128, r() * 128, 1 + r() * 3, 1 + r() * 2); } // scum
-  const waterT = new THREE.CanvasTexture(wc); waterT.wrapS = waterT.wrapT = THREE.RepeatWrapping; waterT.repeat.set(W / 3, W / 3); waterT.colorSpace = THREE.SRGBColorSpace; waterT.magFilter = THREE.NearestFilter;
-  const waterM = new THREE.MeshStandardMaterial({ color: 0x3a6a34, map: waterT, emissive: 0x3a9a3a, emissiveMap: waterT, emissiveIntensity: 1.5, roughness: 0.06, metalness: 0.4 });
-  const water = new THREE.Mesh(new THREE.PlaneGeometry(W, W), waterM); water.rotation.x = -Math.PI / 2; water.position.set(W / 2, -0.3, W / 2); scene.add(water);
+  // the catwalks: a steel grate deck lipping onto both ledges, with pipe railings
+  { const gc = document.createElement('canvas'); gc.width = gc.height = 64; const gx = gc.getContext('2d'); gx.fillStyle = '#0a0c0a'; gx.fillRect(0, 0, 64, 64); gx.fillStyle = '#5a5244'; for (let k = 0; k < 8; k++) { gx.fillRect(k * 8, 0, 3, 64); gx.fillRect(0, k * 8, 64, 2); } gx.fillStyle = 'rgba(110,60,20,0.45)'; for (let k = 0; k < 40; k++) gx.fillRect(r() * 64, r() * 64, 2 + r() * 5, 2 + r() * 4);
+    const gt = new THREE.CanvasTexture(gc); gt.colorSpace = THREE.SRGBColorSpace; gt.wrapS = gt.wrapT = THREE.RepeatWrapping; gt.repeat.set(1.5, 4);
+    const steel = std(0x4a4238, { metalness: 0.7, roughness: 0.5 });
+    const deck = new THREE.InstancedMesh(new THREE.BoxGeometry(1.15, 0.08, 2.7), std(0xffffff, { map: gt, metalness: 0.6, roughness: 0.55 }), bridges.length);
+    const beam = new THREE.InstancedMesh(new THREE.BoxGeometry(0.08, 0.2, 2.7), steel, bridges.length * 2);
+    const rail = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.025, 0.025, 2.7, 6).rotateX(Math.PI / 2), steel, bridges.length * 4);
+    const post = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.03, 0.03, 1.0, 6), steel, bridges.length * 6);
+    const qa = new THREE.Quaternion(), place = (im, k, x, y, z, rot) => { m4.compose(v3.set(x, y, z), rot ? qY : qa, s3.set(1, 1, 1)); im.setMatrixAt(k, m4); };
+    bridges.forEach(([x, z, acrossZ], k) => {
+      // local: length along z when the bridge crosses in z
+      const P2 = (lx, lz) => (acrossZ ? [x + lx, z + lz] : [x + lz, z + lx]);
+      place(deck, k, x, -0.04, z, !acrossZ);
+      [-0.55, 0.55].forEach((lx, s) => { const [px, pz] = P2(lx, 0); place(beam, k * 2 + s, px, -0.16, pz, !acrossZ); [0.95, 0.5].forEach((y, t) => place(rail, k * 4 + s * 2 + t, px, y, pz, !acrossZ)); [-1.25, 0, 1.25].forEach((lz, t) => { const [qx, qz] = P2(lx, lz); m4.makeTranslation(qx, 0.5, qz); post.setMatrixAt(k * 6 + s * 3 + t, m4); }); });
+    });
+    for (const im of [deck, beam, rail, post]) { im.receiveShadow = true; scene.add(im); } }
+  const bed = new THREE.Mesh(new THREE.PlaneGeometry(W, W), std(0x1a2016)); bed.rotation.x = -Math.PI / 2; bed.position.set(W / 2, -1.4, W / 2); scene.add(bed);
+  // the water: deep, murky, oily. A soft albedo plus a scrolling ripple normal map; only a faint sick glow.
+  const noiseCanvas = (size, seed, blobs, dark, light) => { const c = document.createElement('canvas'); c.width = c.height = size; const x = c.getContext('2d'); const rr = rng(seed); x.fillStyle = dark; x.fillRect(0, 0, size, size);
+    for (let k = 0; k < blobs; k++) { const px = rr() * size, py = rr() * size, rad = 4 + rr() * size * 0.18; for (const ox of [-size, 0, size]) for (const oy of [-size, 0, size]) { const g = x.createRadialGradient(px + ox, py + oy, 0, px + ox, py + oy, rad); g.addColorStop(0, light(rr)); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(px + ox - rad, py + oy - rad, rad * 2, rad * 2); } }
+    return c; };
+  const wcan = noiseCanvas(256, 31, 140, '#14261a', (rr) => `rgba(${40 + rr() * 40},${70 + rr() * 50},${30 + rr() * 30},${0.25 + rr() * 0.35})`);
+  { const x = wcan.getContext('2d'); for (let k = 0; k < 60; k++) { x.fillStyle = `rgba(70,64,30,${0.15 + r() * 0.25})`; x.beginPath(); x.ellipse(r() * 256, r() * 256, 2 + r() * 6, 1 + r() * 3, r() * 3, 0, 7); x.fill(); } } // floating scum
+  const waterT = new THREE.CanvasTexture(wcan); waterT.wrapS = waterT.wrapT = THREE.RepeatWrapping; waterT.repeat.set(W / 6, W / 6); waterT.colorSpace = THREE.SRGBColorSpace;
+  // ripple normals from a blurred height field
+  const hcan = noiseCanvas(128, 37, 90, '#808080', (rr) => (rr() < 0.5 ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)'));
+  const ncan = document.createElement('canvas'); ncan.width = ncan.height = 128; { const hx = hcan.getContext('2d').getImageData(0, 0, 128, 128).data, nx = ncan.getContext('2d'), out = nx.createImageData(128, 128); const H = (i, j) => hx[(((j + 128) % 128) * 128 + ((i + 128) % 128)) * 4] / 255;
+    for (let j = 0; j < 128; j++) for (let i = 0; i < 128; i++) { const dx = (H(i + 1, j) - H(i - 1, j)) * 2.2, dy = (H(i, j + 1) - H(i, j - 1)) * 2.2, l = Math.hypot(dx, dy, 1), o = (j * 128 + i) * 4; out.data[o] = (-dx / l * 0.5 + 0.5) * 255; out.data[o + 1] = (-dy / l * 0.5 + 0.5) * 255; out.data[o + 2] = (1 / l * 0.5 + 0.5) * 255; out.data[o + 3] = 255; }
+    nx.putImageData(out, 0, 0); }
+  const waterN = new THREE.CanvasTexture(ncan); waterN.wrapS = waterN.wrapT = THREE.RepeatWrapping; waterN.repeat.set(W / 4, W / 4);
+  const waterM = new THREE.MeshStandardMaterial({ color: 0x4a6a3e, map: waterT, normalMap: waterN, normalScale: new THREE.Vector2(0.6, 0.6), emissive: 0x3a7a30, emissiveMap: waterT, emissiveIntensity: 1.0, roughness: 0.12, metalness: 0.55, transparent: true, opacity: 0.93 });
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(W, W), waterM); water.rotation.x = -Math.PI / 2; water.position.set(W / 2, -0.55, W / 2); scene.add(water);
   const inWaterAt = (x, z) => typeAt(x, z) === 2;
   // pipes on brackets along some of the walls, and outfall grates
   const pipeM = std(0x3a3226, { metalness: 0.5, roughness: 0.55 });
@@ -206,20 +268,66 @@ export function createSewer(G) {
     return { x: sx, z: sz, fx: P.pos.x + ux * 1.8, fz: P.pos.z + uz * 1.8 };
   }
 
-  // ---------------- rats ----------------
-  const ratM = std(0x2a2622, { roughness: 0.8 });
+  // ---------------- rats: little bodies with a little brain. They keep to the dry ledges, nose around,
+  // wander, and bolt away from you (and from your light). They never cross the water. ----------------
+  const furM = std(0x3a322a, { roughness: 0.7, metalness: 0.05 }), pinkM = std(0x8a5a52, { roughness: 0.6 }), eyeM = new THREE.MeshBasicMaterial({ color: 0x1a0806 });
+  const bodyG = new THREE.SphereGeometry(0.5, 12, 8), headG = new THREE.ConeGeometry(0.045, 0.13, 8).rotateX(Math.PI / 2), earG = new THREE.SphereGeometry(0.022, 6, 4), legG = new THREE.BoxGeometry(0.018, 0.04, 0.018);
+  const tailG = (() => { const pts = []; for (let k = 0; k <= 8; k++) { const t = k / 8; pts.push(new THREE.Vector3(Math.sin(t * 2.2) * 0.04, 0.02 - t * 0.02, -t * 0.26)); } return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 10, 0.009, 4); })();
+  const ratDry = (x, z) => walkT(x, z) && !grid.isSolid(x, z);
   const rats = [];
-  for (let k = 0; k < 18; k++) {
-    const g = new THREE.Group();
-    const b = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 0.24), ratM); b.position.y = 0.05; g.add(b);
-    const h = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.06, 0.09), ratM); h.position.set(0, 0.06, 0.15); g.add(h);
-    const t = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.015, 0.25), std(0x6a5048)); t.position.set(0, 0.03, -0.24); g.add(t);
-    for (const s of [-0.02, 0.02]) { const e = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.012, 0.01), new THREE.MeshBasicMaterial({ color: 0x8a2a1a })); e.position.set(s, 0.075, 0.2); g.add(e); }
-    const i = (r() * N) | 0, j = (r() * N) | 0;
-    if (i + j < 2) continue;
-    const side = r() < 0.5 ? -1 : 1, onX = r() < 0.5;
-    g.position.set(cc(i) + (onX ? side * 2.4 : (r() - 0.5) * 3), 0, cc(j) + (!onX ? side * 2.4 : (r() - 0.5) * 3)); g.rotation.y = r() * 6;
-    scene.add(g); rats.push({ g, state: 'idle', t: r() * 3, vx: 0, vz: 0 });
+  for (let k = 0; k < 40 && rats.length < 22; k++) {
+    const x = 2 + r() * (W - 4), z = 2 + r() * (W - 4);
+    if (typeAt(x, z) !== 1 || Math.hypot(x - cc(0), z - cc(0)) < 8) continue;
+    const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = r() * 6;
+    const body = new THREE.Mesh(bodyG, furM); body.scale.set(0.085, 0.072, 0.23); body.position.y = 0.055; g.add(body);
+    const head = new THREE.Mesh(headG, furM); head.position.set(0, 0.06, 0.16); g.add(head);
+    const nose = new THREE.Mesh(earG, pinkM); nose.scale.setScalar(0.4); nose.position.set(0, 0.058, 0.225); g.add(nose);
+    for (const sx of [-1, 1]) { const ear = new THREE.Mesh(earG, pinkM); ear.scale.set(1, 1, 0.4); ear.position.set(sx * 0.03, 0.095, 0.13); g.add(ear); const eye = new THREE.Mesh(earG, eyeM); eye.scale.setScalar(0.35); eye.position.set(sx * 0.024, 0.075, 0.185); g.add(eye); }
+    const legs = []; for (const [lx, lz] of [[-0.04, 0.07], [0.04, 0.07], [-0.045, -0.06], [0.045, -0.06]]) { const l = new THREE.Mesh(legG, furM); l.position.set(lx, 0.02, lz); g.add(l); legs.push(l); }
+    const tail = new THREE.Mesh(tailG, pinkM); tail.position.set(0, 0.02, -0.1); g.add(tail);
+    g.traverse((m) => { if (m.isMesh) m.castShadow = true; });
+    scene.add(g); rats.push({ g, body, head, tail, legs, state: 'idle', t: r() * 2, tx: x, tz: z, speed: 0, ph: r() * 6, think: 0 });
+  }
+  function ratStep(rt, dt) {
+    const g = rt.g, p = g.position;
+    const d = Math.hypot(p.x - P.pos.x, p.z - P.pos.z);
+    // scared of you up close, or of your flashlight from further off
+    G.camera.getWorldDirection(tmpA); const toR = Math.atan2(p.x - P.pos.x, p.z - P.pos.z), lookA = Math.atan2(tmpA.x, tmpA.z);
+    const inBeam = P.flashlight && d < 8 && Math.abs(Math.atan2(Math.sin(toR - lookA), Math.cos(toR - lookA))) < 0.35;
+    if ((d < 3.6 || inBeam) && rt.state !== 'flee') { rt.state = 'flee'; rt.think = 0; rt.t = 0; if (Math.random() < 0.7) audio.rats({ x: p.x, y: 0.1, z: p.z }); }
+    rt.think -= dt;
+    if (rt.state === 'flee') {
+      if (rt.think <= 0) { // pick the dry direction that takes it furthest from you
+        rt.think = 0.3; let best = null, bs = -1e9;
+        for (let a = 0; a < 16; a++) { const ang = a / 16 * Math.PI * 2, nx = p.x + Math.sin(ang) * 1.4, nz = p.z + Math.cos(ang) * 1.4, mx = p.x + Math.sin(ang) * 0.7, mz = p.z + Math.cos(ang) * 0.7;
+          if (!ratDry(nx, nz) || !ratDry(mx, mz)) continue; const sc = Math.hypot(nx - P.pos.x, nz - P.pos.z) + Math.random() * 0.3; if (sc > bs) { bs = sc; best = [nx, nz]; } }
+        if (best) { rt.tx = best[0]; rt.tz = best[1]; }
+      }
+      rt.speed = 3.2;
+      if (d > 9) { rt.state = 'idle'; rt.t = 1 + Math.random() * 2; }
+    } else if (rt.state === 'idle') {
+      rt.speed = 0; rt.t -= dt;
+      if (rt.t <= 0) { // wander a little way along the ledge
+        for (let k = 0; k < 8; k++) { const ang = Math.random() * 6.28, rr = 1 + Math.random() * 2.5, nx = p.x + Math.sin(ang) * rr, nz = p.z + Math.cos(ang) * rr; if (ratDry(nx, nz) && ratDry((p.x + nx) / 2, (p.z + nz) / 2)) { rt.tx = nx; rt.tz = nz; rt.state = 'wander'; break; } }
+        rt.t = 0.6 + Math.random() * 2.5;
+      }
+    } else if (rt.state === 'wander') { rt.speed = 0.8; if (Math.hypot(rt.tx - p.x, rt.tz - p.z) < 0.1) { rt.state = 'idle'; rt.t = 0.8 + Math.random() * 3; } }
+    // move, never onto water or into walls
+    if (rt.speed > 0) {
+      const dx = rt.tx - p.x, dz = rt.tz - p.z, dl = Math.hypot(dx, dz);
+      if (dl > 0.05) {
+        const st = Math.min(dl, rt.speed * dt), nx = p.x + dx / dl * st, nz = p.z + dz / dl * st;
+        if (ratDry(nx, nz)) { p.x = nx; p.z = nz; } else { rt.think = 0; if (rt.state === 'wander') rt.state = 'idle'; }
+        let df = Math.atan2(dx, dz) - g.rotation.y; df = Math.atan2(Math.sin(df), Math.cos(df)); g.rotation.y += df * Math.min(1, dt * 14);
+      } else if (rt.state === 'flee') rt.think = 0;
+    }
+    // little animation: scurry, sniff, tail
+    rt.ph += dt * (rt.speed > 0 ? 6 + rt.speed * 8 : 2);
+    const run = Math.min(1, rt.speed / 2);
+    rt.body.position.y = 0.055 + Math.abs(Math.sin(rt.ph)) * 0.015 * run;
+    rt.legs.forEach((l, i) => { l.position.y = 0.02 + Math.max(0, Math.sin(rt.ph + (i % 2 ? Math.PI : 0) + (i > 1 ? 1.5 : 0))) * 0.02 * run; });
+    rt.head.rotation.x = rt.speed === 0 ? Math.sin(rt.ph * 3) * 0.12 : 0; rt.head.position.y = 0.06 + (rt.speed === 0 ? Math.sin(rt.ph * 1.3) * 0.008 : 0);
+    rt.tail.rotation.y = Math.sin(rt.ph * (rt.speed > 0 ? 1.2 : 0.4)) * 0.35;
   }
 
   // ---------------- story ----------------
@@ -247,16 +355,24 @@ export function createSewer(G) {
   } });
 
   const tmpA = new THREE.Vector3(), tmpB = new THREE.Vector3();
-  let stepSplash = 0;
+  let stepSplash = 0, wasWet = false, chokeT = 0;
   L.update = (dt) => {
     tl += dt;
     for (let i = events.length - 1; i >= 0; i--) if (tl >= events[i].t) { const e = events[i]; events.splice(i, 1); e.fn(); }
     updatePool(dt);
-    waterT.offset.x += dt * 0.05; waterT.offset.y += dt * 0.03;
+    waterT.offset.x += dt * 0.012; waterT.offset.y += dt * 0.006; waterN.offset.x -= dt * 0.025; waterN.offset.y += dt * 0.018;
     fireL.intensity = 4.2 + Math.random() * 1.6; fire.material.opacity = 0.75 + Math.random() * 0.2;
     // wading slows you down and splashes
     const inWater = inWaterAt(P.pos.x, P.pos.z);
-    L.speedMul = inWater ? 0.72 : 1; L.surface = inWater ? 'wet' : 'concrete';
+    L.speedMul = inWater ? 0.5 : 1; L.surface = inWater ? 'wet' : 'concrete';
+    // the water is poison: it burns, you choke, and you can drown in it if you stay
+    if (inWater && stage !== 'out') {
+      if (!wasWet) { audio.splash({ x: P.pos.x, y: 0, z: P.pos.z }, 2.2); ui.shake(0.04, 0.3); }
+      P.health = Math.max(0, P.health - dt * 0.07); chokeT -= dt;
+      if (chokeT <= 0) { chokeT = 1.6 + Math.random(); audio.gasp(); ui.flash(0.08); }
+      if (P.health <= 0) { game.collapse('The water was poison. Stay on the ledges and use the catwalks.'); }
+    }
+    wasWet = inWater;
     if (inWater && P.speedNow > 0.5) { stepSplash -= dt * P.speedNow; if (stepSplash <= 0) { stepSplash = 0.9; audio.splash({ x: P.pos.x, y: 0.1, z: P.pos.z }, P.sprinting ? 1.4 : 0.7); } }
     // drips, distant clanks, rats you never see
     if (Math.random() < dt * 1.5) audio.drip({ x: P.pos.x + (Math.random() - 0.5) * 10, y: 2.5, z: P.pos.z + (Math.random() - 0.5) * 10 });
@@ -267,17 +383,7 @@ export function createSewer(G) {
     truckCD -= dt;
     if (dExit < 18 && truckCD <= 0 && stage === 'walk') { truckCD = 7 + Math.random() * 6; audio.noise({ dur: 3.5, type: 'lowpass', freq: 220, gain: 0.5, attack: 1.2, brown: true, pos: { x: P.pos.x, y: 4, z: P.pos.z } }); ui.shake(0.01, 2); }
     // rats
-    for (const rt of rats) {
-      const g = rt.g, d = Math.hypot(g.position.x - P.pos.x, g.position.z - P.pos.z);
-      if (rt.state === 'idle') { rt.t -= dt; if (rt.t <= 0) { rt.t = 0.5 + Math.random() * 2; g.rotation.y += (Math.random() - 0.5) * 1.5; } if (d < 4.5) { rt.state = 'run'; const ax = g.position.x - P.pos.x, az = g.position.z - P.pos.z, al = Math.hypot(ax, az) || 1; rt.vx = ax / al * 4; rt.vz = az / al * 4; rt.t = 1.2; audio.rats({ x: g.position.x, y: 0.1, z: g.position.z }); } }
-      else if (rt.state === 'run') {
-        const nx = g.position.x + rt.vx * dt, nz = g.position.z + rt.vz * dt;
-        if (grid.isSolid(nx, g.position.z)) rt.vx *= -1; else g.position.x = nx;
-        if (grid.isSolid(g.position.x, nz)) rt.vz *= -1; else g.position.z = nz;
-        g.rotation.y = Math.atan2(rt.vx, rt.vz); g.position.y = Math.abs(Math.sin(tl * 30)) * 0.02;
-        rt.t -= dt; if (rt.t <= 0) { rt.state = 'gone'; g.visible = false; }
-      }
-    }
+    for (const rt of rats) if (Math.abs(rt.g.position.x - P.pos.x) < 30 && Math.abs(rt.g.position.z - P.pos.z) < 30) ratStep(rt, dt);
     // the old man by his fire
     const hg = hobo.group.position;
     const dH = Math.hypot(P.pos.x - hg.x, P.pos.z - hg.z);
@@ -346,6 +452,7 @@ export function createSewer(G) {
     c.fillStyle = '#c8bf9e'; c.fillRect(0, 0, w, h);
     for (let z = 0; z < W; z++) for (let x = 0; x < W; x++) if (grid.solid[z * W + x]) { c.fillStyle = '#2e2a22'; c.fillRect(x * s, z * s, s + 0.5, s + 0.5); }
     c.fillStyle = 'rgba(70,120,60,0.45)'; for (let z = 0; z < W; z++) for (let x = 0; x < W; x++) if (type[z * W + x] === 2) c.fillRect(x * s, z * s, s + 0.5, s + 0.5);
+    c.fillStyle = '#6a5a44'; for (let z = 0; z < W; z++) for (let x = 0; x < W; x++) if (type[z * W + x] === 3) c.fillRect(x * s, z * s, s + 0.5, s + 0.5);
     c.font = 'bold 12px Oswald, sans-serif'; c.textAlign = 'center';
     c.fillStyle = '#1d1b17'; c.fillText('HATCH', cc(0) * s, cc(0) * s - 6);
     c.strokeStyle = '#b3261e'; c.lineWidth = 3; c.beginPath(); c.moveTo((EX - 1) * s, (EZ - 1) * s); c.lineTo((EX + 1) * s, (EZ + 1) * s); c.moveTo((EX + 1) * s, (EZ - 1) * s); c.lineTo((EX - 1) * s, (EZ + 1) * s); c.stroke();

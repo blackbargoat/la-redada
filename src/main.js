@@ -1,13 +1,13 @@
 import * as THREE from 'three';
-import { AudioEngine } from './audio.js?v=1792113485';
-import { createStreet } from './street.js?v=1792113485';
-import { createRestaurant } from './restaurant.js?v=1792113485';
-import { createStore } from './store.js?v=1792113485';
-import { createHouse } from './house.js?v=1792113485';
-import { createGasStation } from './gasstation.js?v=1792113485';
-import { createSewer } from './sewer.js?v=1792113485';
-import { createPhone } from './phone.js?v=1792113485';
-import { modelsReady } from './models.js?v=1792113485';
+import { AudioEngine } from './audio.js?v=1792113937';
+import { createStreet } from './street.js?v=1792113937';
+import { createRestaurant } from './restaurant.js?v=1792113937';
+import { createStore } from './store.js?v=1792113937';
+import { createHouse } from './house.js?v=1792113937';
+import { createGasStation } from './gasstation.js?v=1792113937';
+import { createSewer } from './sewer.js?v=1792113937';
+import { createPhone } from './phone.js?v=1792113937';
+import { modelsReady } from './models.js?v=1792113937';
 
 const $ = (id) => document.getElementById(id);
 const PIX = 3; // render at 1/3 resolution, upscale with nearest-neighbour for the chunky pixel look
@@ -187,13 +187,13 @@ const game = {
     level.onCaught?.();
   },
   // hunger: you pass out on the floor, someone finds you
-  collapse() {
+  collapse(why) {
     if (mode !== 'play') return;
     if (P.hidden) { $('hideView').className = 'layer'; P.hidden = null; }
     mode = 'cutscene'; ui.cancelSay(); ui.prompt(''); ui.bigHint('');
     audio.impact(); audio.muffle(true, 0.4); audio.tinnitus();
     $('caughtTitle').textContent = 'COLLAPSED';
-    $('caughtSub').textContent = 'He hadn\'t eaten in two days. Eat when you can.';
+    $('caughtSub').textContent = why || 'He hadn\'t eaten in two days. Eat when you can.';
     ui.fade(1, 2.2).then(() => { ui.hud(false); document.exitPointerLock?.(); $('caught').classList.add('on'); });
   },
   // vitals carried between chapters
@@ -277,9 +277,9 @@ addEventListener('keydown', (e) => {
     P.flashlight = !P.flashlight; audio.click(); if ($('bigHint').dataset.k === 'F') { ui.bigHint(''); $('bigHint').dataset.k = ''; }
   }
   if (is(e, 'crouch')) P.crouch = !P.crouch;
-  if (is(e, 'map') && level?.drawMap) { const m = $('map'); level.drawMap(m.getContext('2d'), m.width, m.height); m.classList.add('on'); }
+  if (is(e, 'map') && level?.drawMap && !$('map').classList.contains('on')) { const m = $('map'), draw = () => level?.drawMap && level.drawMap(m.getContext('2d'), m.width, m.height); draw(); m.classList.add('on'); clearInterval(m._t); m._t = setInterval(draw, 200); }
 });
-addEventListener('keyup', (e) => { keys.delete(e.code); if (is(e, 'map')) $('map').classList.remove('on'); });
+addEventListener('keyup', (e) => { keys.delete(e.code); if (is(e, 'map')) { $('map').classList.remove('on'); clearInterval($('map')._t); } });
 addEventListener('blur', () => keys.clear());
 
 // ---------------- chapters ----------------

@@ -84,7 +84,7 @@
   #caught h1 { font-size: clamp(60px, 12vw, 150px); margin: 0; color: var(--red); letter-spacing: 0.08em; }
   #caught p { font-family: 'Special Elite', monospace; font-size: 20px; color: #c9c2b0; margin: 10px 0 30px; }
   #pause { background: rgba(0,0,0,0.85); z-index: 45; }
-  #map { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 25; display: none; background: #e9e3d3; padding: 14px; box-shadow: 0 20px 60px #000; }
+  #map { position: fixed; left: 22px; bottom: 210px; width: min(250px, 38vw); height: auto; z-index: 25; display: none; background: #e9e3d3; padding: 6px; opacity: 0.88; box-shadow: 0 8px 24px #000; transform: rotate(-1.5deg); }
   #map.on { display: block; }
   #phone { position: fixed; right: 40px; bottom: -640px; width: 300px; height: 600px; background: #0b0c0e; border: 10px solid #1c1d20; border-radius: 38px; z-index: 32; box-shadow: 0 30px 80px #000; transition: bottom 0.35s cubic-bezier(.2,.9,.3,1); overflow: hidden; font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; color: #eee; pointer-events: auto; }
   #phone.on { bottom: 40px; }
@@ -147,7 +147,7 @@
     <div id="breathM">BREATH<div class="meter"><i id="breathBar"></i></div></div>
   </div>
 </div>
-<canvas id="map" width="640" height="460"></canvas>
+<canvas id="map" width="460" height="460"></canvas>
 <div id="note"></div>
 <div id="phone"><div id="phoneScreen"></div><div class="ph-hint">P / ESC — PUT AWAY</div></div>
 <div id="phoneBanner"></div>
@@ -178,6 +178,6 @@
 <div id="pause" class="screen"><h1 style="letter-spacing:.2em;font-size:42px;margin:0 0 20px">PAUSED</h1><button class="btn" id="resumeBtn">RESUME</button><button class="btn" id="pauseSettingsBtn">SETTINGS</button><button class="btn" id="pauseMenuBtn">MAIN MENU</button></div>
 <div id="bright" class="screen" style="z-index:60"><h1 style="letter-spacing:.2em;font-size:34px;margin:0 0 6px">ADJUST BRIGHTNESS</h1><p style="font-family:'Special Elite',monospace;color:#c9c2b0;margin:0 0 22px">Move the slider until the LEFT symbol is barely visible<br>and the other two are clearly visible.</p><canvas id="brightCanvas" width="520" height="180" style="background:#000"></canvas><input id="brightSlider" type="range" min="0.7" max="2.4" step="0.02" style="width:420px;margin:26px 0"><button class="btn" id="brightOk">CONTINUE</button></div>
 
-<script type="module" src="src/main.js?v=1792113485"></script>
+<script type="module" src="src/main.js?v=1792113937"></script>
 </body>
 </html>
