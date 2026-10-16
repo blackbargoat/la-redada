@@ -1,10 +1,10 @@
 // LEVEL 1 — "The Walk Home". Juan follows Santiago home → the street feels wrong → ICE → run, hide, get to Rosa's.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792116645';
-import { tex, textTex, facadeTex, rng } from './textures.js?v=1792116645';
-import { makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeCar, makePalm, makeDumpster, std } from './models.js?v=1792116645';
-import { addSkyline, glowMaterial, glowMats } from './skyline.js?v=1792116645';
-import { buildQuikWay, makePump } from './quikway.js?v=1792116645';
+import { Grid } from './grid.js?v=1792117111';
+import { tex, textTex, facadeTex, rng } from './textures.js?v=1792117111';
+import { makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeCar, makePalm, makeDumpster, std } from './models.js?v=1792117111';
+import { addSkyline, glowMaterial, glowMats } from './skyline.js?v=1792117111';
+import { buildQuikWay, makePump } from './quikway.js?v=1792117111';
 
 const LINES = {
   u1: { id: 'st_u1', who: 'Santiago', text: '...Hey. That car. It\'s been behind us since the bus stop.' },
@@ -30,6 +30,7 @@ const LINES = {
   r4: { id: 'st_r4', who: 'Santiago', text: 'With Dale, every day is Friday.' },
   m4: { id: 'st_m4', who: 'Juan', text: 'Don\'t look at it. Just keep walking.' },
   r7: { id: 'st_r7', who: 'Santiago', text: 'Juan! ¡Corre! Run!' },
+  weird: { id: 'st_weird', who: 'Santiago', text: 'Hey... look. That\'s weird. Who\'s that standing in the street?' },
   a2b: { id: 'st_a2b', who: 'Agent', text: 'Suspect down! The other one\'s running, south on Whittier!', agent: true },
   p1: { id: 'st_p1', who: 'Agent', text: 'He turned down here. I saw him turn.', agent: true },
   p2: { id: 'st_p2', who: 'Agent', text: 'Nothing. He\'s gone. Check the next block.', agent: true },
@@ -102,6 +103,8 @@ export function createStreet(G, opts = {}) {
     const a = { h, sl, beam, phase: 0, speed: 0, path: null, pi: 0, repath: 0, role: 'idle', stepAcc: 0 };
     agents.push(a); return a;
   }
+  let roadMan = null;
+  function lightOn(a, on) { a.sl.intensity = on ? 26 : 0; a.beam.visible = on; a.h.group.traverse((m) => { if (m.isSprite) m.visible = on; }); a.h.group.children.forEach((c) => { if (c.isPointLight) c.intensity = on ? 1.6 : 0; }); }
   function removeAgent(a) { scene.remove(a.h.group); scene.remove(a.sl); scene.remove(a.sl.target); agents.splice(agents.indexOf(a), 1); }
   // muzzle flash for the shot
   const muzzle = new THREE.PointLight(0xffd8a0, 0, 14, 1.4); scene.add(muzzle);
@@ -187,7 +190,10 @@ export function createStreet(G, opts = {}) {
       followL.forEach((l) => (l.intensity = 150)); audio.hit(0.9); ui.flash(0.2);
       for (let i = 0; i < 3; i++) audio.tone({ freq: 900, freqTo: 1500, dur: 0.18, type: 'square', gain: 0.05, when: i * 0.25, filter: 2500, pos: { x: 1.8, y: 1, z: P.pos.z + 12 } });
     });
-    at(tDark + 2.0, () => { audio.carDoor({ x: 3, y: 1, z: P.pos.z + 11 }); makeAgent(3.0, P.pos.z + 10.5).role = 'chase'; });
+    at(tDark + 0.6, () => { // the man standing in the road switches his flashlight on, right at you
+      let a = roadMan; if (!a) { a = makeAgent(1.2, P.pos.z + 13); }
+      lightOn(a, true); a.role = 'chase'; roadMan = null; audio.click(); audio.hit(0.8); ui.shake(0.03, 0.3);
+    });
     at(tDark + 2.3, () => { ui.bark(LINES.ice); audio.radio({ x: 3, y: 1.5, z: P.pos.z + 10 }); });
     at(tDark + 2.4, () => { block.visible = true; blockL.intensity = 120; grid.rect(-9, -123, 8, -119, 1, 0); block.userData.headlights?.forEach((m) => { m.material.emissive.setHex(0xffffff); m.material.emissiveIntensity = 3; }); const b = makeAgent(4.5, -117); b.role = 'guard'; });
     at(tDark + 2.6, () => { if (watcherFig) watcherFig.visible = false; const w = makeAgent(-7.6, -37); w.role = 'chase'; w.delay = 1.2; });
@@ -223,13 +229,15 @@ export function createStreet(G, opts = {}) {
   const triggers = [
     { p: 14, fn: () => lines('r2', 'm2') },
     { p: 20, fn: () => { followOn = true; followCar.visible = true; followCar.position.set(1.8, 0, P.pos.z + 26); } },
-    { p: 12, fn: () => { catState = 'walk'; cat.position.set(-7.0, 0.15, P.pos.z - 16); } },
     { p: 30, fn: () => lines('r3', 'm3', 'r4') },
     { p: 36, fn: () => lines('u1', 'm4') },
     { p: 41, fn: () => { lines('u3'); audio.radio({ x: -8.3, y: 1.5, z: -37 }, 0.25); } },
     { p: 46, fn: () => { mirrorOn = true; mirrorMan.group.visible = true; mirrorMan.group.position.set(-7.0, 0.15, P.pos.z - 2); lines('u4'); } },
     { p: 49, fn: () => { audio.radio({ x: -8.5, y: 1.5, z: P.pos.z - 6 }, 0.4); } },
-    { p: 54, fn: () => { if (phase === 'walk') startBlackout(false); } },
+    { p: 50, fn: () => { // someone is standing in the middle of the road behind you, lights off, just watching
+      if (phase !== 'walk') return; roadMan = makeAgent(1.2, P.pos.z + 14); roadMan.role = 'stand'; lightOn(roadMan, false);
+      lines('weird').then(() => { if (phase === 'walk') startBlackout(false); });
+    } },
   ];
 
   // ---- the bush ----
@@ -507,6 +515,8 @@ export function createStreet(G, opts = {}) {
         const sp = darkT < 2.2 + (a.delay || 0) ? 0 : 2.8 + Math.min(0.5, darkT * 0.03);
         if (sp > 0) moveAgent(a, P.pos.x, P.pos.z, sp, dt); else a.speed = 0;
         if (Math.hypot(P.pos.x - g.x, P.pos.z - g.z) < 0.85) game.caught(a.h, 'You stopped running. Try again.');
+      } else if (a.role === 'stand') { // dead still in the road, facing you
+        a.speed = 0; turnAgent(a, Math.atan2(P.pos.x - g.x, P.pos.z - g.z), dt * 3);
       } else if (a.role === 'search') {
         // they reach the corner and look both ways
         if (sideT < 9) { if (moveAgent(a, 6 + agents.indexOf(a) % 2 * 2, SZC + 2, 3, dt)) { a.speed = 0; turnAgent(a, Math.sin(tl * 0.8 + agents.indexOf(a)) * 1.6 - Math.PI / 2 - 0.4, dt * 2); } }
@@ -607,9 +617,10 @@ export function buildCity(scene, grid, r, o = {}) {
     let z = 14;
     while (z > -132) {
       const len = 8 + Math.floor(r() * 7);
-      if (side > 0 && z - len < SZ1 + 1 && z > SZ0 - 1) { z = SZ0 - 1; continue; } // keep the side street open
-      if (side < 0 && z - len < -51 && z > -70) { z = -70; continue; } // the QUIK-WAY lot across from Hammerline
-      if (side > 0 && z - len < -49 && z > -73) { z = -73; continue; } // Hammerline Depot itself
+      // openings in the frontage: build right up to their edge (no empty gaps), then jump past them
+      const gaps = side > 0 ? [[-86, -128], [-49, -73]] : [[-51, -70]]; // east: the two corner houses on Mott sit in that first gap
+      const gap = gaps.find(([g0, g1]) => z - len < g0 && z > g1);
+      if (gap) { if (z - gap[0] > 0.2) building(side, z, z - gap[0]); z = gap[1]; continue; }
       building(side, z, len); z -= len;
     }
   }
@@ -789,6 +800,11 @@ export function buildCity(scene, grid, r, o = {}) {
     // mailbox on a post by the gate
     if (!rosa || true) { const mpx = cx + 1.25, mpz = fz + (north ? -0.5 : 0.5); const po = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.1, 0.08), std(0x3a3028)); po.position.set(mpx, 0.55, mpz); scene.add(po); const bx = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.24, 0.45), std(k % 2 ? 0x2a2a2c : 0x4a4038, { metalness: 0.4 })); bx.position.set(mpx, 1.2, mpz); scene.add(bx); }
   }
+  // the corners of Mott and Whittier: a house on each, side wall to the boulevard, front porch to Mott
+  bungalow(15, -97, Math.PI, 0x6e5e50, { windows: ['lit', 'dark'], walk: 4.2 });
+  bungalow(15, -117, 0, 0x5a6058, { windows: ['dark', 'dark'], walk: 4.2, pots: true });
+  for (const [fz, zc] of [[SZ1 + 1.2, -99.5], [SZ0 - 1.2, -115]]) { const y = new THREE.Mesh(new THREE.PlaneGeometry(12, 4), grassM); y.rotation.x = -Math.PI / 2; y.position.set(15, 0.02, zc); scene.add(y);
+    for (const sx of [-1, 1]) { const f = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 1.0), linkM); f.position.set(15 + sx * 3.3, 0.5, fz); scene.add(f); } }
   // the end of the street: two more houses facing back down Mott, and a dead end
   bungalow(80, -101.5, -Math.PI / 2, 0x6a5e50, { windows: ['dark', 'lit'], walk: 4.4 });
   bungalow(80, -113, -Math.PI / 2, 0x58625a, { windows: ['dark', 'dark'], walk: 4.4 });
