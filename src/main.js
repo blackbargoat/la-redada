@@ -1,13 +1,13 @@
 import * as THREE from 'three';
-import { AudioEngine } from './audio.js?v=1792113937';
-import { createStreet } from './street.js?v=1792113937';
-import { createRestaurant } from './restaurant.js?v=1792113937';
-import { createStore } from './store.js?v=1792113937';
-import { createHouse } from './house.js?v=1792113937';
-import { createGasStation } from './gasstation.js?v=1792113937';
-import { createSewer } from './sewer.js?v=1792113937';
-import { createPhone } from './phone.js?v=1792113937';
-import { modelsReady } from './models.js?v=1792113937';
+import { AudioEngine } from './audio.js?v=1792114421';
+import { createStreet } from './street.js?v=1792114421';
+import { createRestaurant } from './restaurant.js?v=1792114421';
+import { createStore } from './store.js?v=1792114421';
+import { createHouse } from './house.js?v=1792114421';
+import { createGasStation } from './gasstation.js?v=1792114421';
+import { createSewer } from './sewer.js?v=1792114421';
+import { createPhone } from './phone.js?v=1792114421';
+import { modelsReady } from './models.js?v=1792114421';
 
 const $ = (id) => document.getElementById(id);
 const PIX = 3; // render at 1/3 resolution, upscale with nearest-neighbour for the chunky pixel look
@@ -217,6 +217,30 @@ function disposeScene(s) {
     if (o.material) for (const m of [].concat(o.material)) { for (const k in m) if (m[k] && m[k].isTexture) m[k].dispose(); m.dispose(); }
   });
 }
+// Stacked ground surfaces (lots, roads, sidewalks, aprons, curbs, rugs) sit a centimetre or two apart, which
+// flickers at a distance. Push each one's depth by its height so the higher layer always wins, cleanly.
+// movement that also respects something the level adds to your body (a cart you're pushing): you slide along walls with it
+function moveWith(pos, dx, dz, r, L) {
+  const bl = (x, z) => L.grid.blocked(x, z, r) || L.extraBlocked(x, z);
+  if (bl(pos.x, pos.z)) { if (!L.grid.blocked(pos.x + dx, pos.z + dz, r)) { pos.x += dx; pos.z += dz; } return; }
+  const steps = Math.ceil(Math.max(Math.abs(dx), Math.abs(dz)) / 0.1) || 1, sx = dx / steps, sz = dz / steps;
+  for (let k = 0; k < steps; k++) { if (!bl(pos.x + sx, pos.z)) pos.x += sx; if (!bl(pos.x, pos.z + sz)) pos.z += sz; }
+}
+function layerGround(scene) {
+  const bb = new THREE.Box3(), seen = new Map();
+  scene.updateMatrixWorld(true);
+  scene.traverse((m) => {
+    if (!m.isMesh || m.isInstancedMesh || m.isSkinnedMesh || !m.material || Array.isArray(m.material) || m.material.isShaderMaterial) return;
+    bb.setFromObject(m);
+    if (bb.max.y - bb.min.y > 0.22 || bb.max.y > 0.3 || bb.max.y < -0.3) return;
+    if ((bb.max.x - bb.min.x) * (bb.max.z - bb.min.z) < 0.4) return;
+    const units = -Math.round((bb.max.y + 0.3) * 300);
+    let mat = m.material;
+    if (seen.has(mat) && seen.get(mat) !== units) { mat = mat.clone(); m.material = mat; }
+    seen.set(mat, units);
+    mat.polygonOffset = true; mat.polygonOffsetFactor = -1; mat.polygonOffsetUnits = units; mat.needsUpdate = true;
+  });
+}
 function loadLevel(make) {
   if (level) { level.dispose?.(); camera.parent?.remove(camera); disposeScene(level.scene); }
   audio.stopAll(); audio.muffle(false, 0.05); ui.cancelSay(); phone.close();
@@ -225,6 +249,7 @@ function loadLevel(make) {
   P.carrying = null; P.gy = 0; hungerWarned = false; game.retry = null;
   ui.post.exposure.value = 0.8; ui.post.sat.value = 0.55; ui.post.contrast.value = 1.16; ui.post.tint.value.set(0.9, 0.98, 0.96); ui.post.lift.value.set(0.0, 0.01, 0.012); ui.post.levels.value = 28;
   level = make(G);
+  layerGround(level.scene);
   level.scene.add(camera);
   mode = 'play'; paused = false;
   ui.hud(true); ui.fade(0, 1.5);
@@ -427,17 +452,17 @@ function updatePlayer(dt) {
   if (held('right') || keys.has('ArrowRight')) s += 1;
   if (held('left') || keys.has('ArrowLeft')) s -= 1;
   const moving = f || s;
-  const wantSprint = (L.chaseRun || held('sprint') || (BINDS.sprint === 'ShiftLeft' && keys.has('ShiftRight'))) && moving && f >= 0 && L.allowSprint !== false && !P.carrying;
+  const wantSprint = (L.chaseRun || held('sprint') || (BINDS.sprint === 'ShiftLeft' && keys.has('ShiftRight'))) && moving && f >= 0 && L.allowSprint !== false && P.carrying !== 'crate' && P.carrying !== 'cart';
   if (wantSprint && P.crouch) P.crouch = false;
   P.sprinting = wantSprint && !P.exhausted && P.stamina > 0;
   if (P.sprinting && !L.chaseRun) { P.stamina -= dt / 7.5; if (P.stamina <= 0) { P.stamina = 0; P.exhausted = true; } }
   else { P.stamina = Math.min(1, P.stamina + dt / (P.exhausted ? 8 : 4.5) * (P.food < 0.15 ? 0.6 : 1)); if (P.exhausted && P.stamina > 0.4) P.exhausted = false; }
-  const speed = (P.crouch ? 1.6 : P.sprinting ? 6.2 : 3.1) * (P.exhausted ? 0.8 : 1) * (L.speedMul ?? 1) * (P.carrying ? 0.75 : 1);
+  const speed = (P.crouch ? 1.6 : P.sprinting ? 6.2 : 3.1) * (P.exhausted ? 0.8 : 1) * (L.speedMul ?? 1) * (P.carrying === 'crate' ? 0.9 : P.carrying === 'cart' ? 0.85 : 1); // a bag of trash doesn't slow you down
   const len = Math.hypot(f, s) || 1;
   const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
   const dx = ((fx * f + rx * s) / len) * speed * dt, dz = ((fz * f + rz * s) / len) * speed * dt;
   const ox = P.pos.x, oz = P.pos.z;
-  if (moving) L.grid.move(P.pos, dx, dz, 0.3);
+  if (moving) { if (L.extraBlocked) moveWith(P.pos, dx, dz, 0.3, L); else L.grid.move(P.pos, dx, dz, 0.3); }
   const moved = Math.hypot(P.pos.x - ox, P.pos.z - oz);
   P.speedNow = moved / dt;
   P.bob += moved * (P.sprinting ? 2.4 : 2.9);

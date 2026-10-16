@@ -1,10 +1,10 @@
 // LEVEL 1 — "The Walk Home". Juan follows Santiago home → the street feels wrong → ICE → run, hide, get to Rosa's.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792113937';
-import { tex, textTex, facadeTex, rng } from './textures.js?v=1792113937';
-import { makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeCar, makePalm, std } from './models.js?v=1792113937';
-import { addSkyline, glowMaterial, glowMats } from './skyline.js?v=1792113937';
-import { buildQuikWay, makePump } from './quikway.js?v=1792113937';
+import { Grid } from './grid.js?v=1792114421';
+import { tex, textTex, facadeTex, rng } from './textures.js?v=1792114421';
+import { makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeCar, makePalm, makeDumpster, std } from './models.js?v=1792114421';
+import { addSkyline, glowMaterial, glowMats } from './skyline.js?v=1792114421';
+import { buildQuikWay, makePump } from './quikway.js?v=1792114421';
 
 const LINES = {
   u1: { id: 'st_u1', who: 'Santiago', text: '...Hey. That car. It\'s been behind us since the bus stop.' },
@@ -895,7 +895,7 @@ export function buildCity(scene, grid, r, o = {}) {
     prevTop = z;
   }
   const dumpM = std(0x1f3a2a, { roughness: 0.6, metalness: 0.3 });
-  const dump = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.3, 2.4), dumpM); dump.position.set(8.0, 0.8, -26); dump.castShadow = true; scene.add(dump);
+  const dump = makeDumpster(0x1f3a2a); dump.position.set(8.0, 0, -26.5); dump.rotation.y = -Math.PI / 2; scene.add(dump);
   grid.rect(7, -28, 8, -25, 1, 0);
   const shelter = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.1, 3.5), std(0x333333)); shelter.position.set(7.8, 2.5, 8); scene.add(shelter);
   const bench = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.45, 2.5), std(0x3a3a3a)); bench.position.set(8.3, 0.4, 8); scene.add(bench);

@@ -1,8 +1,8 @@
 // DAY 2 — Hammerline Depot. mode 'work': the day shift. mode 'close': closing time, the raid, the hatch.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792113937';
-import { tex, textTex, rng } from './textures.js?v=1792113937';
-import { makeHumanoid, makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, std } from './models.js?v=1792113937';
+import { Grid } from './grid.js?v=1792114421';
+import { tex, textTex, rng } from './textures.js?v=1792114421';
+import { makeHumanoid, makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeShoppingCart, makeDumpster, makeTrashBag, std } from './models.js?v=1792114421';
 
 const VO = {
   out: { id: 'sr_out', who: 'Agent (radio)', text: 'Back door\'s locked down. He\'s inside. Nobody leaves this building.', radio: true, agent: true },
@@ -158,8 +158,8 @@ export function createStore(G, mode = 'close', checkpoint = 0) {
       const zl = z1 - z0 + 1, zc = (z0 + z1 + 1) / 2;
       for (const zz of [z0 + 0.05, zc, z1 + 0.95]) for (const xx of [x0 + 0.05, x0 + 1.95]) pushM(orangeI, xx, 2.85, zz, 0.1, 5.7, 0.1);
       for (const y of LEVELS) {
-        for (const xx of [x0 + 0.05, x0 + 1.95]) pushM(orangeI, xx, y + 0.06, zc, 0.08, 0.12, zl);
-        pushM(deckI, x0 + 1, y, zc, 2, 0.05, zl);
+        for (const xx of [x0 + 0.05, x0 + 1.95]) pushM(orangeI, xx, y + 0.06, zc, 0.08, 0.12, zl - 0.14); // beams end inside the uprights
+        pushM(deckI, x0 + 1, y + 0.035, zc, 1.82, 0.04, zl - 0.16); // deck sits between the beams, below their top: no shared faces
         for (const half of [0, 1]) {
           const aisle = half === 0 ? ri : ri + 1;
           const pal = PAL[aisle] || PAL[0];
@@ -170,8 +170,8 @@ export function createStore(G, mode = 'close', checkpoint = 0) {
             const xx = x0 + (half === 0 ? 0.5 : 1.5);
             const col = new THREE.Color(pal[(r() * pal.length) | 0]).multiplyScalar(0.7 + r() * 0.4);
             if (aisle === 4 && y < 4) { // paint cans
-              for (let k = 0; k < 3; k++) pushM(canI, xx + (k - 1) * 0.28, y + 0.2, zc2 + w / 2, 0.24, 0.36, 0.24, col);
-            } else if (r() < 0.9) pushM(prodI, xx, y + 0.03 + hgt / 2, zc2 + w / 2, dep, hgt, w, col);
+              for (let k = 0; k < 3; k++) pushM(canI, xx + (k - 1) * 0.28, y + 0.24, zc2 + w / 2, 0.24, 0.36, 0.24, col);
+            } else if (r() < 0.9) pushM(prodI, xx, y + 0.058 + hgt / 2, zc2 + w / 2, Math.min(dep, 0.78), hgt, w, col);
             zc2 += w + 0.04;
           }
         }
@@ -217,10 +217,22 @@ export function createStore(G, mode = 'close', checkpoint = 0) {
     sheds.push(x0);
   }
   box(1.1, 2.3, 1.1, std(0x2a4a8a, { roughness: 0.5 }), 61.5, 1.15, 26.5); grid.rect(61, 26, 61, 26, 1, 1);
-  const cartM = std(0x8a8e90, { metalness: 0.8, roughness: 0.3, wireframe: true });
+  // shopping carts: a nested row in the corral by the doors, one loose by the checkouts
+  const cartAt = (x, z, ry = 0) => { const c = makeShoppingCart(); c.position.set(x, 0, z); c.rotation.y = ry; scene.add(c); return c; };
+  // the cart corral: open floor between the checkouts and the front wall, steel rails, a sign on a post.
+  // Carts nest in a line facing -x; returned carts slide in at the open (east) end.
+  const CORRAL = { x: 17.6, z: 43.2, step: 0.34, slot: (k) => 17.6 + k * 0.34 };
+  { const rail = std(0x9a9ea0, { metalness: 0.8, roughness: 0.35 }), yel = std(0xe0b020, { roughness: 0.5 });
+    for (const y of [0.45, 0.9]) { box(6.6, 0.05, 0.05, rail, 20.0, y, 42.45, false); box(0.05, 0.05, 1.5, rail, 16.7, y, 43.2, false); }
+    for (const x of [16.7, 18.9, 21.1, 23.3]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.95, 8), rail); p.position.set(x, 0.47, 42.45); scene.add(p); }
+    const bol = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 1.0, 12), yel); bol.position.set(23.6, 0.5, 42.45); scene.add(bol);
+    const sp = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.4, 8), rail); sp.position.set(16.7, 1.2, 42.45); scene.add(sp);
+    const sT = textTex(512, 160, '#d2541c', [{ text: 'SHOPPING CARTS', size: 64, color: '#fff', y: 62 }, { text: 'RETURN HERE · GRACIAS', size: 30, color: '#ffe8d0', y: 122, weight: 'normal' }]);
+    const sg = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.44, 0.04), [std(0xd2541c), std(0xd2541c), std(0xd2541c), std(0xd2541c), std(0xffffff, { map: sT }), std(0xffffff, { map: sT })]); sg.position.set(16.7, 2.35, 42.45); scene.add(sg);
+    grid.rect(16, 42, 23, 43, 1, 0); }
   const carts = [];
-  for (let i = 0; i < 4; i++) { const c = box(0.6, 0.9, 1.0, cartM, 24.5, 0.7, 42.5 + i * 0.25, false); carts.push(c); }
-  const rogueCart = box(0.6, 0.9, 1.0, cartM, 12, 0.7, 37, false);
+  for (let i = 0; i < 4; i++) carts.push(cartAt(CORRAL.slot(i), CORRAL.z, -Math.PI / 2));
+  const rogueCart = cartAt(12, 37, Math.PI / 2);
   // cabinets used as extra hiding spots
   box(1, 2.3, 0.8, metalM, 46.5, 1.15, 1.4); grid.rect(46, 1, 46, 1);
   box(0.8, 2.3, 1, metalM, 1.4, 1.15, 40.5); grid.rect(1, 40, 1, 40);
@@ -597,9 +609,22 @@ export function createStore(G, mode = 'close', checkpoint = 0) {
   const carry = new THREE.Group(); G.camera.add(carry); carry.position.set(0.05, -0.42, -0.75); carry.visible = false;
   const crateM = std(0xffffff, { map: tex('cardboard') });
   const carryCrate = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.38, 0.4), crateM); carry.add(carryCrate);
-  const carryBag = new THREE.Mesh(new THREE.SphereGeometry(0.24, 8, 6), std(0x111111, { roughness: 0.3 })); carryBag.scale.set(1, 1.3, 1); carryBag.position.set(0.25, 0.05, 0.1); carry.add(carryBag);
+  const carryBag = makeTrashBag(0.85, 3); carryBag.position.set(0.42, -0.42, 0.25); carryBag.rotation.z = 0.1; carry.add(carryBag);
   const carryRing = box(0.12, 0.03, 0.12, std(0xe8d48a), 0, 0, 0, false); scene.remove(carryRing); carryRing.position.set(0.22, 0.1, 0.12); carry.add(carryRing);
-  function hold(what) { P.carrying = what; carry.visible = !!what; carryCrate.visible = what === 'crate'; carryBag.visible = what === 'trash'; carryRing.visible = what === 'ring'; }
+  let carryT = 1, carryPh = 0;
+  function hold(what) { P.carrying = what; carry.visible = !!what && what !== 'cart'; carryCrate.visible = what === 'crate'; carryBag.visible = what === 'trash'; carryRing.visible = what === 'ring'; carryT = what ? 0 : 1; }
+  // things that fly/drop into place (crates onto the display, bags into the dumpster)
+  const tweens = [];
+  const tweenTo = (o, to, d = 0.4, arc = 0.3, done) => tweens.push({ o, from: o.position.clone(), to: new THREE.Vector3(...to), t: 0, d, arc, done });
+  function animCarry(dt) {
+    for (let i = tweens.length - 1; i >= 0; i--) { const tw = tweens[i]; tw.t += dt; const k = Math.min(1, tw.t / tw.d), e = 1 - Math.pow(1 - k, 3); tw.o.position.lerpVectors(tw.from, tw.to, e); tw.o.position.y += Math.sin(k * Math.PI) * tw.arc; if (k >= 1) { tweens.splice(i, 1); tw.done?.(); } }
+    if (!carry.visible) return;
+    // lift into view, then sway with your steps; the bag swings from your hand
+    carryT = Math.min(1, carryT + dt * 3.5); const lift = 1 - Math.pow(1 - carryT, 3);
+    carryPh += dt * (P.speedNow || 0) * 2.4; const mv = Math.min(1, (P.speedNow || 0) / 3);
+    carry.position.set(0.05 + Math.sin(carryPh) * 0.018 * mv, -0.42 - (1 - lift) * 0.45 + Math.abs(Math.cos(carryPh)) * 0.022 * mv, -0.75);
+    carryBag.rotation.x = Math.sin(carryPh) * 0.25 * mv; carryBag.rotation.z = 0.1 + Math.cos(carryPh * 0.5) * 0.12 * mv;
+  }
   hold(null);
 
   if (WORK) {
@@ -635,10 +660,16 @@ export function createStore(G, mode = 'close', checkpoint = 0) {
       dale.walk = [[12, 10.5]];
       say('d2').then(() => { dale.walk = [[17.5, 10.5], [17.5, 6.5]]; setStage('crates', `Move the crates from the pallet in Receiving to the display at the end of Aisle 6. (0/${CRATES})`, [44, 7.4]); });
     } });
-    it({ x: 44, z: 7.4, r: 1.7, label: 'Pick up a crate', enabled: () => stage === 'crates' && !P.carrying, action: () => { audio.pickup(); hold('crate'); goal = [38, 12.6]; } });
+    // the delivery: three crates on a pallet in receiving
+    const palletM = std(0x8a6a44, { map: tex('plywood', [1, 1]), roughness: 0.9 });
+    for (const [w, y, z] of [[1.2, 0.05, 6.6], [1.2, 0.13, 6.6]]) box(w, 0.08, 1.0, palletM, 44, y, z, true);
+    const palletCrates = [[43.7, 0.36, 6.4], [44.3, 0.36, 6.4], [44, 0.74, 6.5]].map(([x, y, z]) => box(0.55, 0.38, 0.4, crateM, x, y, z, true));
+    it({ x: 44, z: 7.4, r: 1.7, label: 'Pick up a crate', enabled: () => stage === 'crates' && !P.carrying, action: () => { audio.pickup(); const c = palletCrates.pop(); if (c) c.visible = false; hold('crate'); goal = [38, 12.6]; } });
     it({ x: 38, z: 12.6, r: 1.7, label: 'Stack the crate', enabled: () => stage === 'crates' && P.carrying === 'crate', action: () => {
-      hold(null); audio.thump({ x: 38, y: 0.6, z: 11.6 }); crates++;
-      const c = box(0.55, 0.38, 0.4, crateM, 37.6 + (crates % 2) * 0.6, 0.69 + Math.floor((crates - 1) / 2) * 0.38, 11.6, true); crateStack.push(c);
+      hold(null); crates++;
+      const tx = 37.6 + (crates % 2) * 0.6, ty = 0.69 + Math.floor((crates - 1) / 2) * 0.38;
+      const c = box(0.55, 0.38, 0.4, crateM, P.pos.x - Math.sin(P.yaw) * 0.7, 1.1, P.pos.z - Math.cos(P.yaw) * 0.7, true); c.rotation.y = P.yaw; crateStack.push(c);
+      tweenTo(c, [tx, ty, 11.6], 0.35, 0.15, () => { c.rotation.y = 0; audio.thump({ x: tx, y: ty, z: 11.6 }); });
       if (crates < CRATES) { setStage('crates', `Move the crates from the pallet in Receiving to the display at the end of Aisle 6. (${crates}/${CRATES})`, [44, 7.4]); return; }
       stage = 'crates2'; ui.objective(''); ui.clock('11:48 AM');
       at(1.5, () => ui.say([{ ...SVO.ch1, pos: chuy.group.position }]).then(() => setStage('lady', 'Help the customer in Aisle 2, Plumbing.', [13.5, 24])));
@@ -696,26 +727,79 @@ export function createStore(G, mode = 'close', checkpoint = 0) {
     setPower(true);
     audio.preloadVo(STORE_VO);
     dale.group.position.set(24, 0, 36); dale.group.rotation.y = 0;
-    const strays = [[44, 31.5], [55.5, 34], [9, 25]].map(([x, z]) => { const c = box(0.6, 0.9, 1.0, cartM, x, 0.7, z, false); c.rotation.y = r() * 3; return c; });
+    const strays = [[44, 31.5], [55.5, 34], [9, 25]].map(([x, z]) => cartAt(x, z, r() * 6)); let pushing = null, squeakT = 0;
     let cartsIn = 0, gateProg = 0;
     gate.position.y = 5.6;
-    const bags = box(0.8, 0.5, 0.5, std(0x111111, { roughness: 0.3 }), 26.5, 0.25, 38.3);
-    const compactor = box(2, 2.2, 1.6, std(0x2a5a3a, { metalness: 0.4 }), 57.5, 1.1, 2.2); grid.rect(56, 1, 58, 2, 1, 1);
-    const compT = textTex(256, 64, '#e8d020', [{ text: 'COMPACTOR', size: 36, color: '#111' }]);
-    const compS = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.3), std(0xffffff, { map: compT })); compS.position.set(57.5, 1.6, 3.02); scene.add(compS);
+    const bags = new THREE.Group(); bags.position.set(26.5, 0, 38.3); scene.add(bags); [[-0.25, 0, 1], [0.22, 0.05, 2], [0, 0.32, 3]].forEach(([x, z, sd]) => { const b = makeTrashBag(0.9, sd); b.position.set(x, 0, z); b.rotation.y = sd; bags.add(b); });
+    const dumpster = makeDumpster(0x1f4a32, 0.9); dumpster.position.set(57.5, 0, 2.2); scene.add(dumpster); grid.rect(56, 1, 58, 2, 1, 1);
     at(1.2, () => say('d6').then(() => { dale.walk = [[31.5, 41], [31.5, 44.6]]; setStage('carts', 'Close up (1/3): Bring in the stray carts. (0/3)', [strays[0].position.x, strays[0].position.z]); }));
-    strays.forEach((c, i) => it({ x: c.position.x, z: c.position.z, r: 1.6, label: 'Bring in the cart', enabled: () => stage === 'carts' && c.visible, action: () => {
-      c.visible = false; cartsIn++; audio.noise({ dur: 1.2, type: 'bandpass', freq: 900, q: 2, gain: 0.1 }); audio.clunk({ x: c.position.x, y: 0.5, z: c.position.z }, 0.3);
-      const next = strays.find((s) => s.visible);
-      if (next) setStage('carts', `Close up (1/3): Bring in the stray carts. (${cartsIn}/3)`, [next.position.x, next.position.z]);
-      else setStage('gate', 'Close up (2/3): Pull down the garden-center gate. Hold E.', [61.6, 40.5]);
+    // grab a cart and push it back to the corral by the doors; it nests into the row when you get there
+    strays.forEach((c) => it({ x: c.position.x, z: c.position.z, r: 1.6, label: 'Push the cart', enabled: () => stage === 'carts' && !pushing && !c.userData.home, action: () => {
+      pushing = c; hold('cart'); audio.clunk({ x: c.position.x, y: 0.5, z: c.position.z }, 0.25); goal = [CORRAL.slot(4 + cartsIn) + 0.6, CORRAL.z - 1.4];
     } }));
+    // real footprints of everything a cart could bump (racks, shelves, counters, walls, other carts), hashed in 2 m buckets
+    let obst = null;
+    const bucketKey = (i, j) => i * 1000 + j;
+    function buildObstacles() {
+      obst = new Map(); const bb = new THREE.Box3();
+      scene.updateMatrixWorld(true);
+      scene.traverse((m) => {
+        if (!m.isMesh || m.isSkinnedMesh || m.isInstancedMesh || !m.visible) return;
+        let p = m, isCart = false; while (p) { if (p.userData && p.userData.wheels) { isCart = p; break; } p = p.parent; }
+        bb.setFromObject(m);
+        if (bb.min.y > 1.0 || bb.max.y < 0.12) return;                       // above the basket, or flat on the floor
+        if (bb.max.x - bb.min.x > 30 || bb.max.z - bb.min.z > 30) return;     // floors / ceilings
+        const box = { x0: bb.min.x, x1: bb.max.x, z0: bb.min.z, z1: bb.max.z, cart: isCart };
+        for (let i = Math.floor(box.x0 / 2); i <= Math.floor(box.x1 / 2); i++) for (let j = Math.floor(box.z0 / 2); j <= Math.floor(box.z1 / 2); j++) { const k = bucketKey(i, j); if (!obst.has(k)) obst.set(k, []); obst.get(k).push(box); }
+      });
+    }
+    function solidAt(x, z, r, self) {
+      if (!obst) buildObstacles();
+      for (let i = Math.floor((x - r) / 2); i <= Math.floor((x + r) / 2); i++) for (let j = Math.floor((z - r) / 2); j <= Math.floor((z + r) / 2); j++) {
+        const list = obst.get(bucketKey(i, j)); if (!list) continue;
+        for (const b of list) { if (b.cart === self) continue; if (x > b.x0 - r && x < b.x1 + r && z > b.z0 - r && z < b.z1 + r) return true; }
+      }
+      return false;
+    }
+    // the cart has its own heading. It follows where you look only if it has room to swing there; otherwise it scrapes
+    // along whatever's in the way. Its footprint is part of your body while you push, so you both stop at walls together.
+    const cartBlocked = (px, pz, h, self) => { const hx = -Math.sin(h), hz = -Math.cos(h); for (const d of [0.62, 0.95, 1.28, 1.6]) { const qx = px + hx * d, qz = pz + hz * d; if (grid.blocked(qx, qz, 0.24) || solidAt(qx, qz, 0.27, self)) return true; } return false; };
+    L.pushCart = (dt) => {
+      if (!pushing) { L.extraBlocked = null; return; }
+      const c = pushing;
+      if (c.userData.h == null) { c.userData.h = P.yaw; }
+      // swing toward your view in small steps while there's room
+      let want = P.yaw - c.userData.h; want = Math.atan2(Math.sin(want), Math.cos(want));
+      const stepA = Math.sign(want) * Math.min(Math.abs(want), dt * 4);
+      if (stepA && !cartBlocked(P.pos.x, P.pos.z, c.userData.h + stepA, c)) c.userData.h += stepA;
+      const h = c.userData.h;
+      L.extraBlocked = (x, z) => cartBlocked(x, z, h, c);
+      const fx = -Math.sin(h), fz = -Math.cos(h);
+      const tx = P.pos.x + fx * 1.15, tz = P.pos.z + fz * 1.15, before = c.position.clone();
+      c.position.x += (tx - c.position.x) * Math.min(1, dt * 14); c.position.z += (tz - c.position.z) * Math.min(1, dt * 14);
+      c.rotation.y = h + Math.PI;
+      const moved = before.distanceTo(c.position); c.userData.wheels.forEach((w) => (w.rotation.x += moved / 0.05));
+      squeakT -= moved; if (squeakT <= 0) { squeakT = 1.6 + Math.random(); audio.noise({ dur: 0.5, type: 'bandpass', freq: 1800 + Math.random() * 600, q: 6, gain: 0.05, pos: { x: c.position.x, y: 0.3, z: c.position.z } }); }
+      const slotX = CORRAL.slot(3 + cartsIn + 1);
+      if (Math.hypot(c.position.x - (slotX + 0.6), c.position.z - (CORRAL.z - 1.2)) < 2.0) {
+        pushing = null; L.extraBlocked = null; hold(null); c.userData.home = true; cartsIn++; setTimeout(() => (obst = null), 700); // carts moved: re-index footprints
+        c.rotation.y = -Math.PI / 2;
+        tweenTo(c, [slotX, 0, CORRAL.z], 0.5, 0, () => audio.clunk({ x: slotX, y: 0.5, z: CORRAL.z }, 0.45));
+        const next = strays.find((s2) => !s2.userData.home);
+        if (next) setStage('carts', `Close up (1/3): Bring in the stray carts. (${cartsIn}/3)`, [next.position.x, next.position.z]);
+        else setStage('gate', 'Close up (2/3): Pull down the garden-center gate. Hold E.', [61.6, 40.5]);
+      }
+    };
     it({ x: 61.6, z: 40.5, r: 2.0, label: 'Pull down the gate', hold: 3, enabled: () => stage === 'gate', onHold: (dt) => { audio.motorBed({ x: 63, y: 2, z: 40.5 }); audio.setLoop('motor', 0.3, 0.1); gateProg += dt; gate.position.y = 5.6 - Math.min(1, gateProg / 3) * 3.6; }, onRelease: () => audio.setLoop('motor', 0, 0.1), action: () => {
       audio.stopLoop('motor', 0.2); audio.clunk({ x: 63, y: 0.5, z: 40.5 }); gate.position.y = 2;
-      setStage('trash', 'Close up (3/3): Take the trash from the registers to the compactor in Receiving.', [26.5, 39]);
+      setStage('trash', 'Close up (3/3): Take the trash from the registers to the dumpster in Receiving.', [26.5, 39]);
     } });
-    it({ x: 26.5, z: 39.2, r: 1.6, label: 'Pick up the trash', enabled: () => stage === 'trash' && !P.carrying, action: () => { bags.visible = false; audio.rustle({ x: 26.5, y: 0.5, z: 38.3 }); hold('trash'); goal = [57.5, 3.6]; } });
-    it({ x: 57.5, z: 3.6, r: 1.7, label: 'Throw it in the compactor', enabled: () => stage === 'trash' && P.carrying === 'trash', action: () => { hold(null); audio.thump({ x: 57.5, y: 1.5, z: 2.5 }); stage = 'quiet'; ui.objective(''); at(2.5, lightsOut); } });
+    it({ x: 26.5, z: 39.2, r: 1.6, label: 'Pick up the trash', enabled: () => stage === 'trash' && !P.carrying, action: () => { bags.visible = false; audio.rustle({ x: 26.5, y: 0.5, z: 38.3 }); hold('trash'); goal = [57.5, 4]; } });
+    it({ x: 57.5, z: 3.6, r: 1.7, label: 'Throw it in the dumpster', enabled: () => stage === 'trash' && P.carrying === 'trash', action: () => {
+      hold(null); const b = makeTrashBag(0.85, 4); b.position.set(P.pos.x + 0.3, 1.1, P.pos.z - 0.4); scene.add(b);
+      tweenTo(b, [57.5, 0.9, 2.3], 0.5, 0.8, () => { b.visible = false; audio.thump({ x: 57.5, y: 1.2, z: 2.3 }); audio.clunk({ x: 57.5, y: 1.4, z: 2 }, 0.5); });
+      stage = 'quiet'; ui.objective(''); at(2.5, lightsOut);
+    } });
     // closing is done. The lights go.
     function lightsOut() {
       audio.powerDown({ x: 40, y: 6, z: 20 }); setPower(false); ui.shake(0.02, 0.4); ui.clock('10:31 PM');
@@ -972,6 +1056,7 @@ export function createStore(G, mode = 'close', checkpoint = 0) {
   // ---------------- update ----------------
   L.update = (dt) => {
     tl += dt;
+    animCarry(dt); L.pushCart?.(dt);
     for (let i = events.length - 1; i >= 0; i--) if (tl >= events[i].t) { const e = events[i]; events.splice(i, 1); e.fn(); }
     // police lights outside the glass
     const pt = performance.now() * 0.001;

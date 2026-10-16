@@ -1,6 +1,6 @@
 // Low-poly (PS3-era) procedural models.
 import * as THREE from 'three';
-import { jacketTex, tex } from './textures.js?v=1792113937';
+import { jacketTex, tex } from './textures.js?v=1792114421';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
@@ -273,5 +273,68 @@ export function makePalm(height = 11, seed = 1, lean = 0.8) {
   const n = 13;
   for (let k = 0; k < n; k++) { const f = new THREE.Mesh(fg, leafM); f.rotation.order = 'YXZ'; f.rotation.y = k / n * Math.PI * 2 + r(k) * 0.3; f.rotation.x = 0.15 + r(k + 9) * 0.45; f.castShadow = true; crown.add(f); }
   for (let k = 0; k < 6; k++) { const f = new THREE.Mesh(fg, deadM); f.rotation.order = 'YXZ'; f.rotation.y = k / 6 * Math.PI * 2 + 0.4; f.rotation.x = -0.9 - r(k + 20) * 0.3; f.scale.setScalar(0.75); f.position.y = -0.25; crown.add(f); }
+  return g;
+}
+
+// shopping cart: wire basket, orange handle, fold-down child seat, bottom rack, four casters. Faces +z (handle at -z).
+export function makeShoppingCart(handleColor = 0xd2541c) {
+  const g = new THREE.Group();
+  const wire = std(0xa8acae, { metalness: 0.85, roughness: 0.3 });
+  const bar = (w, h, d, x, y, z, rx = 0) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wire); m.position.set(x, y, z); m.rotation.x = rx; g.add(m); return m; };
+  const L = 0.9, W0 = 0.42, W1 = 0.52, y0 = 0.42, y1 = 0.95;
+  // basket: tapered, open top. Vertical wires down the sides, a few horizontal rails
+  for (let k = 0; k <= 9; k++) { const z = -L / 2 + (k / 9) * L, w = W1 + (W0 - W1) * (k / 9); for (const s of [-1, 1]) bar(0.012, y1 - y0, 0.012, s * w / 2, (y0 + y1) / 2, z); }
+  for (const y of [y0, y0 + 0.18, y0 + 0.36, y1]) for (const s of [-1, 1]) { const m = bar(0.014, 0.014, L, s * (W0 + W1) / 4, y, 0); m.rotation.y = s * Math.atan2((W1 - W0) / 2, L); }
+  for (let k = 0; k <= 6; k++) { const x = -W0 / 2 + (k / 6) * W0; bar(0.012, y1 - y0, 0.012, x, (y0 + y1) / 2, L / 2); }
+  for (const y of [y0, y1]) bar(W0, 0.014, 0.014, 0, y, L / 2);
+  for (let k = 0; k <= 7; k++) bar(0.012, 0.012, L, -W0 / 2 + (k / 7) * W0, y0, 0); // basket floor
+  // back gate + handle
+  bar(W1, 0.014, 0.014, 0, y1, -L / 2); bar(W1, 0.014, 0.014, 0, y0, -L / 2);
+  for (let k = 0; k <= 7; k++) bar(0.012, y1 - y0, 0.012, -W1 / 2 + (k / 7) * W1, (y0 + y1) / 2, -L / 2);
+  const handle = new THREE.Mesh(new THREE.BoxGeometry(W1 + 0.04, 0.04, 0.04), std(handleColor, { roughness: 0.5 })); handle.position.set(0, y1 + 0.06, -L / 2 - 0.08); g.add(handle);
+  for (const s of [-1, 1]) bar(0.02, 0.1, 0.1, s * W1 / 2, y1 + 0.03, -L / 2 - 0.04, -0.6);
+  // chassis: two side legs down to the base frame, a bottom rack
+  for (const s of [-1, 1]) { bar(0.025, 0.42, 0.025, s * 0.22, 0.24, -L / 2 + 0.05); bar(0.025, 0.4, 0.025, s * 0.19, 0.23, L / 2 - 0.08); bar(0.025, 0.025, L, s * 0.2, 0.08, 0); }
+  for (let k = 0; k <= 5; k++) bar(0.4, 0.01, 0.01, 0, 0.12, -L / 2 + 0.1 + k * (L - 0.2) / 5);
+  // casters
+  const wheelM = std(0x1a1a1a, { roughness: 0.6 }), wheelG = new THREE.CylinderGeometry(0.05, 0.05, 0.03, 10).rotateZ(Math.PI / 2);
+  g.userData.wheels = [];
+  for (const [x, z] of [[-0.2, -L / 2 + 0.05], [0.2, -L / 2 + 0.05], [-0.18, L / 2 - 0.08], [0.18, L / 2 - 0.08]]) { const w = new THREE.Mesh(wheelG, wheelM); w.position.set(x, 0.05, z); g.add(w); g.userData.wheels.push(w); }
+  g.traverse((m) => { if (m.isMesh) { m.castShadow = true; } });
+  return g;
+}
+
+// commercial dumpster: sloped green steel body, two black plastic lids, fork pockets, casters. Front faces +z.
+export function makeDumpster(color = 0x1f4a32, openLid = 0) {
+  const g = new THREE.Group();
+  const steel = std(color, { metalness: 0.45, roughness: 0.55 }), dark = std(0x111111, { roughness: 0.4 }), rust = std(0x3a2a1a, { metalness: 0.4, roughness: 0.8 });
+  const W = 1.9, D = 1.2, H = 1.25;
+  // side profile: front lower than back, bottom narrower (sloped front)
+  const prof = new THREE.Shape([new THREE.Vector2(-D / 2, 0.15), new THREE.Vector2(D / 2 - 0.25, 0.15), new THREE.Vector2(D / 2, H - 0.05), new THREE.Vector2(-D / 2, H + 0.15)]);
+  const body = new THREE.Mesh(new THREE.ExtrudeGeometry(prof, { depth: W, bevelEnabled: false }), steel);
+  body.geometry.translate(0, 0, -W / 2); body.rotation.y = -Math.PI / 2; g.add(body);
+  // rim and ribs
+  const rim = new THREE.Mesh(new THREE.BoxGeometry(W + 0.06, 0.07, 0.07), steel); rim.position.set(0, H - 0.07, D / 2 + 0.03); g.add(rim);
+  for (const x of [-0.6, 0, 0.6]) { const rib = new THREE.Mesh(new THREE.BoxGeometry(0.06, H - 0.3, 0.05), steel); rib.position.set(x, 0.62, D / 2 - 0.1); rib.rotation.x = 0.22; g.add(rib); }
+  for (const s of [-1, 1]) { const pocket = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.18, D * 0.9), rust); pocket.position.set(s * (W / 2 + 0.03), 0.65, 0); g.add(pocket); }
+  // lids, hinged at the back
+  for (const s of [-1, 1]) { const hinge = new THREE.Group(); hinge.position.set(s * W / 4, H + 0.15, -D / 2); g.add(hinge); const lid = new THREE.Mesh(new THREE.BoxGeometry(W / 2 - 0.04, 0.05, D + 0.12), dark); lid.position.set(0, 0.02, (D + 0.12) / 2); hinge.add(lid); hinge.rotation.x = 0.17 - (s > 0 ? openLid : 0); }
+  const label = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.18), std(0xe8e0c8)); label.position.set(-0.5, 0.8, D / 2 - 0.06); label.rotation.x = 0.22; g.add(label);
+  for (const [x, z] of [[-0.8, -0.45], [0.8, -0.45], [-0.8, 0.45], [0.8, 0.45]]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.05, 10).rotateZ(Math.PI / 2), dark); w.position.set(x, 0.07, z); g.add(w); }
+  g.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
+  return g;
+}
+
+// black trash bag, cinched and tied at the top
+export function makeTrashBag(scale = 1, seed = 1) {
+  const pts = []; const r = (n) => { const x = Math.sin(seed * 91.7 + n * 13.1) * 43758.5; return x - Math.floor(x); };
+  for (let k = 0; k <= 12; k++) { const t = k / 12, rad = t < 0.8 ? 0.2 + Math.sin(t / 0.8 * Math.PI) * 0.08 - t * 0.05 : 0.11 * (1 - (t - 0.8) / 0.2) + 0.02; pts.push(new THREE.Vector2(Math.max(0.015, rad), t * 0.55)); }
+  const geo = new THREE.LatheGeometry(pts, 12); const p = geo.attributes.position;
+  for (let i = 0; i < p.count; i++) { const y = p.getY(i); const n = Math.sin(p.getX(i) * 23 + seed) * Math.cos(p.getZ(i) * 19 + y * 9) * 0.018; p.setX(i, p.getX(i) * (1 + n * 3)); p.setZ(i, p.getZ(i) * (1 + n * 3) * (0.85 + r(1) * 0.2)); }
+  geo.computeVertexNormals();
+  const bag = new THREE.Mesh(geo, std(0x0e0e10, { roughness: 0.25, metalness: 0.1 }));
+  const g = new THREE.Group(); g.add(bag);
+  for (const s of [-1, 1]) { const ear = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.12, 5), bag.material); ear.position.set(s * 0.03, 0.6, 0); ear.rotation.z = -s * 0.7; g.add(ear); }
+  g.scale.setScalar(scale); g.traverse((m) => { if (m.isMesh) m.castShadow = true; });
   return g;
 }

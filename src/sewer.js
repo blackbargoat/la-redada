@@ -1,8 +1,8 @@
 // NIGHT 2 — Under the City. The storm drain under Hammerline: a maze, green water, rats, an old man who lives down here.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792113937';
-import { tex, textTex, rng } from './textures.js?v=1792113937';
-import { makeCharacter, animateWalk, makeGlow, makeBeam, std } from './models.js?v=1792113937';
+import { Grid } from './grid.js?v=1792114421';
+import { tex, textTex, rng } from './textures.js?v=1792114421';
+import { makeCharacter, animateWalk, makeGlow, makeBeam, std } from './models.js?v=1792114421';
 
 const VO = {
   h1: { id: 's_h1', who: 'Old man', text: 'Easy... easy, mijo. Get that light out of my eyes. I\'m not one of them.' },
@@ -142,16 +142,16 @@ export function createSewer(G) {
   { const gc = document.createElement('canvas'); gc.width = gc.height = 64; const gx = gc.getContext('2d'); gx.fillStyle = '#0a0c0a'; gx.fillRect(0, 0, 64, 64); gx.fillStyle = '#5a5244'; for (let k = 0; k < 8; k++) { gx.fillRect(k * 8, 0, 3, 64); gx.fillRect(0, k * 8, 64, 2); } gx.fillStyle = 'rgba(110,60,20,0.45)'; for (let k = 0; k < 40; k++) gx.fillRect(r() * 64, r() * 64, 2 + r() * 5, 2 + r() * 4);
     const gt = new THREE.CanvasTexture(gc); gt.colorSpace = THREE.SRGBColorSpace; gt.wrapS = gt.wrapT = THREE.RepeatWrapping; gt.repeat.set(1.5, 4);
     const steel = std(0x4a4238, { metalness: 0.7, roughness: 0.5 });
-    const deck = new THREE.InstancedMesh(new THREE.BoxGeometry(1.15, 0.08, 2.7), std(0xffffff, { map: gt, metalness: 0.6, roughness: 0.55 }), bridges.length);
-    const beam = new THREE.InstancedMesh(new THREE.BoxGeometry(0.08, 0.2, 2.7), steel, bridges.length * 2);
-    const rail = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.025, 0.025, 2.7, 6).rotateX(Math.PI / 2), steel, bridges.length * 4);
+    const deck = new THREE.InstancedMesh(new THREE.BoxGeometry(1.15, 0.08, 1.98), std(0xffffff, { map: gt, metalness: 0.6, roughness: 0.55 }), bridges.length);
+    const beam = new THREE.InstancedMesh(new THREE.BoxGeometry(0.08, 0.2, 1.98), steel, bridges.length * 2);
+    const rail = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.025, 0.025, 2.1, 6).rotateX(Math.PI / 2), steel, bridges.length * 4);
     const post = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.03, 0.03, 1.0, 6), steel, bridges.length * 6);
     const qa = new THREE.Quaternion(), place = (im, k, x, y, z, rot) => { m4.compose(v3.set(x, y, z), rot ? qY : qa, s3.set(1, 1, 1)); im.setMatrixAt(k, m4); };
     bridges.forEach(([x, z, acrossZ], k) => {
       // local: length along z when the bridge crosses in z
       const P2 = (lx, lz) => (acrossZ ? [x + lx, z + lz] : [x + lz, z + lx]);
-      place(deck, k, x, -0.04, z, !acrossZ);
-      [-0.55, 0.55].forEach((lx, s) => { const [px, pz] = P2(lx, 0); place(beam, k * 2 + s, px, -0.16, pz, !acrossZ); [0.95, 0.5].forEach((y, t) => place(rail, k * 4 + s * 2 + t, px, y, pz, !acrossZ)); [-1.25, 0, 1.25].forEach((lz, t) => { const [qx, qz] = P2(lx, lz); m4.makeTranslation(qx, 0.5, qz); post.setMatrixAt(k * 6 + s * 3 + t, m4); }); });
+      place(deck, k, x, -0.046, z, !acrossZ); // spans exactly ledge to ledge, a hair below their tops: no overlap, no flicker
+      [-0.55, 0.55].forEach((lx, s) => { const [px, pz] = P2(lx, 0); place(beam, k * 2 + s, px, -0.16, pz, !acrossZ); [0.95, 0.5].forEach((y, t) => place(rail, k * 4 + s * 2 + t, px, y, pz, !acrossZ)); [-0.98, 0, 0.98].forEach((lz, t) => { const [qx, qz] = P2(lx, lz); m4.makeTranslation(qx, 0.5, qz); post.setMatrixAt(k * 6 + s * 3 + t, m4); }); });
     });
     for (const im of [deck, beam, rail, post]) { im.receiveShadow = true; scene.add(im); } }
   const bed = new THREE.Mesh(new THREE.PlaneGeometry(W, W), std(0x1a2016)); bed.rotation.x = -Math.PI / 2; bed.position.set(W / 2, -1.4, W / 2); scene.add(bed);
