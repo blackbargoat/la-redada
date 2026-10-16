@@ -1,13 +1,13 @@
 import * as THREE from 'three';
-import { AudioEngine } from './audio.js?v=1792150827';
-import { createStreet } from './street.js?v=1792150827';
-import { createRestaurant } from './restaurant.js?v=1792150827';
-import { createStore } from './store.js?v=1792150827';
-import { createHouse } from './house.js?v=1792150827';
-import { createGasStation } from './gasstation.js?v=1792150827';
-import { createSewer } from './sewer.js?v=1792150827';
-import { createPhone } from './phone.js?v=1792150827';
-import { modelsReady } from './models.js?v=1792150827';
+import { AudioEngine } from './audio.js?v=1792151039';
+import { createStreet } from './street.js?v=1792151039';
+import { createRestaurant } from './restaurant.js?v=1792151039';
+import { createStore } from './store.js?v=1792151039';
+import { createHouse } from './house.js?v=1792151039';
+import { createGasStation } from './gasstation.js?v=1792151039';
+import { createSewer } from './sewer.js?v=1792151039';
+import { createPhone } from './phone.js?v=1792151039';
+import { modelsReady } from './models.js?v=1792151039';
 
 const $ = (id) => document.getElementById(id);
 const PIX = 3; // render at 1/3 resolution, upscale with nearest-neighbour for the chunky pixel look
@@ -229,6 +229,54 @@ function moveWith(pos, dx, dz, r, L) {
   const steps = Math.ceil(Math.max(Math.abs(dx), Math.abs(dz)) / 0.1) || 1, sx = dx / steps, sz = dz / steps;
   for (let k = 0; k < steps; k++) { if (!bl(pos.x + sx, pos.z)) pos.x += sx; if (!bl(pos.x, pos.z + sz)) pos.z += sz; }
 }
+// Z-fight finder: collects every axis-aligned triangle in the scene, buckets them by plane, and finds faces from
+// different meshes that sit on the same plane and overlap. The smaller one (the decal: sign, label, panel) gets a
+// depth offset so it always draws on top. Returns the pairs it found (window.__dbg.zfight() re-runs it).
+function zfight(scene, fix = true) {
+  const buckets = new Map(), A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3(), N = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3();
+  const area = new Map();
+  scene.updateMatrixWorld(true);
+  scene.traverse((m) => {
+    if (!m.isMesh || m.isInstancedMesh || m.isSkinnedMesh || !m.visible || !m.geometry) return;
+    const mats = Array.isArray(m.material) ? m.material : [m.material];
+    if (mats.some((x) => !x || x.isShaderMaterial || x.blending === THREE.AdditiveBlending)) return;
+    const pos = m.geometry.attributes.position; if (!pos || pos.count > 30000) return;
+    const idx = m.geometry.index, n = idx ? idx.count : pos.count;
+    for (let t = 0; t < n; t += 3) {
+      const ia = idx ? idx.getX(t) : t, ib = idx ? idx.getX(t + 1) : t + 1, ic = idx ? idx.getX(t + 2) : t + 2;
+      A.fromBufferAttribute(pos, ia).applyMatrix4(m.matrixWorld); B.fromBufferAttribute(pos, ib).applyMatrix4(m.matrixWorld); C.fromBufferAttribute(pos, ic).applyMatrix4(m.matrixWorld);
+      N.crossVectors(e1.subVectors(B, A), e2.subVectors(C, A)); const len = N.length(); if (len < 1e-8) continue; N.divideScalar(len);
+      const ax = Math.abs(N.x) > 0.999 ? 'x' : Math.abs(N.y) > 0.999 ? 'y' : Math.abs(N.z) > 0.999 ? 'z' : null; if (!ax) continue;
+      const [u, w] = ax === 'x' ? ['y', 'z'] : ax === 'y' ? ['x', 'z'] : ['x', 'y'];
+      const off = (A[ax] + B[ax] + C[ax]) / 3, f = { m, off, u0: Math.min(A[u], B[u], C[u]), u1: Math.max(A[u], B[u], C[u]), w0: Math.min(A[w], B[w], C[w]), w1: Math.max(A[w], B[w], C[w]) };
+      area.set(m, (area.get(m) || 0) + len / 2);
+      const key = ax + (N[ax] > 0 ? '+' : '-') + Math.round(off * 200);
+      if (!buckets.has(key)) buckets.set(key, []); buckets.get(key).push(f);
+    }
+  });
+  const pairs = new Map();
+  for (const [key, list] of buckets) {
+    const k2 = key.replace(/-?\d+$/, (d) => String(+d + 1)), nb = buckets.get(k2) || [];
+    const all = list.concat(nb);
+    if (all.length > 4000) continue;
+    for (let i = 0; i < list.length; i++) for (let j = i + 1; j < all.length; j++) {
+      const a = list[i], b = all[j]; if (a.m === b.m || Math.abs(a.off - b.off) > 0.006) continue;
+      const ou = Math.min(a.u1, b.u1) - Math.max(a.u0, b.u0), ow = Math.min(a.w1, b.w1) - Math.max(a.w0, b.w0);
+      if (ou > 0.01 && ow > 0.01) { const id = a.m.id < b.m.id ? a.m.id + ':' + b.m.id : b.m.id + ':' + a.m.id; if (!pairs.has(id)) pairs.set(id, [a.m, b.m]); }
+    }
+  }
+  const out = [];
+  for (const [, [a, b]] of pairs) {
+    const decal = (area.get(a) || 0) <= (area.get(b) || 0) ? a : b;
+    out.push([a.name || a.geometry.type, b.name || b.geometry.type, decal.position.toArray().map((v) => +v.toFixed(2))]);
+    if (fix && !decal.userData.zfixed) {
+      decal.userData.zfixed = true;
+      const bump = (mt) => { const c = mt.clone(); c.polygonOffset = true; c.polygonOffsetFactor = (mt.polygonOffsetFactor || 0) - 1; c.polygonOffsetUnits = (mt.polygonOffsetUnits || 0) - 4; return c; };
+      decal.material = Array.isArray(decal.material) ? decal.material.map(bump) : bump(decal.material);
+    }
+  }
+  return out;
+}
 function layerGround(scene) {
   const bb = new THREE.Box3(), seen = new Map();
   scene.updateMatrixWorld(true);
@@ -253,6 +301,7 @@ function loadLevel(make) {
   ui.post.exposure.value = 0.8; ui.post.sat.value = 0.55; ui.post.contrast.value = 1.16; ui.post.tint.value.set(0.9, 0.98, 0.96); ui.post.lift.value.set(0.0, 0.01, 0.012); ui.post.levels.value = 28;
   level = make(G);
   layerGround(level.scene);
+  try { level.zfights = zfight(level.scene); } catch (e) { console.warn('zfight', e); }
   level.scene.add(camera);
   mode = 'play'; paused = false;
   ui.hud(true); ui.fade(0, 1.5);
@@ -630,4 +679,4 @@ refreshContinue();
 // test helpers: walk to a spot and press/hold E on the nearest live interactable; wait for an objective
 const dbgE = async (x, z, hold = 0) => { P.pos.set(x, 0, z); await sleep(0.15); const it = level.interactables.filter((i) => !i.enabled || i.enabled()).sort((a, b) => Math.hypot(a.x - x, a.z - z) - Math.hypot(b.x - x, b.z - z))[0]; if (!it) return 'none'; P.yaw = Math.atan2(-(it.x - x), -(it.z - z)); await sleep(0.15); const pr = $('prompt').textContent; dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE' })); await sleep(hold + 0.1); dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyE' })); return pr; };
 const dbgWait = async (pre, ms = 60000) => { const t0 = performance.now(); while (!$('objText').textContent.startsWith(pre) && performance.now() - t0 < ms) await sleep(0.25); return $('objText').textContent + ' (' + ((performance.now() - t0) / 1000 | 0) + 's)'; };
-window.__dbg = { E: dbgE, waitObj: dbgWait, P, ui, audio, phone, game, get level() { return level; }, chapter: (i) => { $('title').classList.remove('on'); boot().then(() => startChapter(i, true)); }, startStreet: (o) => { $('title').classList.remove('on'); loadLevel((g) => createStreet(g, o)); }, startStore: (c = 0) => { $('title').classList.remove('on'); loadLevel((g) => createStore(g, c)); }, setMode: (m) => { mode = m; paused = false; }, startRest: () => { $('title').classList.remove('on'); loadLevel((g) => createRestaurant(g)); }, get mode() { return mode; }, get paused() { return paused; } };
+window.__dbg = { zfight: (fix = true) => zfight(level.scene, fix), E: dbgE, waitObj: dbgWait, P, ui, audio, phone, game, get level() { return level; }, chapter: (i) => { $('title').classList.remove('on'); boot().then(() => startChapter(i, true)); }, startStreet: (o) => { $('title').classList.remove('on'); loadLevel((g) => createStreet(g, o)); }, startStore: (c = 0) => { $('title').classList.remove('on'); loadLevel((g) => createStore(g, c)); }, setMode: (m) => { mode = m; paused = false; }, startRest: () => { $('title').classList.remove('on'); loadLevel((g) => createRestaurant(g)); }, get mode() { return mode; }, get paused() { return paused; } };

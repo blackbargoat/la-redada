@@ -1,8 +1,8 @@
 // DAY 2: Hammerline Depot. mode 'work': the day shift. mode 'close': closing time, the raid, the hatch.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792150827';
-import { tex, textTex, rng } from './textures.js?v=1792150827';
-import { makeHumanoid, makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeShoppingCart, makeDumpster, makeTrashBag, makeAuto, std } from './models.js?v=1792150827';
+import { Grid } from './grid.js?v=1792151039';
+import { tex, textTex, rng } from './textures.js?v=1792151039';
+import { makeHumanoid, makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeShoppingCart, makeDumpster, makeTrashBag, makeAuto, std } from './models.js?v=1792151039';
 
 const VO = {
   out: { id: 'sr_out', who: 'Agent (radio)', text: 'Back door\'s locked down. He\'s inside. Nobody leaves this building.', radio: true, agent: true },
@@ -669,8 +669,15 @@ export function createStore(G, mode = 'close', checkpoint = 0) {
     for (let k = 0; k < 5; k++) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 6.4, 5).rotateZ(Math.PI / 2), plain([0x111111, 0x1a1a1a, 0x8a1a1a, 0x1a1a1a, 0x2a4a2a][k])); w.position.set(28.4, 3.26, 1.1 + k * 0.07); scene.add(w); }
     for (const [x, w, h] of [[26.6, 0.6, 0.9], [30.6, 0.7, 1.0]]) { box(w, h, 0.18, plain(0x8a8e90, { metalness: 0.6 }), x, 1.7, 1.1); box(w - 0.1, h - 0.1, 0.01, plain(0x6a6e70, { metalness: 0.6 }), x, 1.7, 1.2, false); tube(x, 2.6, 1.08, 0.06, 1.1, 0.06, 0x8a8e90); }
     box(0.35, 0.5, 0.2, plain(0x5a6a5a, { metalness: 0.4 }), 31.8, 1.4, 1.1); box(0.05, 0.25, 0.05, plain(0xc02a1a), 31.99, 1.4, 1.2, false); // disconnect + handle
-    sign(0.6, 0.4, '#f0c020', [{ text: '⚠ DANGER', size: 60, color: '#111', y: 60 }, { text: 'HIGH VOLTAGE', size: 44, color: '#111', y: 125 }], 28.5, 2.6, 1.31, 0);
-    sign(0.5, 0.18, '#1a1a1a', [{ text: 'MAIN 480V', size: 50, color: '#f0c020' }], 28.5, 2.35, 1.3, 0);
+    // the warning plate on the face of the main panel: black DANGER header, a hazard triangle with a lightning bolt, HIGH VOLTAGE
+    { const c = document.createElement('canvas'); c.width = 256; c.height = 320; const x2 = c.getContext('2d');
+      x2.fillStyle = '#f2f0e8'; x2.fillRect(0, 0, 256, 320); x2.fillStyle = '#111'; x2.fillRect(0, 0, 256, 70);
+      x2.fillStyle = '#d02020'; x2.beginPath(); x2.ellipse(128, 35, 100, 26, 0, 0, 7); x2.fill(); x2.fillStyle = '#fff'; x2.font = 'bold 40px Oswald, Arial'; x2.textAlign = 'center'; x2.textBaseline = 'middle'; x2.fillText('DANGER', 128, 37);
+      x2.fillStyle = '#f0c020'; x2.strokeStyle = '#111'; x2.lineWidth = 10; x2.lineJoin = 'round'; x2.beginPath(); x2.moveTo(128, 88); x2.lineTo(200, 212); x2.lineTo(56, 212); x2.closePath(); x2.fill(); x2.stroke();
+      x2.fillStyle = '#111'; x2.beginPath(); x2.moveTo(138, 112); x2.lineTo(108, 166); x2.lineTo(128, 166); x2.lineTo(114, 202); x2.lineTo(150, 146); x2.lineTo(130, 146); x2.lineTo(144, 112); x2.closePath(); x2.fill();
+      x2.fillStyle = '#111'; x2.font = 'bold 38px Oswald, Arial'; x2.fillText('HIGH VOLTAGE', 128, 250); x2.font = 'bold 22px Arial'; x2.fillText('KEEP OUT', 128, 292);
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; const pl = new THREE.Mesh(new THREE.PlaneGeometry(0.56, 0.7), std(0xffffff, { map: t })); pl.position.set(28.5, 1.85, 1.29); scene.add(pl); }
+    sign(0.5, 0.14, '#1a1a1a', [{ text: 'MAIN 480V', size: 50, color: '#f0c020' }], 28.5, 1.3, 1.29, 0);
     sign(0.45, 0.3, '#f0c020', [{ text: 'AUTHORIZED', size: 34, color: '#111', y: 45 }, { text: 'PERSONNEL ONLY', size: 34, color: '#111', y: 90 }], 29, 2.0, 8.98, Math.PI);
     { const c = document.createElement('canvas'); c.width = 128; c.height = 32; const x2 = c.getContext('2d'); for (let k = -2; k < 10; k++) { x2.fillStyle = k % 2 ? '#e0b020' : '#111'; x2.beginPath(); x2.moveTo(k * 16, 32); x2.lineTo(k * 16 + 16, 0); x2.lineTo(k * 16 + 32, 0); x2.lineTo(k * 16 + 16, 32); x2.fill(); }
       const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.RepeatWrapping; t.repeat.set(3, 1); const hz = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.15), std(0xffffff, { map: t })); hz.rotation.x = -Math.PI / 2; hz.position.set(28.5, 0.006, 1.95); scene.add(hz); }
@@ -692,9 +699,9 @@ export function createStore(G, mode = 'close', checkpoint = 0) {
       // a little glass-door drink cooler at the head of the lane
       box(0.6, 0.95, 0.5, plain(0xc02a1a, { metalness: 0.3 }), cx, 0.475, 38.65); grid.rect(Math.floor(cx), 38, Math.floor(cx), 38, 1, 0);
       { const c = document.createElement('canvas'); c.width = 64; c.height = 96; const x2 = c.getContext('2d'); x2.fillStyle = '#d8eef4'; x2.fillRect(0, 0, 64, 96); for (let j = 0; j < 3; j++) { x2.fillStyle = '#9a9a9a'; x2.fillRect(0, 30 + j * 30, 64, 3); for (let k = 0; k < 5; k++) { x2.fillStyle = ['#c02a1a', '#2a5ab0', '#f0b020', '#3a9a3a', '#e86a1a'][(k + j + i) % 5]; x2.fillRect(4 + k * 12, 8 + j * 30, 8, 22); } }
-        const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; const gl = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.72), std(0xffffff, { map: t, emissiveMap: t, emissive: 0xffffff, emissiveIntensity: WORK ? 0.5 : 0.08 })); gl.position.set(cx, 0.52, 38.395); gl.rotation.y = Math.PI; scene.add(gl);
+        const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; const gl = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.66), std(0xffffff, { map: t, emissiveMap: t, emissive: 0xffffff, emissiveIntensity: WORK ? 0.5 : 0.08 })); gl.position.set(cx, 0.5, 38.39); gl.rotation.y = Math.PI; scene.add(gl);
         box(0.03, 0.3, 0.03, steel, cx + 0.2, 0.55, 38.38, false); }
-      sign(0.56, 0.12, '#c02a1a', [{ text: 'ICE COLD', size: 40, color: '#fff' }], cx, 0.88, 38.395, Math.PI);
+      sign(0.56, 0.1, '#c02a1a', [{ text: 'ICE COLD', size: 40, color: '#fff' }], cx, 0.89, 38.385, Math.PI);
       // lane light with its number
       box(0.05, 2.0, 0.05, steel, cx - 0.4, 1.0, 42.0, false);
       const nt = textTex(128, 128, '#d2541c', [{ text: String(i + 1), size: 96, color: '#fff' }]);
