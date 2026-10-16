@@ -1,10 +1,10 @@
 // LEVEL 1 — "The Walk Home". Juan follows Santiago home → the street feels wrong → ICE → run, hide, get to Rosa's.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792117111';
-import { tex, textTex, facadeTex, rng } from './textures.js?v=1792117111';
-import { makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeCar, makePalm, makeDumpster, std } from './models.js?v=1792117111';
-import { addSkyline, glowMaterial, glowMats } from './skyline.js?v=1792117111';
-import { buildQuikWay, makePump } from './quikway.js?v=1792117111';
+import { Grid } from './grid.js?v=1792117344';
+import { tex, textTex, facadeTex, rng } from './textures.js?v=1792117344';
+import { makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeCar, makePalm, makeDumpster, std } from './models.js?v=1792117344';
+import { addSkyline, glowMaterial, glowMats } from './skyline.js?v=1792117344';
+import { buildQuikWay, makePump } from './quikway.js?v=1792117344';
 
 const LINES = {
   u1: { id: 'st_u1', who: 'Santiago', text: '...Hey. That car. It\'s been behind us since the bus stop.' },
@@ -30,7 +30,7 @@ const LINES = {
   r4: { id: 'st_r4', who: 'Santiago', text: 'With Dale, every day is Friday.' },
   m4: { id: 'st_m4', who: 'Juan', text: 'Don\'t look at it. Just keep walking.' },
   r7: { id: 'st_r7', who: 'Santiago', text: 'Juan! ¡Corre! Run!' },
-  weird: { id: 'st_weird', who: 'Santiago', text: 'Hey... look. That\'s weird. Who\'s that standing in the street?' },
+  weird: { id: 'st_weird', who: 'Santiago', text: 'Hey... look behind you. Who\'s that standing in the street?' },
   a2b: { id: 'st_a2b', who: 'Agent', text: 'Suspect down! The other one\'s running, south on Whittier!', agent: true },
   p1: { id: 'st_p1', who: 'Agent', text: 'He turned down here. I saw him turn.', agent: true },
   p2: { id: 'st_p2', who: 'Agent', text: 'Nothing. He\'s gone. Check the next block.', agent: true },
@@ -184,11 +184,11 @@ export function createStreet(G, opts = {}) {
     order.forEach((lp, i) => at(0.2 + i * step, () => killLamp(lp, i === 0)));
     const tDark = 0.2 + order.length * step;
     at(tDark, () => { neon.forEach((m) => (m.emissiveIntensity = 0)); neonLights.forEach((n) => { if (n.isLight) n.intensity = 0; else n.visible = false; }); windowMats.forEach((m) => (m.emissiveIntensity = 0)); quik.setPower(false); hemi.intensity = 0.05; moon.intensity = 0.05; audio.setLoop('city', 0, 0.3); audio.setLoop('rain', 0.1, 1); audio.droneBed(); audio.setLoop('drone', 0.5, 4); rosaLight.intensity = 3; rosaGlow.material.opacity = 0.7; if (rosaWin) rosaWin.material.emissiveIntensity = 0.55; });
-    // the car behind snaps its lights on; a man steps out of it
-    at(tDark + 1.4, () => {
-      followCar.visible = true; followCar.position.set(1.8, 0, P.pos.z + 12); followLit = true;
+    // after his flashlight, the ICE car parked behind him snaps its headlights on and whoops
+    at(tDark + 1.5, () => {
+      if (!followCar.visible) { followCar.visible = true; followCar.position.set(2.6, 0, P.pos.z + 27); } followLit = true;
       followL.forEach((l) => (l.intensity = 150)); audio.hit(0.9); ui.flash(0.2);
-      for (let i = 0; i < 3; i++) audio.tone({ freq: 900, freqTo: 1500, dur: 0.18, type: 'square', gain: 0.05, when: i * 0.25, filter: 2500, pos: { x: 1.8, y: 1, z: P.pos.z + 12 } });
+      for (let i = 0; i < 3; i++) audio.tone({ freq: 900, freqTo: 1500, dur: 0.18, type: 'square', gain: 0.05, when: i * 0.25, filter: 2500, pos: { x: 1.8, y: 1, z: followCar.position.z } });
     });
     at(tDark + 0.6, () => { // the man standing in the road switches his flashlight on, right at you
       let a = roadMan; if (!a) { a = makeAgent(1.2, P.pos.z + 13); }
@@ -235,7 +235,8 @@ export function createStreet(G, opts = {}) {
     { p: 46, fn: () => { mirrorOn = true; mirrorMan.group.visible = true; mirrorMan.group.position.set(-7.0, 0.15, P.pos.z - 2); lines('u4'); } },
     { p: 49, fn: () => { audio.radio({ x: -8.5, y: 1.5, z: P.pos.z - 6 }, 0.4); } },
     { p: 50, fn: () => { // someone is standing in the middle of the road behind you, lights off, just watching
-      if (phase !== 'walk') return; roadMan = makeAgent(1.2, P.pos.z + 14); roadMan.role = 'stand'; lightOn(roadMan, false);
+      if (phase !== 'walk') return; roadMan = makeAgent(0.4, P.pos.z + 14); roadMan.role = 'stand'; lightOn(roadMan, false);
+      followOn = false; followCar.visible = true; followCar.position.set(2.6, 0, P.pos.z + 27); // the car that's been trailing you, parked dark a little behind him
       lines('weird').then(() => { if (phase === 'walk') startBlackout(false); });
     } },
   ];
