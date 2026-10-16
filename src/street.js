@@ -1,10 +1,10 @@
 // LEVEL 1: "The Walk Home". Juan follows Santiago home → the street feels wrong → ICE → run, hide, get to Rosa's.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792151039';
-import { tex, textTex, facadeTex, rng } from './textures.js?v=1792151039';
-import { makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeCar, makePalm, makeDumpster, makeAuto, CIV_KINDS, CIV_COLORS, std } from './models.js?v=1792151039';
-import { addSkyline, glowMaterial, glowMats } from './skyline.js?v=1792151039';
-import { buildQuikWay, makePump } from './quikway.js?v=1792151039';
+import { Grid } from './grid.js?v=1792151221';
+import { tex, textTex, facadeTex, rng } from './textures.js?v=1792151221';
+import { makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeCar, makePalm, makeDumpster, makeAuto, CIV_KINDS, CIV_COLORS, std } from './models.js?v=1792151221';
+import { addSkyline, glowMaterial, glowMats } from './skyline.js?v=1792151221';
+import { buildQuikWay, makePump } from './quikway.js?v=1792151221';
 
 const LINES = {
   u1: { id: 'st_u1', who: 'Santiago', text: '...Hey. That car. It\'s been behind us since the bus stop.' },
@@ -565,17 +565,36 @@ export function buildCity(scene, grid, r, o = {}) {
   const asph = std(0xffffff, { map: tex('asphalt', [3, 43]), roughnessMap: tex('wetRough', [4, 54], false), roughness: 0.55, metalness: 0.1 });
   const road = new THREE.Mesh(new THREE.PlaneGeometry(10, 150), asph); road.rotation.x = -Math.PI / 2; road.position.set(0, 0, -60); road.receiveShadow = true; scene.add(road);
   const swMat = std(0xffffff, { map: tex('sidewalk', [2, 75]), roughnessMap: tex('wetRough', [2, 43], false), roughness: 0.7 });
-  for (const sx of [-7, 7]) {
-    const sw = new THREE.Mesh(new THREE.BoxGeometry(4, 0.15, 150), swMat); sw.position.set(sx, 0.075, -60); sw.receiveShadow = true; scene.add(sw);
-    const curb = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.16, 150), std(0x8a8a84)); curb.position.set(sx > 0 ? 5 : -5, 0.08, -60); scene.add(curb);
+  // sidewalks + curbs; the east side breaks for the mouth of Mott St (road z -110.5..-104.5)
+  const curbM = std(0x8a8a84);
+  for (const sx of [-7, 7]) for (const [z0, z1] of sx > 0 ? [[15, -104.5], [-110.5, -135]] : [[15, -135]]) {
+    const len = z0 - z1, zc = (z0 + z1) / 2;
+    const sw = new THREE.Mesh(new THREE.BoxGeometry(4, 0.15, len), swMat); sw.position.set(sx, 0.075, zc); sw.receiveShadow = true; scene.add(sw);
+    const curb = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.16, len), curbM); curb.position.set(sx > 0 ? 5 : -5, 0.08, zc); scene.add(curb);
   }
   const dashM = std(0xb8a560, { roughness: 0.5 });
   for (let z = 10; z > -130; z -= 6) { const d = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 2.5), dashM); d.rotation.x = -Math.PI / 2; d.position.set(0, 0.01, z); scene.add(d); }
   const outer = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), std(0x0d0e0e)); outer.rotation.x = -Math.PI / 2; outer.position.y = -0.02; scene.add(outer);
   // side street: road, sidewalks, yards
-  const sideRoad = new THREE.Mesh(new THREE.PlaneGeometry(66, 6), std(0xffffff, { map: tex('asphalt', [12, 1.2]), roughnessMap: tex('wetRough', [12, 1.5], false), roughness: 0.55, metalness: 0.1 }));
-  sideRoad.rotation.x = -Math.PI / 2; sideRoad.position.set(42, 0.004, SZC); scene.add(sideRoad);
-  for (const z of [SZ1 - 0.25, SZ0 + 0.75]) { const sw = new THREE.Mesh(new THREE.BoxGeometry(57, 0.15, 1.5), std(0xffffff, { map: tex('sidewalk', [30, 1]), roughness: 0.7 })); sw.position.set(45.5, 0.075, z); scene.add(sw); }
+  // Mott St runs right out to Whittier's curb line: one continuous road, a proper intersection
+  const sideRoad = new THREE.Mesh(new THREE.PlaneGeometry(70, 6), std(0xffffff, { map: tex('asphalt', [13, 1.2]), roughnessMap: tex('wetRough', [13, 1.5], false), roughness: 0.55, metalness: 0.1 }));
+  sideRoad.rotation.x = -Math.PI / 2; sideRoad.position.set(40, 0.004, SZC); scene.add(sideRoad);
+  { const paintM = std(0xd8d4c4, { roughness: 0.6 }), yel = std(0xb8a560, { roughness: 0.5 });
+    // zebra crosswalk across the mouth of Mott, a stop line behind it, a dashed center line down Mott
+    for (let k = 0; k < 7; k++) { const st = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.45), paintM); st.rotation.x = -Math.PI / 2; st.position.set(7, 0.012, -110 + k * 0.85); scene.add(st); }
+    const stopL = new THREE.Mesh(new THREE.PlaneGeometry(0.35, 2.9), paintM); stopL.rotation.x = -Math.PI / 2; stopL.position.set(9.2, 0.012, SZC - 1.5); scene.add(stopL);
+    for (let x = 12; x < 74; x += 5) { const d = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.13), yel); d.rotation.x = -Math.PI / 2; d.position.set(x, 0.012, SZC); scene.add(d); }
+    // a crosswalk across Whittier too, just north of the corner
+    for (let k = 0; k < 11; k++) { const st = new THREE.Mesh(new THREE.PlaneGeometry(0.45, 2.4), paintM); st.rotation.x = -Math.PI / 2; st.position.set(-4.4 + k * 0.88, 0.012, -102.3); scene.add(st); }
+    // curbs return around both corners and run down Mott
+    for (const cz of [-104.5, -110.5]) { const c = new THREE.Mesh(new THREE.BoxGeometry(69, 0.16, 0.2), curbM); c.position.set(39.5, 0.08, cz); scene.add(c); }
+    // STOP sign on the south corner, facing cars coming out of Mott
+    const sp = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.5, 6), std(0x9a9ea0, { metalness: 0.6 })); sp.position.set(9.6, 1.25, -111.3); scene.add(sp);
+    const stT = textTex(256, 256, '#b81c1c', [{ text: 'STOP', size: 92, color: '#fff' }], { border: '#fff', borderW: 10 });
+    const oct = new THREE.Mesh(new THREE.CircleGeometry(0.38, 8).rotateZ(Math.PI / 8), std(0xffffff, { map: stT })); oct.position.set(9.62, 2.35, -111.3); oct.rotation.y = Math.PI / 2; scene.add(oct);
+    const back = new THREE.Mesh(new THREE.CircleGeometry(0.38, 8).rotateZ(Math.PI / 8), std(0x8a8e90, { metalness: 0.5 })); back.position.set(9.58, 2.35, -111.3); back.rotation.y = -Math.PI / 2; scene.add(back);
+    grid.rect(9, -112, 9, -112, 1, 0); }
+  for (const z of [SZ1 - 0.25, SZ0 + 0.75]) { const sw = new THREE.Mesh(new THREE.BoxGeometry(65, 0.15, 1.5), std(0xffffff, { map: tex('sidewalk', [34, 1]), roughness: 0.7 })); sw.position.set(41.5, 0.075, z); scene.add(sw); } // Mott's sidewalks meet Whittier's at the corners
   const grassM = std(0x1c2a1a, { roughness: 1 });
   for (const [z, d] of [[-99.5, 6], [-115.5, 4]]) { const y = new THREE.Mesh(new THREE.PlaneGeometry(52, d), grassM); y.rotation.x = -Math.PI / 2; y.position.set(49, 0.02, z); scene.add(y); }
 
