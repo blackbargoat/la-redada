@@ -1,8 +1,8 @@
-// NIGHT 2 — Under the City. The storm drain under Hammerline: a maze, green water, rats, an old man who lives down here.
+// NIGHT 2: Under the City. The storm drain under Hammerline: a maze, green water, rats, an old man who lives down here.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792150493';
-import { tex, textTex, rng } from './textures.js?v=1792150493';
-import { makeCharacter, animateWalk, makeGlow, makeBeam, std } from './models.js?v=1792150493';
+import { Grid } from './grid.js?v=1792150673';
+import { tex, textTex, rng } from './textures.js?v=1792150673';
+import { makeCharacter, animateWalk, makeGlow, makeBeam, std } from './models.js?v=1792150673';
 
 const VO = {
   h1: { id: 's_h1', who: 'Old man', text: 'Easy... easy, mijo. Get that light out of my eyes. I\'m not one of them.' },
@@ -400,7 +400,7 @@ export function createSewer(G) {
   at(0.4, () => { audio.splash({ x: P.pos.x, y: 0.2, z: P.pos.z }, 2); ui.shake(0.03, 0.3); audio.clunk({ x: cc(0), y: 3.2, z: 1.2 }, 0.5); });
   at(1.6, () => { ui.objective('Find a way out. Press TAB for the drain map.'); });
   const it = (o) => { L.interactables.push(o); return o; };
-  it({ x: 1.9, z: cc(0) + 1.5, r: 1.6, label: 'Read the maintenance map', action: () => { const c = document.createElement('canvas'); c.width = 560; c.height = 560; L.drawMap(c.getContext('2d'), 560, 560); ui.note(`<h3>L.A. COUNTY STORM DRAIN — SECTOR 7 (MAINTENANCE)</h3><img src="${c.toDataURL()}" style="width:100%;display:block">`); } });
+  it({ x: 1.9, z: cc(0) + 1.5, r: 1.6, label: 'Read the maintenance map', action: () => { const c = document.createElement('canvas'); c.width = 560; c.height = 560; L.drawMap(c.getContext('2d'), 560, 560); ui.note(`<h3>L.A. COUNTY STORM DRAIN, SECTOR 7 (MAINTENANCE)</h3><img src="${c.toDataURL()}" style="width:100%;display:block">`); } });
   it({ x: LADX, z: LADZ - 0.9, r: 1.6, label: 'Climb the ladder', enabled: () => stage === 'climb', action: async () => {
     stage = 'out'; ui.objective(''); P.frozen = true; P.lookLock = { yaw: Math.PI, pitch: 1.2, k: 2 };
     audio.clunk({ x: LADX, y: 3, z: LADZ }, 0.6);

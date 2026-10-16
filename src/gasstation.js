@@ -1,9 +1,9 @@
-// DAY 2 — Lunch break. The gas station across from Hammerline: cumbia on the radio, a burrito, Chuy and Beto.
+// DAY 2: Lunch break. The gas station across from Hammerline: cumbia on the radio, a burrito, Chuy and Beto.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792150493';
-import { tex, textTex, rng, facadeTex } from './textures.js?v=1792150493';
-import { makeCharacter, makeVehicle, animateWalk, makeGlow, makeCar, makePalm, makeBurrito, makeAuto, std } from './models.js?v=1792150493';
-import { buildCity } from './street.js?v=1792150493';
+import { Grid } from './grid.js?v=1792150673';
+import { tex, textTex, rng, facadeTex } from './textures.js?v=1792150673';
+import { makeCharacter, makeVehicle, animateWalk, makeGlow, makeCar, makePalm, makeBurrito, makeAuto, std } from './models.js?v=1792150673';
+import { buildCity } from './street.js?v=1792150673';
 
 const VO = {
   k1: { id: 'l_k1', who: 'Cashier', text: '¡Buenas, mijo! Burritos are fresh. The tamales are from yesterday, but don\'t tell nobody.' },
@@ -117,7 +117,7 @@ export function createGasStation(G) {
     say('k2').then(() => { stage = 'bench'; ui.objective('Eat with Chuy and Beto. The bench outside.'); goal = [19, 5.9]; });
   } });
   it({ x: 19, z: 6.0, r: 1.6, label: 'Sit down and eat', enabled: () => stage === 'bench', action: () => {
-    stage = 'eat'; ui.objective(''); P.frozen = true; sitT = 0; goal = null; ui.toast('E — STAND UP', 3);
+    stage = 'eat'; ui.objective(''); P.frozen = true; sitT = 0; goal = null; ui.toast('[E] STAND UP', 3);
     at(1.2, () => { eatT = 0; carry.position.set(0.2, -0.26, -0.55); });
     at(1.6, () => say('ch1', 'j1', 'b1', 'ch2', 'b2', 'j2', 'b3', 'ch3').then(() => {
       if (sitT >= 0) P.pos.set(19, 0, 6.1); sitT = -1; P.frozen = false; P.eye = 1.62; carry.visible = false; stage = 'back';

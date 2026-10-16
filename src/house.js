@@ -1,8 +1,8 @@
-// NIGHT 1 — Doña Rosa's house on Mott St. The power is out. He tells her, he eats, he sleeps in Santiago's room.
+// NIGHT 1: Doña Rosa's house on Mott St. The power is out. He tells her, he eats, he sleeps in Santiago's room.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792150493';
-import { tex, textTex, rng } from './textures.js?v=1792150493';
-import { makeCharacter, animateWalk, makeGlow, std } from './models.js?v=1792150493';
+import { Grid } from './grid.js?v=1792150673';
+import { tex, textTex, rng } from './textures.js?v=1792150673';
+import { makeCharacter, animateWalk, makeGlow, std } from './models.js?v=1792150673';
 
 const VO = {
   r1: { id: 'h_r1', who: 'Doña Rosa', text: '¡Juan! Ay, gracias a Dios. The lights went out on the whole street, I heard the sirens... ¿Y Santiago? Where\'s my son?' },
@@ -145,7 +145,7 @@ export function createHouse(G) {
 
   const it = (o) => { L.interactables.push(o); return o; };
   it({ x: 4, z: 4.6, r: 1.6, label: 'Sit down and eat', enabled: () => stage === 1, action: () => {
-    stage = 2; ui.objective(''); P.frozen = true; sitT = 0; chairs[0].visible = false; ui.toast('E — STAND UP', 3);
+    stage = 2; ui.objective(''); P.frozen = true; sitT = 0; chairs[0].visible = false; ui.toast('[E] STAND UP', 3);
     at(1.2, () => { eatT = 0; });
     at(2.0, () => say('r6', 'j4').then(() => at(1.5, () => {
       G.phone.receive('Luz', 'papi?? you didnt come home. mami keeps calling you', 0, 1.2).then(() => at(2.2, () => {

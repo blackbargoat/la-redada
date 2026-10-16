@@ -1,13 +1,13 @@
 import * as THREE from 'three';
-import { AudioEngine } from './audio.js?v=1792150493';
-import { createStreet } from './street.js?v=1792150493';
-import { createRestaurant } from './restaurant.js?v=1792150493';
-import { createStore } from './store.js?v=1792150493';
-import { createHouse } from './house.js?v=1792150493';
-import { createGasStation } from './gasstation.js?v=1792150493';
-import { createSewer } from './sewer.js?v=1792150493';
-import { createPhone } from './phone.js?v=1792150493';
-import { modelsReady } from './models.js?v=1792150493';
+import { AudioEngine } from './audio.js?v=1792150673';
+import { createStreet } from './street.js?v=1792150673';
+import { createRestaurant } from './restaurant.js?v=1792150673';
+import { createStore } from './store.js?v=1792150673';
+import { createHouse } from './house.js?v=1792150673';
+import { createGasStation } from './gasstation.js?v=1792150673';
+import { createSewer } from './sewer.js?v=1792150673';
+import { createPhone } from './phone.js?v=1792150673';
+import { modelsReady } from './models.js?v=1792150673';
 
 const $ = (id) => document.getElementById(id);
 const PIX = 3; // render at 1/3 resolution, upscale with nearest-neighbour for the chunky pixel look
@@ -313,12 +313,12 @@ addEventListener('blur', () => keys.clear());
 // ---------------- chapters ----------------
 // food: where the bar starts when a chapter is opened from the menu
 const CHAPTERS = [
-  { key: 'night1', name: 'NIGHT 1 — The Walk Home', hud: 'NIGHT', num: 1, food: 0.45, cards: ['NIGHT 1\nThe Walk Home\n11:40 PM'], make: createStreet },
-  { key: 'rosa', name: 'NIGHT 1 — Doña Rosa\'s House', hud: 'NIGHT', num: 1, food: 0.2, cards: ['DOÑA ROSA\'S HOUSE\nMott Street\n12:16 AM'], make: createHouse },
-  { key: 'shift', name: 'DAY 2 — The Shift', hud: 'DAY', num: 2, food: 0.8, cards: ['DAY 2\nThe Shift\nHammerline Depot #0417 — 7:02 AM'], make: (g) => createStore(g, 'work') },
-  { key: 'lunch', name: 'DAY 2 — Lunch Break', hud: 'DAY', num: 2, food: 0.25, cards: ['LUNCH BREAK\n5:14 PM'], make: createGasStation },
-  { key: 'close', name: 'DAY 2 — Closing Time', hud: 'NIGHT', num: 2, food: 0.7, cards: ['CLOSING TIME\nHammerline Depot #0417 — 9:52 PM'], make: (g) => createStore(g, 'close') },
-  { key: 'sewer', name: 'NIGHT 2 — Under the City', hud: 'NIGHT', num: 2, food: 0.5, cards: ['UNDER THE CITY\n10:47 PM'], make: createSewer },
+  { key: 'night1', name: 'NIGHT 1: The Walk Home', hud: 'NIGHT', num: 1, food: 0.45, cards: ['NIGHT 1\nThe Walk Home\n11:40 PM'], make: createStreet },
+  { key: 'rosa', name: 'NIGHT 1: Doña Rosa\'s House', hud: 'NIGHT', num: 1, food: 0.2, cards: ['DOÑA ROSA\'S HOUSE\nMott Street\n12:16 AM'], make: createHouse },
+  { key: 'shift', name: 'DAY 2: The Shift', hud: 'DAY', num: 2, food: 0.8, cards: ['DAY 2\nThe Shift\nHammerline Depot #0417\n7:02 AM'], make: (g) => createStore(g, 'work') },
+  { key: 'lunch', name: 'DAY 2: Lunch Break', hud: 'DAY', num: 2, food: 0.25, cards: ['LUNCH BREAK\n5:14 PM'], make: createGasStation },
+  { key: 'close', name: 'DAY 2: Closing Time', hud: 'NIGHT', num: 2, food: 0.7, cards: ['CLOSING TIME\nHammerline Depot #0417\n9:52 PM'], make: (g) => createStore(g, 'close') },
+  { key: 'sewer', name: 'NIGHT 2: Under the City', hud: 'NIGHT', num: 2, food: 0.5, cards: ['UNDER THE CITY\n10:47 PM'], make: createSewer },
 ];
 let chapterI = 0;
 function loadSave() { try { return JSON.parse(localStorage.getItem('lr_save') || 'null'); } catch (e) { return null; } }
@@ -353,7 +353,7 @@ $('continueBtn').onclick = async () => {
 const SEWER_END = [
   'Juan came up out of the street at 1:40 in the morning, a mile from the store, soaked to the knees and shaking.',
   'He walked to Soto Street with his hood up. He didn\'t look at any car twice.',
-  'DAY 2 SURVIVED.\n\nDAY 3 — coming next.',
+  'DAY 2 SURVIVED.\n\nDAY 3 coming next.',
 ];
 game.sewerEnd = () => game.win(SEWER_END);
 $('startBtn').onclick = async () => {
@@ -482,7 +482,7 @@ function updatePlayer(dt) {
 function updateInteract(dt) {
   currentIt = null;
   if (P.hidden) {
-    ui.prompt(P.hidden.agentNear ? `HOLD ${keyName(BINDS.breath)} — HOLD YOUR BREATH` : `${keyName(BINDS.interact)} — LEAVE`);
+    ui.prompt(P.hidden.agentNear ? `HOLD ${keyName(BINDS.breath)} TO HOLD YOUR BREATH` : `[${keyName(BINDS.interact)}] LEAVE`);
     return;
   }
   if (P.frozen || P.reading) { ui.prompt(''); return; }
@@ -500,8 +500,8 @@ function updateInteract(dt) {
   if (best.hold) {
     if (held('interact')) { best.progress = Math.min(best.hold, (best.progress || 0) + dt); best.onHold?.(dt); if (best.progress >= best.hold) { best.action(); } }
     else best.onRelease?.();
-    ui.prompt(`HOLD ${keyName(BINDS.interact)} — ` + best.label, (best.progress || 0) / best.hold);
-  } else ui.prompt(`${keyName(BINDS.interact)} — ` + best.label);
+    ui.prompt(`HOLD [${keyName(BINDS.interact)}] ` + best.label, (best.progress || 0) / best.hold);
+  } else ui.prompt(`[${keyName(BINDS.interact)}] ` + best.label);
 }
 
 let hungerWarned = false;
@@ -513,7 +513,7 @@ function updateVitals(dt) {
     P.food = Math.max(0, P.food - dt / 600 * (P.sprinting ? 2.2 : 1) * (level.hunger ?? 1));
     if (P.food <= 0) P.health = Math.max(0, P.health - dt / 90);
     else if (P.food > 0.4) P.health = Math.min(1, P.health + dt / 240);
-    if (P.food < 0.2 && !hungerWarned) { hungerWarned = true; ui.toast('YOU\'RE HUNGRY — EAT SOMETHING', 3); }
+    if (P.food < 0.2 && !hungerWarned) { hungerWarned = true; ui.toast('YOU\'RE HUNGRY. EAT SOMETHING', 3); }
     if (P.health <= 0) game.collapse();
   }
   const ring = (id, v) => { const el = $(id); el.querySelector('.arc').style.strokeDashoffset = (125.7 * (1 - v)).toFixed(1); el.classList.toggle('low', v < 0.25); };

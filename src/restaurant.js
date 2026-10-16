@@ -1,8 +1,8 @@
-// PROLOGUE — "La Cocina de Rosa". A warm afternoon at Doña Rosa's taquería before everything goes wrong.
+// PROLOGUE: "La Cocina de Rosa". A warm afternoon at Doña Rosa's taquería before everything goes wrong.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792150493';
-import { tex, textTex, rng, facadeTex } from './textures.js?v=1792150493';
-import { makeCharacter, makeVehicle, makeStatic, animateWalk, makeGlow, makeCar, makeBeam, std } from './models.js?v=1792150493';
+import { Grid } from './grid.js?v=1792150673';
+import { tex, textTex, rng, facadeTex } from './textures.js?v=1792150673';
+import { makeCharacter, makeVehicle, makeStatic, animateWalk, makeGlow, makeCar, makeBeam, std } from './models.js?v=1792150673';
 
 const VO = {
   rosa1: { id: 'p_rosa1', who: 'Doña Rosa', text: '¡Ay, mijo, por fin! Luz has been waiting all afternoon. Go, go say hi to your daughter.' },
@@ -255,7 +255,7 @@ export function createRestaurant(G) {
   const board = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.06), std(0xffffff, { map: boardT })); board.position.set(1.02, 1.7, 19); board.rotation.y = Math.PI / 2; scene.add(board);
   for (let i = 0; i < 5; i++) { const ph = new THREE.Mesh(new THREE.PlaneGeometry(0.45, 0.35), std([0x8a7a6a, 0x6a7a8a, 0x9a8a6a, 0x5a5a5a, 0x7a6a5a][i])); ph.position.set(1.02, 1.6 + (i % 2) * 0.5, 10.4 + i * 0.6); ph.rotation.y = Math.PI / 2; scene.add(ph); const fr = new THREE.Mesh(new THREE.PlaneGeometry(0.53, 0.43), std(0x2a1a10)); fr.position.set(1.015, 1.6 + (i % 2) * 0.5, 10.4 + i * 0.6); fr.rotation.y = Math.PI / 2; scene.add(fr); }
   // menu board above the pass
-  const menuT = textTex(1024, 220, '#1a1a1a', [{ text: 'TACOS 2.50 · BURRITOS 9 · TORTAS 10 · QUESADILLAS 6', size: 44, color: '#f0e6c8', y: 70 }, { text: 'POZOLE ROJO — SÁBADOS (Y HOY)', size: 40, color: '#e0702a', y: 150 }], { border: '#6a4a2a' });
+  const menuT = textTex(1024, 220, '#1a1a1a', [{ text: 'TACOS 2.50 · BURRITOS 9 · TORTAS 10 · QUESADILLAS 6', size: 44, color: '#f0e6c8', y: 70 }, { text: 'POZOLE ROJO, SÁBADOS (Y HOY)', size: 40, color: '#e0702a', y: 150 }], { border: '#6a4a2a' });
   const menu = new THREE.Mesh(new THREE.PlaneGeometry(7, 1.5), std(0xffffff, { map: menuT })); menu.position.set(8, 2.85, 7.02); scene.add(menu);
   // papel picado: small cut-out paper flags strung high
   const picT = canvasT(64, 80, (x) => { x.fillStyle = '#fff'; x.fillRect(0, 0, 64, 80); x.globalCompositeOperation = 'destination-out'; for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { x.beginPath(); x.arc(10 + i * 15, 14 + j * 15, 4, 0, 7); x.fill(); } x.beginPath(); x.moveTo(32, 30); for (let k = 0; k < 10; k++) { const a = k * Math.PI / 5, rr = k % 2 ? 6 : 13; x.lineTo(32 + Math.cos(a) * rr, 40 + Math.sin(a) * rr); } x.fill(); for (let k = 0; k < 8; k++) { x.beginPath(); x.moveTo(k * 8, 80); x.lineTo(k * 8 + 4, 72); x.lineTo(k * 8 + 8, 80); x.fill(); } });

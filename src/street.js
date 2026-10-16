@@ -1,10 +1,10 @@
-// LEVEL 1 — "The Walk Home". Juan follows Santiago home → the street feels wrong → ICE → run, hide, get to Rosa's.
+// LEVEL 1: "The Walk Home". Juan follows Santiago home → the street feels wrong → ICE → run, hide, get to Rosa's.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792150493';
-import { tex, textTex, facadeTex, rng } from './textures.js?v=1792150493';
-import { makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeCar, makePalm, makeDumpster, makeAuto, CIV_KINDS, CIV_COLORS, std } from './models.js?v=1792150493';
-import { addSkyline, glowMaterial, glowMats } from './skyline.js?v=1792150493';
-import { buildQuikWay, makePump } from './quikway.js?v=1792150493';
+import { Grid } from './grid.js?v=1792150673';
+import { tex, textTex, facadeTex, rng } from './textures.js?v=1792150673';
+import { makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeCar, makePalm, makeDumpster, makeAuto, CIV_KINDS, CIV_COLORS, std } from './models.js?v=1792150673';
+import { addSkyline, glowMaterial, glowMats } from './skyline.js?v=1792150673';
+import { buildQuikWay, makePump } from './quikway.js?v=1792150673';
 
 const LINES = {
   u1: { id: 'st_u1', who: 'Santiago', text: '...Hey. That car. It\'s been behind us since the bus stop.' },
@@ -218,7 +218,7 @@ export function createStreet(G, opts = {}) {
     at(0.6, () => { ui.say([LINES.news]); audio.tone({ freq: 48, dur: 9, type: 'sawtooth', gain: 0.06, filter: 200 }); });
     at(9.5, () => { audio.noise({ dur: 0.8, type: 'highpass', freq: 2000, gain: 0.25 }); ui.fade(0, 2.5); ui.clock('11:41 PM'); });
     at(10.5, () => { audio.tone({ freq: 50, freqTo: 90, dur: 4, type: 'sawtooth', gain: 0.12, filter: 400, pos: { x: 3, y: 1, z: -10 } }); });
-    at(13.0, () => { audio.vibrate(); ui.toast('INCOMING CALL — DOÑA ROSA'); });
+    at(13.0, () => { audio.vibrate(); ui.toast('INCOMING CALL: DOÑA ROSA'); });
     at(14.5, () => { audio.vibrate(); });
     at(16.0, () => { lines('rosa1', 'mp1', 'rosa2', 'mp2', 'r0', 'rfollow').then(() => { P.frozen = false; if (phase === 'intro') { phase = 'walk'; ui.objective('Follow Santiago. Straight down Whittier, past the Hammerline sign.'); lines('r1', 'm1');
         G.phone.receive('Luz', 'papi mami said i can stay up til you get home', 14, 0).then(() => G.phone.receive('Luz', 'te quiero papi. hurry!!', 6, 0));
@@ -338,7 +338,7 @@ export function createStreet(G, opts = {}) {
       const vx = P.pos.x - lastPX, vz = P.pos.z - lastPZ, vl = Math.hypot(vx, vz);
       const away = vl > 0.02 && (vx * tx + vz * tz) / (vl * tl2) < -0.35;
       wrongT = away ? wrongT + dt : Math.max(0, wrongT - dt * 2);
-      if (wrongT > 0.8) ui.bigHint('WRONG WAY — RUN!<small>THE OTHER WAY</small>'); else if (wrongT === 0 && document.getElementById('bigHint').textContent.startsWith('WRONG')) ui.bigHint('');
+      if (wrongT > 0.8) ui.bigHint('WRONG WAY. RUN!<small>THE OTHER WAY</small>'); else if (wrongT === 0 && document.getElementById('bigHint').textContent.startsWith('WRONG')) ui.bigHint('');
       if (wrongT > 3 && agents[0]) { ui.bigHint(''); game.caught(agents[0].h, 'You ran back toward them. Try again.'); }
     }
     lastPX = P.pos.x; lastPZ = P.pos.z;

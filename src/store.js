@@ -1,8 +1,8 @@
-// DAY 2 — Hammerline Depot. mode 'work': the day shift. mode 'close': closing time, the raid, the hatch.
+// DAY 2: Hammerline Depot. mode 'work': the day shift. mode 'close': closing time, the raid, the hatch.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792150493';
-import { tex, textTex, rng } from './textures.js?v=1792150493';
-import { makeHumanoid, makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeShoppingCart, makeDumpster, makeTrashBag, makeAuto, std } from './models.js?v=1792150493';
+import { Grid } from './grid.js?v=1792150673';
+import { tex, textTex, rng } from './textures.js?v=1792150673';
+import { makeHumanoid, makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeShoppingCart, makeDumpster, makeTrashBag, makeAuto, std } from './models.js?v=1792150673';
 
 const VO = {
   out: { id: 'sr_out', who: 'Agent (radio)', text: 'Back door\'s locked down. He\'s inside. Nobody leaves this building.', radio: true, agent: true },
@@ -115,7 +115,7 @@ export function createStore(G, mode = 'close', checkpoint = 0) {
   for (const x of [5.5, 17.5, 28.5]) box(2, 1, 1, wallTexM(2, 1), x + 0.5, BH - 0.5, 9.5, false);
   box(33, 0.2, 9, darkM, 17.5, BH + 0.1, 5, false);
   const roomSign = (t, x) => { const tt = textTex(256, 64, '#e8e2d2', [{ text: t, size: 30, color: '#222' }]); const m = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.4), std(0xffffff, { map: tt })); m.position.set(x, 2.75, 10.02); scene.add(m); };
-  roomSign('BREAK ROOM', 6); roomSign('OFFICE — D. PRUITT', 18); roomSign('ELECTRICAL', 29);
+  roomSign('BREAK ROOM', 6); roomSign('OFFICE: D. PRUITT', 18); roomSign('ELECTRICAL', 29);
 
   // break room
   const lockerM = std(0x4a5a66, { metalness: 0.5, roughness: 0.5 });
@@ -575,7 +575,7 @@ export function createStore(G, mode = 'close', checkpoint = 0) {
   phoneGlow.visible = false; keyMesh.visible = false; keyGlow.visible = false;
   const ph = G.phone;
   const it = (o) => { L.interactables.push(o); return o; };
-  it({ x: 2.6, z: 8.1, label: 'Read the corkboard', action: () => ui.note('<h3>CREW — READ THIS</h3>Cash pay is pushed to NEXT Friday. Don\'t talk to anybody about the schedule.\nDon\'t use the front entrance after 11.\n— Dale\n\n<i>(Underneath, in pen: "you said that last friday" — S.)</i>') });
+  it({ x: 2.6, z: 8.1, label: 'Read the corkboard', action: () => ui.note('<h3>CREW, READ THIS</h3>Cash pay is pushed to NEXT Friday. Don\'t talk to anybody about the schedule.\nDon\'t use the front entrance after 11.\n-Dale\n\n<i>(Underneath, in pen: "you said that last friday": S.)</i>') });
   // the burger counter in the corner room
   wall(1, 37, 3, 37, 3.4); wall(6, 37, 6, 44, 3.4);
   box(2, 0.6, 1, wallTexM(2, 0.6), 4.5, 3.1, 37.5, false);
@@ -654,7 +654,7 @@ export function createStore(G, mode = 'close', checkpoint = 0) {
     { const c = document.createElement('canvas'); c.width = 512; c.height = 256; const x2 = c.getContext('2d'); x2.fillStyle = '#f2f2ee'; x2.fillRect(0, 0, 512, 256); x2.strokeStyle = '#888'; x2.lineWidth = 2; for (let k = 1; k < 7; k++) { x2.beginPath(); x2.moveTo(k * 73, 30); x2.lineTo(k * 73, 250); x2.stroke(); } x2.beginPath(); x2.moveTo(0, 40); x2.lineTo(512, 40); x2.stroke();
       x2.font = 'bold 18px Oswald, Arial'; x2.fillStyle = '#1a3a8a'; ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].forEach((d, i) => x2.fillText(d, 18 + i * 73, 26));
       x2.font = '15px Arial'; const names = ['REYES', 'CHUY', 'BETO', 'ELENA', 'REYES', 'BETO', 'CHUY']; names.forEach((n, i) => { x2.fillStyle = n === 'REYES' ? '#b02020' : '#222'; x2.fillText(n, 12 + i * 73, 80); x2.fillText('7-CLOSE', 8 + i * 73, 100); });
-      x2.fillStyle = '#b02020'; x2.font = 'bold 20px Arial'; x2.fillText('NO OVERTIME.  — D.', 150, 200);
+      x2.fillStyle = '#b02020'; x2.font = 'bold 20px Arial'; x2.fillText('NO OVERTIME.  -D.', 150, 200);
       const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; const wb = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.1), std(0xffffff, { map: t })); wb.position.set(18.2, 1.75, 1.03); scene.add(wb); box(2.3, 1.2, 0.03, steel, 18.2, 1.75, 1.0, false); box(2.2, 0.04, 0.08, steel, 18.2, 1.17, 1.06, false); }
     box(0.36, 0.9, 0.36, wht, 21.6, 0.45, 7.9); { const jug = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.45, 12), std(0x6aa8d8, { transparent: true, opacity: 0.6, roughness: 0.1 })); jug.position.set(21.6, 1.13, 7.9); scene.add(jug); } grid.rect(21, 7, 21, 7, 1, 0);
     chair(16.0, 7.4, Math.PI, 0x4a4a4a); chair(18.8, 7.4, Math.PI, 0x4a4a4a); grid.rect(16, 7, 16, 7, 1, 0); grid.rect(18, 7, 18, 7, 1, 0); grid.rect(16, 5, 16, 5, 1, 0);
@@ -769,7 +769,7 @@ export function createStore(G, mode = 'close', checkpoint = 0) {
     const displayT = box(1.4, 0.5, 0.8, std(0xd2541c, { roughness: 0.6 }), 38, 0.25, 11.6); grid.rect(37, 11, 38, 11, 1, 0);
     at(1.5, () => { say('d1'); setStage('clock', 'Clock in. The time clock is in the Break Room.', [9.5, 8.1]); });
     it({ x: 9.5, z: 8.1, r: 1.4, label: 'Clock in', enabled: () => stage === 'clock', action: () => {
-      audio.punch({ x: 9.5, y: 1.4, z: 8.9 }); stage = 'clock2'; ui.objective(''); ui.toast('CLOCKED IN — 7:04 AM');
+      audio.punch({ x: 9.5, y: 1.4, z: 8.9 }); stage = 'clock2'; ui.objective(''); ui.toast('CLOCKED IN 7:04 AM');
       dale.walk = [[12, 10.5]];
       say('d2').then(() => { dale.walk = [[17.5, 10.5], [17.5, 6.5]]; setStage('crates', `Move the crates from the pallet in Receiving to the display at the end of Aisle 6. (0/${CRATES})`, [44, 7.4]); });
     } });
@@ -927,7 +927,7 @@ export function createStore(G, mode = 'close', checkpoint = 0) {
       at(1.8, () => game.nextChapter());
     } });
     // optional: what's on Dale's desk tonight
-    it({ x: 18.2, z: 5.5, r: 1.5, label: 'Read the printout on Dale\'s desk', enabled: () => stage !== 'quiet', action: () => ui.note('<h3>HAMMERLINE DEPOT #0417 — PRINTOUT ON DALE\'S DESK</h3>TIP CONFIRMATION — submitted 10/14, 4:52 PM\nLocation: Hammerline Depot #0417, loading entrance\nIndividuals: night stocking crew (paid cash)\nNotes: crew on site after close\nSubmitted by: D. Pruitt, Store Manager\n\n<i>A sticky note on the corner: "nights payroll = $0 if nobody\'s here to collect."</i>').then(() => ui.say([VO.m2])) });
+    it({ x: 18.2, z: 5.5, r: 1.5, label: 'Read the printout on Dale\'s desk', enabled: () => stage !== 'quiet', action: () => ui.note('<h3>HAMMERLINE DEPOT #0417: PRINTOUT ON DALE\'S DESK</h3>TIP CONFIRMATION: submitted 10/14, 4:52 PM\nLocation: Hammerline Depot #0417, loading entrance\nIndividuals: night stocking crew (paid cash)\nNotes: crew on site after close\nSubmitted by: D. Pruitt, Store Manager\n\n<i>A sticky note on the corner: "nights payroll = $0 if nobody\'s here to collect."</i>').then(() => ui.say([VO.m2])) });
     it({ x: 42.5, z: 27.5, label: 'Take the LED lens kit (brighter light, drains faster)', enabled: () => !P.lens, action: () => { P.lens = 1; audio.pickup(); ui.toast('FLASHLIGHT UPGRADED: LED LENS'); lensMesh.visible = false; } });
   }
   const lensMesh = box(0.2, 0.2, 0.2, std(0x2a5aa8), 41.85, 1.62, 27.5, false);
@@ -1023,7 +1023,7 @@ export function createStore(G, mode = 'close', checkpoint = 0) {
     const ix = x + Math.sin(ry) * 1.1, iz = z + Math.cos(ry) * 1.1;
     L.interactables.push({ x: ix, z: iz, r: 1.8, label: 'Read the store map', action: () => {
       const c = document.createElement('canvas'); c.width = 640; c.height = 460; L.drawMap(c.getContext('2d'), 640, 460);
-      ui.note(`<h3>HAMMERLINE DEPOT #0417 — STORE MAP</h3><img src="${c.toDataURL()}" style="width:100%;display:block">`);
+      ui.note(`<h3>HAMMERLINE DEPOT #0417 STORE MAP</h3><img src="${c.toDataURL()}" style="width:100%;display:block">`);
     } });
   });
 
@@ -1085,7 +1085,7 @@ export function createStore(G, mode = 'close', checkpoint = 0) {
       g.rotation.y = Math.atan2(P.pos.x - g.position.x, P.pos.z - g.position.z);
       g.position.y = Math.sin(cr.t * 18) * 0.03;
       ui.shake(0.025, 0.1);
-      if (cr.state === 'lunge' && cr.t > 0.4) { cr.state = 'struggle'; cr.t = 0; ui.bigHint('MASH <kbd>E</kbd> — FIGHT HIM OFF<small>OR CLICK FAST</small>'); }
+      if (cr.state === 'lunge' && cr.t > 0.4) { cr.state = 'struggle'; cr.t = 0; ui.bigHint('MASH <kbd>E</kbd> TO FIGHT HIM OFF<small>OR CLICK FAST</small>'); }
       if (cr.state === 'struggle') {
         cr.power = Math.max(0, cr.power - dt * 0.32);
         document.getElementById('bigHint').querySelector('small').textContent = '█'.repeat(Math.round(cr.power * 12)).padEnd(12, '·');
@@ -1098,7 +1098,7 @@ export function createStore(G, mode = 'close', checkpoint = 0) {
         } else if (cr.t > 5) {
           cr.state = 'fled'; cr.t = 0; ui.bigHint(''); P.frozen = false;
           audio.impact(); ui.shake(0.12, 0.5); ui.flash(0.2); P.stamina = 0; P.exhausted = true;
-          P.battery = Math.max(0, P.battery - 0.15); ui.toast('HE KNOCKED YOU DOWN — FLASHLIGHT DAMAGED');
+          P.battery = Math.max(0, P.battery - 0.15); ui.toast('HE KNOCKED YOU DOWN. FLASHLIGHT DAMAGED');
           ui.bark(CR[4]); L.onNoise(10, P.pos.x, P.pos.z, 'loud');
         }
       }
