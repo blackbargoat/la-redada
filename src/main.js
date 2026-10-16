@@ -1,13 +1,13 @@
 import * as THREE from 'three';
-import { AudioEngine } from './audio.js?v=1792116464';
-import { createStreet } from './street.js?v=1792116464';
-import { createRestaurant } from './restaurant.js?v=1792116464';
-import { createStore } from './store.js?v=1792116464';
-import { createHouse } from './house.js?v=1792116464';
-import { createGasStation } from './gasstation.js?v=1792116464';
-import { createSewer } from './sewer.js?v=1792116464';
-import { createPhone } from './phone.js?v=1792116464';
-import { modelsReady } from './models.js?v=1792116464';
+import { AudioEngine } from './audio.js?v=1792116629';
+import { createStreet } from './street.js?v=1792116629';
+import { createRestaurant } from './restaurant.js?v=1792116629';
+import { createStore } from './store.js?v=1792116629';
+import { createHouse } from './house.js?v=1792116629';
+import { createGasStation } from './gasstation.js?v=1792116629';
+import { createSewer } from './sewer.js?v=1792116629';
+import { createPhone } from './phone.js?v=1792116629';
+import { modelsReady } from './models.js?v=1792116629';
 
 const $ = (id) => document.getElementById(id);
 const PIX = 3; // render at 1/3 resolution, upscale with nearest-neighbour for the chunky pixel look
@@ -81,7 +81,10 @@ const keys = new Set();
 const DEFAULT_BINDS = { forward: 'KeyW', back: 'KeyS', left: 'KeyA', right: 'KeyD', sprint: 'ShiftLeft', crouch: 'KeyC', flashlight: 'KeyF', interact: 'KeyE', breath: 'Space', map: 'Tab' };
 const BIND_NAMES = { forward: 'Move forward', back: 'Move back', left: 'Move left', right: 'Move right', sprint: 'Sprint', crouch: 'Crouch', flashlight: 'Flashlight', interact: 'Interact / hide', breath: 'Hold breath', map: 'Store map' };
 let BINDS = { ...DEFAULT_BINDS };
-const OPTS = { subs: true, juanVoice: true };
+const OPTS = { subs: true, juanVoice: true, voices: true };
+// streamer mode: nobody speaks (you read the lines out loud); only the radio news at the very start keeps its audio
+const silenced = (l) => (!OPTS.voices && l.id !== 'st_news') || (!OPTS.juanVoice && /^Juan/.test(l.who || ''));
+const readTime = (t) => 1.6 + t.length * 0.065;
 try { Object.assign(OPTS, JSON.parse(localStorage.getItem('lr_opts') || '{}')); } catch (e) { }
 const saveOpts = () => { try { localStorage.setItem('lr_opts', JSON.stringify(OPTS)); } catch (e) { } };
 try { Object.assign(BINDS, JSON.parse(localStorage.getItem('lr_binds') || '{}')); } catch (e) { }
@@ -102,7 +105,7 @@ let currentIt = null, caughtRoll = 0, caughtEye = 1.62, caughtYaw = 0;
 const sleep = (s) => new Promise((r) => setTimeout(r, s * 1000));
 let sayChain = Promise.resolve(), sayToken = 0, subTimer = null;
 function showSub(who, text, cls, dur) {
-  if (!OPTS.subs) return;
+  if (!OPTS.subs && OPTS.voices) return; // with voices off the text is the only way to get the line, so it always shows
   $('subs').innerHTML = who ? `<b class="${cls || ''}">${who}:</b> ${text}` : text;
   clearTimeout(subTimer); subTimer = setTimeout(() => { $('subs').innerHTML = ''; }, dur * 1000);
 }
@@ -110,9 +113,8 @@ async function speak(l, token) {
   if (token !== sayToken) return;
   if (l.wait) await sleep(l.wait);
   if (token !== sayToken) return;
-  const muteJuan = !OPTS.juanVoice && /^Juan/.test(l.who || '');
-  const d = muteJuan ? 0 : await audio.playVo(l.id, { radio: l.radio, pos: l.pos, gain: l.gain });
-  const dur = d > 0 ? d + 0.3 : 1.3 + l.text.length * 0.055;
+  const d = silenced(l) ? 0 : await audio.playVo(l.id, { radio: l.radio, pos: l.pos, gain: l.gain });
+  const dur = d > 0 ? d + 0.3 : readTime(l.text);
   showSub(l.who, l.text, l.agent ? 'agent' : '', dur + 0.2);
   await sleep(dur);
 }
@@ -124,7 +126,7 @@ const ui = {
   // queued dialogue
   say(lines) { const tok = sayToken; sayChain = sayChain.then(async () => { for (const l of lines) await speak(l, tok); }); return sayChain; },
   // immediate line (interrupts subtitle, not the queue)
-  bark(l) { if (!OPTS.juanVoice && /^Juan/.test(l.who || '')) { showSub(l.who, l.text, '', 1.2 + l.text.length * 0.05); return; } audio.playVo(l.id, { radio: l.radio, pos: l.pos, gain: l.gain }).then((d) => showSub(l.who, l.text, l.agent ? 'agent' : '', (d || 1.2 + l.text.length * 0.05) + 0.3)); },
+  bark(l) { if (silenced(l)) { showSub(l.who, l.text, l.agent ? 'agent' : '', readTime(l.text)); return; } audio.playVo(l.id, { radio: l.radio, pos: l.pos, gain: l.gain }).then((d) => showSub(l.who, l.text, l.agent ? 'agent' : '', (d || 1.2 + l.text.length * 0.05) + 0.3)); },
   cancelSay() { sayToken++; sayChain = Promise.resolve(); $('subs').innerHTML = ''; },
   cards(lines) {
     return new Promise((resolve) => {
@@ -415,7 +417,7 @@ addEventListener('keydown', (e) => {
   if (e.code !== 'Escape') { BINDS[rebinding] = e.code; try { localStorage.setItem('lr_binds', JSON.stringify(BINDS)); } catch (er) { } }
   rebinding = null; drawBinds();
 }, true);
-function drawToggles() { $('optSubs').textContent = 'SUBTITLES: ' + (OPTS.subs ? 'ON' : 'OFF'); $('optJuan').textContent = 'JUAN\'S VOICE: ' + (OPTS.juanVoice ? 'ON' : 'OFF'); }
+function drawToggles() { $('optSubs').textContent = 'SUBTITLES: ' + (OPTS.subs ? 'ON' : 'OFF'); $('optJuan').textContent = 'JUAN\'S VOICE: ' + (OPTS.juanVoice ? 'ON' : 'OFF'); $('optVoices').textContent = 'CHARACTER VOICES: ' + (OPTS.voices ? 'ON' : 'OFF (STREAMER)'); }
 function openSettings() {
   $('settings').classList.add('on'); drawBinds(); drawToggles();
   $('volSlider').value = audio.master ? audio.master.gain.value : 0.9;
@@ -426,6 +428,7 @@ $('setBack').onclick = () => { rebinding = null; $('settings').classList.remove(
 $('setBright').onclick = async () => { $('settings').classList.remove('on'); await openBrightness(); openSettings(); };
 $('optSubs').onclick = () => { OPTS.subs = !OPTS.subs; saveOpts(); drawToggles(); };
 $('optJuan').onclick = () => { OPTS.juanVoice = !OPTS.juanVoice; saveOpts(); drawToggles(); };
+$('optVoices').onclick = () => { OPTS.voices = !OPTS.voices; saveOpts(); drawToggles(); };
 $('setReset').onclick = () => { BINDS = { ...DEFAULT_BINDS }; try { localStorage.removeItem('lr_binds'); } catch (e) { } drawBinds(); };
 $('volSlider').oninput = (e) => { audio.init(); audio.master.gain.value = parseFloat(e.target.value); try { localStorage.setItem('lr_vol', e.target.value); } catch (er) { } };
 
