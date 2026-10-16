@@ -1,10 +1,10 @@
 // LEVEL 1 — "The Walk Home". Juan follows Santiago home → the street feels wrong → ICE → run, hide, get to Rosa's.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792113425';
-import { tex, textTex, facadeTex, rng } from './textures.js?v=1792113425';
-import { makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeCar, makePalm, std } from './models.js?v=1792113425';
-import { addSkyline, glowMaterial, glowMats } from './skyline.js?v=1792113425';
-import { buildQuikWay, makePump } from './quikway.js?v=1792113425';
+import { Grid } from './grid.js?v=1792113485';
+import { tex, textTex, facadeTex, rng } from './textures.js?v=1792113485';
+import { makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeCar, makePalm, std } from './models.js?v=1792113485';
+import { addSkyline, glowMaterial, glowMats } from './skyline.js?v=1792113485';
+import { buildQuikWay, makePump } from './quikway.js?v=1792113485';
 
 const LINES = {
   u1: { id: 'st_u1', who: 'Santiago', text: '...Hey. That car. It\'s been behind us since the bus stop.' },
@@ -688,9 +688,11 @@ export function buildCity(scene, grid, r, o = {}) {
     // canopy over two pump islands
     const stripeM = std(0xffffff, { map: tex('stripes', [10, 1]), roughness: 0.6 }), canM = std(0xe8e4dc, { roughness: 0.6 });
     const can = new THREE.Mesh(new THREE.BoxGeometry(6, 0.9, 12), [stripeM, stripeM, canM, canM, stripeM, stripeM]); can.position.set(-14.5, 4.9, -60.5); scene.add(can);
-    const canLightM = std(0x222222, { emissive: 0xf0f4e8, emissiveIntensity: 1.6 }); neon.push(canLightM);
+    const canLightM = std(0x222222, { emissive: 0xf0f4e8, emissiveIntensity: 1.6 }); // on its own circuit: stays lit through the blackout
     for (const [cx, cz] of [[-13, -57], [-16, -57], [-13, -64], [-16, -64]]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.05, 0.9), canLightM); p.position.set(cx, 4.43, cz); scene.add(p); }
-    const canL = new THREE.PointLight(0xf0f4e8, 22, 14, 1.4); canL.position.set(-14.5, 4.0, -60.5); scene.add(canL); neonLights.push(canL);
+    // light pooling down on each pump island from the canopy
+    for (const cz of [-58, -63]) { const sl = new THREE.SpotLight(0xf0f4e8, o.day ? 6 : 40, 9, 0.95, 0.6, 1.3); sl.position.set(-14.5, 4.35, cz); sl.target.position.set(-14.5, 0, cz); scene.add(sl); scene.add(sl.target); }
+    const canL = new THREE.PointLight(0xf0f4e8, o.day ? 4 : 10, 12, 1.5); canL.position.set(-14.5, 4.0, -60.5); scene.add(canL);
     for (const cz of [-55.2, -65.8]) { const col = new THREE.Mesh(new THREE.BoxGeometry(0.35, 4.5, 0.35), canM); col.position.set(-14.5, 2.25, cz); scene.add(col); grid.rect(-15, Math.floor(cz), -15, Math.floor(cz), 1, 0); }
     for (const cz of [-58, -63]) { makePump(scene, -14.5, cz, { rot: Math.PI / 2, night: !o.day }); grid.rect(-17, cz - 1, -13, cz, 1, 0); }
     // the tall price sign at the street

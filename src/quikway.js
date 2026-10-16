@@ -1,8 +1,8 @@
 // QUIK-WAY gas & mini mart: the corner store across Whittier from Hammerline. Built once here,
 // placed in the Day 2 lunch scene and on the Whittier lot in Night 1 (where you can walk in and look around).
 import * as THREE from 'three';
-import { tex, textTex } from './textures.js?v=1792113425';
-import { std } from './models.js?v=1792113425';
+import { tex, textTex } from './textures.js?v=1792113485';
+import { std } from './models.js?v=1792113485';
 
 // local frame: storefront faces +z on z = 3.5, walls on x 10..23, z -5..4; o.pos/o.rot place it in the world
 export function buildQuikWay(scene, grid, o = {}) {
@@ -176,7 +176,7 @@ export function makePump(parent, x, z, o = {}) {
     const z0 = s * 1.0;
     b(0.85, 1.55, 0.6, whiteM, 0, 1.0, z0); b(0.87, 0.36, 0.62, stripeM, 0, 1.92, z0); b(0.7, 0.12, 0.5, std(0x3a3a3a), 0, 0.28, z0);
     for (const f of [-1, 1]) {
-      const sc = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.22), std(0x0a1a14, { emissive: 0x40c090, emissiveIntensity: o.night ? 0.8 : 0.5 })); sc.position.set(f * 0.431, 1.45, z0); sc.rotation.y = f * Math.PI / 2; g.add(sc); screen.push(sc);
+      const sc = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.22), std(0x0a1210, { emissive: 0x40c090, emissiveIntensity: 0.04 })); sc.position.set(f * 0.431, 1.45, z0); sc.rotation.y = f * Math.PI / 2; g.add(sc); screen.push(sc);
       const pad = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.18), std(0x2a2a2a)); pad.position.set(f * 0.431, 1.15, z0 + 0.12); pad.rotation.y = f * Math.PI / 2; g.add(pad);
       for (let k = 0; k < 3; k++) { const btn = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.05), std([0x2a5a2a, 0xc0a020, 0xa02020][k])); btn.position.set(f * 0.432, 0.92, z0 - 0.15 + k * 0.1); btn.rotation.y = f * Math.PI / 2; g.add(btn); }
       // holstered nozzle and a hose looping down to the ground and back up

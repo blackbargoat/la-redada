@@ -2,7 +2,7 @@
 // so there is never a flat horizon. Technique from Ricardo Cabello's "City" / Jerome Etienne's "procedural city in
 // 100 lines": thousands of random boxes sharing one tiny pixel-art window texture. Here it's two InstancedMeshes.
 import * as THREE from 'three';
-import { rng } from './textures.js?v=1792113425';
+import { rng } from './textures.js?v=1792113485';
 
 // returns { map, emi }: map = walls + windows (white walls, tinted per material), emi = only the lit windows
 function windowTex(seed, night) {
