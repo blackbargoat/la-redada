@@ -1,8 +1,8 @@
 // NIGHT 2 — Under the City. The storm drain under Hammerline: a maze, green water, rats, an old man who lives down here.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792115024';
-import { tex, textTex, rng } from './textures.js?v=1792115024';
-import { makeCharacter, animateWalk, makeGlow, makeBeam, std } from './models.js?v=1792115024';
+import { Grid } from './grid.js?v=1792116146';
+import { tex, textTex, rng } from './textures.js?v=1792116146';
+import { makeCharacter, animateWalk, makeGlow, makeBeam, std } from './models.js?v=1792116146';
 
 const VO = {
   h1: { id: 's_h1', who: 'Old man', text: 'Easy... easy, mijo. Get that light out of my eyes. I\'m not one of them.' },
@@ -457,7 +457,7 @@ export function createSewer(G) {
       // he steps out of the dark between you and the ladder
       // he's already down here, hiding just around the corner between you and the ladder
       hoboState = 'lurk'; lurk = findCorner(); hobo.group.position.set(lurk.x, L.groundAt(lurk.x, lurk.z), lurk.z);
-      hobo.group.rotation.y = Math.atan2(lurk.fx - lurk.x, lurk.fz - lurk.z); animateWalk(hobo, 0, 0, false); hobo.group.visible = true;
+      hobo.group.rotation.y = Math.atan2(lurk.fx - lurk.x, lurk.fz - lurk.z); animateWalk(hobo, 0, 0, false); hobo.group.visible = false; // not a hair of him shows until he moves
     }
     if (stage === 'cut') {
       cutT += dt;
@@ -503,7 +503,7 @@ export function createSewer(G) {
   L.danger = () => ({ heart: stage === 'cut' ? 0.7 : stage === 'scare' ? 1 : 0 });
 
   // the map: tunnels, where you came in, the ladder. Finding your way is up to you.
-  L.drawMap = (c, w, h) => {
+  L.drawMap = (c, w, h, noYou) => {
     const s = Math.min(w, h) / W;
     c.fillStyle = '#c8bf9e'; c.fillRect(0, 0, w, h);
     for (let z = 0; z < W; z++) for (let x = 0; x < W; x++) if (grid.solid[z * W + x]) { c.fillStyle = '#2e2a22'; c.fillRect(x * s, z * s, s + 0.5, s + 0.5); }
@@ -513,8 +513,14 @@ export function createSewer(G) {
     c.fillStyle = '#1d1b17'; c.fillText('HATCH', cc(0) * s, cc(0) * s - 6);
     c.strokeStyle = '#b3261e'; c.lineWidth = 3; c.beginPath(); c.moveTo((EX - 1) * s, (EZ - 1) * s); c.lineTo((EX + 1) * s, (EZ + 1) * s); c.moveTo((EX + 1) * s, (EZ - 1) * s); c.lineTo((EX - 1) * s, (EZ + 1) * s); c.stroke();
     c.fillStyle = '#b3261e'; c.fillText('LADDER', EX * s, EZ * s - 14);
-    c.save(); c.translate(P.pos.x * s, P.pos.z * s); c.rotate(-P.yaw); c.fillStyle = '#b3261e'; c.beginPath(); c.moveTo(0, -7); c.lineTo(4, 5); c.lineTo(-4, 5); c.closePath(); c.fill(); c.restore();
+    if (!noYou) { c.save(); c.translate(P.pos.x * s, P.pos.z * s); c.rotate(-P.yaw); c.fillStyle = '#b3261e'; c.beginPath(); c.moveTo(0, -7); c.lineTo(4, 5); c.lineTo(-4, 5); c.closePath(); c.fill(); c.restore(); }
   };
+  // the plate on the wall at the hatch is the real drain map
+  { const c = document.createElement('canvas'); c.width = 384; c.height = 256; const x = c.getContext('2d'); x.fillStyle = '#c8bf9e'; x.fillRect(0, 0, 384, 256);
+    const m = document.createElement('canvas'); m.width = m.height = 230; L.drawMap(m.getContext('2d'), 230, 230, true); x.drawImage(m, 140, 13);
+    x.fillStyle = '#1d1b17'; x.font = 'bold 20px Oswald, Arial'; x.fillText('L.A. COUNTY', 14, 40); x.fillText('STORM DRAIN', 14, 64); x.font = '15px Arial'; x.fillText('SECTOR 7', 14, 90); x.fillText('MAINTENANCE', 14, 108); x.fillStyle = '#b3261e'; x.font = 'bold 14px Arial'; x.fillText('NO ENTRY', 14, 230);
+    x.fillStyle = 'rgba(60,50,20,0.25)'; for (let k = 0; k < 30; k++) x.fillRect(Math.random() * 384, Math.random() * 256, 4 + Math.random() * 20, 2 + Math.random() * 8);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; mapPlate.material = std(0xffffff, { map: t, roughness: 0.9 }); mapPlate.scale.set(1.2, 1.2, 1); }
   L.dispose = () => { ui.bigHint(''); };
   return L;
 }

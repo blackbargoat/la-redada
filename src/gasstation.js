@@ -1,9 +1,9 @@
 // DAY 2 — Lunch break. The gas station across from Hammerline: cumbia on the radio, a burrito, Chuy and Beto.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792115024';
-import { tex, textTex, rng, facadeTex } from './textures.js?v=1792115024';
-import { makeCharacter, makeVehicle, animateWalk, makeGlow, makeCar, makePalm, makeBurrito, std } from './models.js?v=1792115024';
-import { buildCity } from './street.js?v=1792115024';
+import { Grid } from './grid.js?v=1792116146';
+import { tex, textTex, rng, facadeTex } from './textures.js?v=1792116146';
+import { makeCharacter, makeVehicle, animateWalk, makeGlow, makeCar, makePalm, makeBurrito, std } from './models.js?v=1792116146';
+import { buildCity } from './street.js?v=1792116146';
 
 const VO = {
   k1: { id: 'l_k1', who: 'Cashier', text: '¡Buenas, mijo! Burritos are fresh. The tamales are from yesterday, but don\'t tell nobody.' },
@@ -104,7 +104,8 @@ export function createGasStation(G) {
   const say = (...k) => ui.say(k.map((x) => ({ ...VO[x], pos: x.startsWith('ch') ? { x: chuy.group.position.x, y: 1.6, z: chuy.group.position.z } : x.startsWith('b') ? { x: beto.group.position.x, y: 1.6, z: beto.group.position.z } : x.startsWith('k') ? { x: 21.4, y: 1.6, z: -1.4 } : undefined })));
   audio.preloadVo(LUNCH_VO);
   audio.cityBed(); audio.setLoop('city', 0.12, 2);
-  audio.startCumbia(null); audio.cumbiaLevel(0.4);
+  const SONGS = ['assets/music/ella_baila_sola.mp3', 'assets/music/corazon_sin_cara.mp3', 'assets/music/me_gustas_tu.mp3'];
+  audio.startRadio(SONGS);
   ui.clock('5:14 PM');
   P.pos.set(16.5, 0, 31); P.yaw = 0; P.pitch = 0; P.flashlight = false;
   at(1.0, () => ui.objective('Get some food. The gas station across the street.'));
@@ -136,7 +137,10 @@ export function createGasStation(G) {
     for (let i = events.length - 1; i >= 0; i--) if (tl >= events[i].t) { const e = events[i]; events.splice(i, 1); e.fn(); }
     // the music is the radio on the counter: louder inside the store
     inside = P.pos.x > MX0 && P.pos.x < MX1 && P.pos.z > MZ0 && P.pos.z < MZ1 + 0.5;
-    if (inside !== wasInside) { audio.cumbiaLevel(inside ? 1.0 : 0.4); audio.setLoop('city', inside ? 0.04 : 0.12, 0.6); if (inside) audio.doorBell({ x: 14.5, y: 2.6, z: MZ1 }); wasInside = inside; }
+    if (inside !== wasInside) { audio.setLoop('city', inside ? 0.04 : 0.12, 0.6); if (inside) audio.doorBell({ x: 14.5, y: 2.6, z: MZ1 }); wasInside = inside; }
+    if (!audio.songRadio && audio.ctx) audio.startRadio(SONGS); // audio wasn't unlocked yet when the scene loaded
+    // the radio on the counter: clear inside, muffled through the glass out front, barely there across the street
+    { const d = Math.hypot(P.pos.x - 16, P.pos.z - (-0.5)); if (inside) audio.radioMix(0.42, 16000); else audio.radioMix(0.16 * Math.max(0, 1 - d / 38), 520 - Math.min(380, d * 10)); }
     if (stage === 'go' && inside) { stage = 'food'; ui.objective('Grab a burrito from the hot case.'); goal = [18.3, 0.6]; say('k1'); }
     // people face you when you're close
     for (const c of people) { const g = c.group.position, dx = P.pos.x - g.x, dz = P.pos.z - g.z; const want = Math.hypot(dx, dz) < 5 ? Math.atan2(dx, dz) : c.baseYaw; let df = want - c.group.rotation.y; df = Math.atan2(Math.sin(df), Math.cos(df)); c.group.rotation.y += df * Math.min(1, dt * 3); }
@@ -153,6 +157,6 @@ export function createGasStation(G) {
     if (goal && !P.frozen) { de.style.opacity = 0.42; const ang = Math.atan2(goal[0] - P.pos.x, goal[1] - P.pos.z), rel = ang - (P.yaw + Math.PI); de.querySelector('i').style.transform = `rotate(${-rel}rad)`; de.querySelector('b').textContent = `${Math.round(Math.hypot(goal[0] - P.pos.x, goal[1] - P.pos.z))}m`; } else de.style.opacity = 0;
   };
   L.danger = () => ({ heart: 0 });
-  L.dispose = () => { G.camera.remove(carry); audio.stopCumbia(); document.getElementById('dirHint').style.opacity = 0; };
+  L.dispose = () => { G.camera.remove(carry); audio.stopRadio(); document.getElementById('dirHint').style.opacity = 0; };
   return L;
 }

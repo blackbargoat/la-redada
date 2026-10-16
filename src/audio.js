@@ -90,7 +90,7 @@ export class AudioEngine {
     setTimeout(() => { for (const n of L.nodes) { try { n.stop(); } catch (e) { } } L.g.disconnect(); }, time * 1000 + 300);
     delete this.loops[name];
   }
-  stopAll() { for (const k of Object.keys(this.loops)) this.stopLoop(k, 0.3); this.chaseLvl = 0; this.gtr = null; this.stopCumbia(); }
+  stopAll() { for (const k of Object.keys(this.loops)) this.stopLoop(k, 0.3); this.chaseLvl = 0; this.gtr = null; this.stopCumbia(); this.stopRadio(); }
   noiseSrc(ctx, brown) { const s = ctx.createBufferSource(); s.buffer = brown ? this.brownBuf : this.noiseBuf; s.loop = true; return s; }
 
   // ---------- beds ----------
@@ -484,6 +484,21 @@ export class AudioEngine {
   }
   preloadVo(ids) { if (this.ctx) ids.forEach((id) => this.loadVo(id)); }
   // returns duration in seconds (0 if no file)
+  // a real radio: mp3 songs played through a lowpass + gain onto the ambient bus (so dialogue ducks it).
+  // Picks a song at random each time one ends; the first starts somewhere in the middle, like walking in on it.
+  startRadio(urls) {
+    if (!this.ctx) return; this.stopRadio();
+    const el = new Audio(); el.preload = 'auto';
+    const src = this.ctx.createMediaElementSource(el), lp = this.ctx.createBiquadFilter(), g = this.ctx.createGain();
+    lp.type = 'lowpass'; lp.frequency.value = 800; g.gain.value = 0;
+    src.connect(lp); lp.connect(g); g.connect(this.amb);
+    let first = true;
+    const pick = () => { el.src = urls[(Math.random() * urls.length) | 0]; el.onloadedmetadata = () => { if (first && el.duration) el.currentTime = el.duration * (0.1 + Math.random() * 0.5); first = false; }; el.play().catch(() => {}); };
+    el.onended = pick; pick();
+    this.songRadio = { el, lp, g };
+  }
+  radioMix(level, cutoff) { if (!this.songRadio) return; this.songRadio.g.gain.setTargetAtTime(level, this.t, 0.35); this.songRadio.lp.frequency.setTargetAtTime(cutoff, this.t, 0.35); }
+  stopRadio() { if (!this.songRadio) return; const r = this.songRadio; this.songRadio = null; r.g.gain.setTargetAtTime(0, this.t, 0.2); setTimeout(() => { r.el.pause(); r.el.removeAttribute('src'); r.el.load(); r.g.disconnect(); }, 800); }
   async playVo(id, o = {}) {
     if (!this.ctx) return 0;
     const buf = await this.loadVo(id);

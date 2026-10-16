@@ -1,8 +1,8 @@
 // QUIK-WAY gas & mini mart: the corner store across Whittier from Hammerline. Built once here,
 // placed in the Day 2 lunch scene and on the Whittier lot in Night 1 (where you can walk in and look around).
 import * as THREE from 'three';
-import { tex, textTex } from './textures.js?v=1792115024';
-import { std, makeBurrito } from './models.js?v=1792115024';
+import { tex, textTex } from './textures.js?v=1792116146';
+import { std, makeBurrito } from './models.js?v=1792116146';
 
 // local frame: storefront faces +z on z = 3.5, walls on x 10..23, z -5..4; o.pos/o.rot place it in the world
 export function buildQuikWay(scene, grid, o = {}) {
@@ -133,7 +133,17 @@ export function buildQuikWay(scene, grid, o = {}) {
   box(0.4, 0.25, 0.35, std(0x1a1a1a), 20.2, 1.17, -0.4, false); box(0.3, 0.2, 0.04, std(0x102a20, { emissive: 0x30a070, emissiveIntensity: 0.6 }), 20.1, 1.36, -0.4, false);
   box(0.35, 0.35, 0.6, new THREE.MeshStandardMaterial({ color: 0xd8e0e0, transparent: true, opacity: 0.3, roughness: 0.05 }), 20.25, 1.22, -1.9, false);
   for (let k = 0; k < 5; k++) box(0.02, 0.25, 0.1, std([0xf0b020, 0xd02a1a, 0x2a5ab0, 0x3a9a3a, 0xe86a1a][k]), 20.25, 1.2, -2.1 + k * 0.1, false);
-  const radio = box(0.4, 0.22, 0.18, std(0x3a2a1a, { roughness: 0.5 }), 20.6, 1.15, -2.6, false);
+  // the boombox the music comes out of: two speakers, a tape deck, a lit display, a carry handle, the antenna up
+  const radio = new THREE.Group(); radio.position.set(20.55, 1.045, -2.55); radio.rotation.y = -Math.PI / 2; g.add(radio);
+  { const bodyM = std(0x1c1c1e, { roughness: 0.5, metalness: 0.2 }), grill = std(0x3a3a3c, { roughness: 0.8 }), chrome = std(0xb8bcc0, { metalness: 0.85, roughness: 0.3 });
+    const a = (m, x, y, z) => { m.position.set(x, y, z); radio.add(m); return m; };
+    a(new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.26, 0.15), bodyM), 0, 0.13, 0);
+    for (const sx of [-0.18, 0.18]) { a(new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.02, 16).rotateX(Math.PI / 2), grill), sx, 0.13, 0.076); a(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.025, 10).rotateX(Math.PI / 2), chrome), sx, 0.13, 0.08); a(new THREE.Mesh(new THREE.TorusGeometry(0.087, 0.008, 5, 16), chrome), sx, 0.13, 0.078); }
+    a(new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.08, 0.01), std(0x111111, { roughness: 0.3 })), 0, 0.08, 0.077); // tape door
+    a(new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.04, 0.01), std(0x0a1a10, { emissive: 0x40d080, emissiveIntensity: 0.9 })), 0, 0.19, 0.077); // display
+    for (let k = 0; k < 5; k++) a(new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.012, 0.02), chrome), -0.05 + k * 0.025, 0.265, 0.03); // buttons
+    const h = a(new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.012, 5, 16, Math.PI), chrome), 0, 0.26, -0.02);
+    const ant = a(new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.45, 5), chrome), 0.24, 0.48, -0.05); ant.rotation.z = -0.35; }
   const rackX = 21.8;
   box(0.05, 1.7, 3.6, std(0x2a2a2a), 21.96, 1.85, -1.2, false); for (const z of [-3.0, 0.6]) box(0.38, 1.7, 0.04, std(0x2a2a2a), rackX, 1.85, z, false);
   for (const y of [1.1, 1.38, 1.66, 1.94, 2.22]) { box(0.38, 0.02, 3.6, std(0x888888, { metalness: 0.5 }), rackX - 0.02, y, -1.2, false); stockZ(rackX - 0.06, y + 0.01, -2.95, 0.55, 0.2, 0.18, [0xd02a1a, 0xf4f0e6, 0x2a5ab0, 0xe8d040, 0x3a9a3a, 0x1a1a1a]); }
@@ -144,8 +154,8 @@ export function buildQuikWay(scene, grid, o = {}) {
   box(1.3, 1.0, 0.75, std(0xb8b8b2, { metalness: 0.4 }), 18.3, 0.5, 1.6); solid(17, 1, 18, 2);
   const foodItems = [];
   // top row: foil burritos; bottom row: tamales in their husks
-  for (let k = 0; k < 3; k++) { const b = makeBurrito(0.1); b.position.set(17.9 + k * 0.3, 1.33, 1.6); b.rotation.y = Math.PI / 2 + (k - 1) * 0.15; g.add(b); foodItems.push(b); }
-  for (let k = 0; k < 3; k++) { const t = new THREE.Mesh(new THREE.CapsuleGeometry(0.035, 0.12, 4, 8).rotateZ(Math.PI / 2), std(0xc8b07a, { roughness: 0.9 })); t.position.set(17.9 + k * 0.3, 1.14, 1.6); t.rotation.y = Math.PI / 2; g.add(t); foodItems.push(t); }
+  for (let k = 0; k < 3; k++) { const b = makeBurrito(0.1); b.position.set(17.9 + k * 0.3, 1.33, 1.55); b.rotation.y = (k - 1) * 0.06; g.add(b); foodItems.push(b); } // lying lengthwise, facing you through the glass
+  for (let k = 0; k < 3; k++) { const t = new THREE.Mesh(new THREE.CapsuleGeometry(0.035, 0.12, 4, 8).rotateZ(Math.PI / 2), std(0xc8b07a, { roughness: 0.9 })); t.position.set(17.9 + k * 0.3, 1.14, 1.55); g.add(t); foodItems.push(t); }
   const hotT = textTex(256, 64, '#c02a1a', [{ text: 'BURRITOS · TAMALES', size: 28, color: '#fff' }]);
   const hotS = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.28), lit(hotT, 0.4)); hotS.position.set(18.3, 1.78, 1.24); hotS.rotation.y = Math.PI; g.add(hotS);
   const hotL = new THREE.PointLight(0xffb060, 2, 3, 1.6); hotL.position.set(18.3, 1.5, 1.2); g.add(hotL); lights.push(hotL);
