@@ -1,13 +1,13 @@
 import * as THREE from 'three';
-import { AudioEngine } from './audio.js?v=1792150673';
-import { createStreet } from './street.js?v=1792150673';
-import { createRestaurant } from './restaurant.js?v=1792150673';
-import { createStore } from './store.js?v=1792150673';
-import { createHouse } from './house.js?v=1792150673';
-import { createGasStation } from './gasstation.js?v=1792150673';
-import { createSewer } from './sewer.js?v=1792150673';
-import { createPhone } from './phone.js?v=1792150673';
-import { modelsReady } from './models.js?v=1792150673';
+import { AudioEngine } from './audio.js?v=1792150827';
+import { createStreet } from './street.js?v=1792150827';
+import { createRestaurant } from './restaurant.js?v=1792150827';
+import { createStore } from './store.js?v=1792150827';
+import { createHouse } from './house.js?v=1792150827';
+import { createGasStation } from './gasstation.js?v=1792150827';
+import { createSewer } from './sewer.js?v=1792150827';
+import { createPhone } from './phone.js?v=1792150827';
+import { modelsReady } from './models.js?v=1792150827';
 
 const $ = (id) => document.getElementById(id);
 const PIX = 3; // render at 1/3 resolution, upscale with nearest-neighbour for the chunky pixel look
@@ -299,6 +299,7 @@ addEventListener('keydown', (e) => {
     if (ui._noteClose) { ui._noteClose(); return; }
     if (P.hidden) { game.unhide(); return; }
     if (currentIt && !currentIt.hold && !P.frozen) currentIt.action();
+    else if (!currentIt && P.carrying && !P.frozen && level?.drop) level.drop(); // press again to put down what you're holding
   }
   if (is(e, 'flashlight') && level?.allowFlashlight && !P.hidden) {
     if (P.battery <= 0) { audio.click(); ui.toast('BATTERY DEAD'); return; }
@@ -496,7 +497,7 @@ function updateInteract(dt) {
     if (d < bd) { bd = d; best = it; }
   }
   currentIt = best;
-  if (!best) { ui.prompt(''); return; }
+  if (!best) { ui.prompt(P.carrying && level.drop ? `[${keyName(BINDS.interact)}] ${level.dropLabel?.() || 'Put it down'}` : ''); return; }
   if (best.hold) {
     if (held('interact')) { best.progress = Math.min(best.hold, (best.progress || 0) + dt); best.onHold?.(dt); if (best.progress >= best.hold) { best.action(); } }
     else best.onRelease?.();

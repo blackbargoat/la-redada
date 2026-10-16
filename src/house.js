@@ -1,8 +1,8 @@
 // NIGHT 1: Doña Rosa's house on Mott St. The power is out. He tells her, he eats, he sleeps in Santiago's room.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792150673';
-import { tex, textTex, rng } from './textures.js?v=1792150673';
-import { makeCharacter, animateWalk, makeGlow, std } from './models.js?v=1792150673';
+import { Grid } from './grid.js?v=1792150827';
+import { tex, textTex, rng } from './textures.js?v=1792150827';
+import { makeCharacter, animateWalk, makeGlow, std } from './models.js?v=1792150827';
 
 const VO = {
   r1: { id: 'h_r1', who: 'Doña Rosa', text: '¡Juan! Ay, gracias a Dios. The lights went out on the whole street, I heard the sirens... ¿Y Santiago? Where\'s my son?' },

@@ -1,8 +1,8 @@
 // DAY 2: Hammerline Depot. mode 'work': the day shift. mode 'close': closing time, the raid, the hatch.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792150673';
-import { tex, textTex, rng } from './textures.js?v=1792150673';
-import { makeHumanoid, makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeShoppingCart, makeDumpster, makeTrashBag, makeAuto, std } from './models.js?v=1792150673';
+import { Grid } from './grid.js?v=1792150827';
+import { tex, textTex, rng } from './textures.js?v=1792150827';
+import { makeHumanoid, makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeShoppingCart, makeDumpster, makeTrashBag, makeAuto, std } from './models.js?v=1792150827';
 
 const VO = {
   out: { id: 'sr_out', who: 'Agent (radio)', text: 'Back door\'s locked down. He\'s inside. Nobody leaves this building.', radio: true, agent: true },
@@ -739,6 +739,20 @@ export function createStore(G, mode = 'close', checkpoint = 0) {
     carryBag.rotation.x = Math.sin(carryPh) * 0.25 * mv; carryBag.rotation.z = 0.1 + Math.cos(carryPh * 0.5) * 0.12 * mv;
   }
   hold(null);
+  // press E again with nothing else to use: put down what you're holding (and pick it back up where it lies)
+  L.dropLabel = () => (P.carrying === 'cart' ? 'Let go of the cart' : 'Put it down');
+  L.drop = () => {
+    const what = P.carrying; if (!what || what === 'ring') return;
+    if (what === 'cart') { if (L.letGoCart) L.letGoCart(); return; }
+    const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw);
+    let x = P.pos.x + fx * 0.8, z = P.pos.z + fz * 0.8; if (grid.isSolid(x, z)) { x = P.pos.x; z = P.pos.z; }
+    hold(null); audio.thump({ x, y: 0.2, z });
+    const obj = what === 'crate' ? box(0.55, 0.38, 0.4, crateM, x, 0.19, z, true) : (() => { const b = makeTrashBag(0.85, 5); b.position.set(x, 0, z); scene.add(b); return b; })();
+    obj.rotation.y = P.yaw;
+    const pick = it({ x, z, r: 1.4, label: what === 'crate' ? 'Pick up the crate' : 'Pick up the trash', enabled: () => !P.carrying && obj.visible, action: () => {
+      obj.visible = false; L.interactables.splice(L.interactables.indexOf(pick), 1); audio.pickup(); hold(what);
+    } });
+  };
 
   if (WORK) {
     // ================= THE DAY SHIFT =================
@@ -847,7 +861,7 @@ export function createStore(G, mode = 'close', checkpoint = 0) {
     const dumpster = makeDumpster(0x1f4a32, 0.9); dumpster.position.set(57.5, 0, 2.2); scene.add(dumpster); grid.rect(56, 1, 58, 2, 1, 1);
     at(1.2, () => say('d6').then(() => { dale.walk = [[31.5, 41], [31.5, 44.6]]; setStage('carts', 'Close up (1/3): Bring in the stray carts. (0/3)', [strays[0].position.x, strays[0].position.z]); }));
     // grab a cart and push it back to the corral by the doors; it nests into the row when you get there
-    strays.forEach((c) => it({ x: c.position.x, z: c.position.z, r: 1.6, label: 'Push the cart', enabled: () => stage === 'carts' && !pushing && !c.userData.home, action: () => {
+    strays.forEach((c) => it({ get x() { return c.position.x; }, get z() { return c.position.z; }, r: 1.6, label: 'Push the cart', enabled: () => stage === 'carts' && !pushing && !c.userData.home, action: () => {
       pushing = c; hold('cart'); audio.clunk({ x: c.position.x, y: 0.5, z: c.position.z }, 0.25); goal = [CORRAL.slot(4 + cartsIn) + 0.6, CORRAL.z - 1.4];
     } }));
     // real footprints of everything a cart could bump (racks, shelves, counters, walls, other carts), hashed in 2 m buckets
@@ -877,6 +891,7 @@ export function createStore(G, mode = 'close', checkpoint = 0) {
     // the cart has its own heading. It follows where you look only if it has room to swing there; otherwise it scrapes
     // along whatever's in the way. Its footprint is part of your body while you push, so you both stop at walls together.
     const cartBlocked = (px, pz, h, self) => { const hx = -Math.sin(h), hz = -Math.cos(h); for (const d of [0.62, 0.95, 1.28, 1.6]) { const qx = px + hx * d, qz = pz + hz * d; if (grid.blocked(qx, qz, 0.24) || solidAt(qx, qz, 0.27, self)) return true; } return false; };
+    L.letGoCart = () => { if (!pushing) return; audio.clunk({ x: pushing.position.x, y: 0.5, z: pushing.position.z }, 0.2); pushing.userData.h = null; pushing = null; L.extraBlocked = null; hold(null); };
     L.pushCart = (dt) => {
       if (!pushing) { L.extraBlocked = null; return; }
       const c = pushing;
