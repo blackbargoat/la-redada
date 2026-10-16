@@ -1,13 +1,13 @@
 import * as THREE from 'three';
-import { AudioEngine } from './audio.js?v=1792116629';
-import { createStreet } from './street.js?v=1792116629';
-import { createRestaurant } from './restaurant.js?v=1792116629';
-import { createStore } from './store.js?v=1792116629';
-import { createHouse } from './house.js?v=1792116629';
-import { createGasStation } from './gasstation.js?v=1792116629';
-import { createSewer } from './sewer.js?v=1792116629';
-import { createPhone } from './phone.js?v=1792116629';
-import { modelsReady } from './models.js?v=1792116629';
+import { AudioEngine } from './audio.js?v=1792116645';
+import { createStreet } from './street.js?v=1792116645';
+import { createRestaurant } from './restaurant.js?v=1792116645';
+import { createStore } from './store.js?v=1792116645';
+import { createHouse } from './house.js?v=1792116645';
+import { createGasStation } from './gasstation.js?v=1792116645';
+import { createSewer } from './sewer.js?v=1792116645';
+import { createPhone } from './phone.js?v=1792116645';
+import { modelsReady } from './models.js?v=1792116645';
 
 const $ = (id) => document.getElementById(id);
 const PIX = 3; // render at 1/3 resolution, upscale with nearest-neighbour for the chunky pixel look
@@ -82,8 +82,9 @@ const DEFAULT_BINDS = { forward: 'KeyW', back: 'KeyS', left: 'KeyA', right: 'Key
 const BIND_NAMES = { forward: 'Move forward', back: 'Move back', left: 'Move left', right: 'Move right', sprint: 'Sprint', crouch: 'Crouch', flashlight: 'Flashlight', interact: 'Interact / hide', breath: 'Hold breath', map: 'Store map' };
 let BINDS = { ...DEFAULT_BINDS };
 const OPTS = { subs: true, juanVoice: true, voices: true };
-// streamer mode: nobody speaks (you read the lines out loud); only the radio news at the very start keeps its audio
-const silenced = (l) => (!OPTS.voices && l.id !== 'st_news') || (!OPTS.juanVoice && /^Juan/.test(l.who || ''));
+// streamer mode: nobody in the room speaks (you read the lines out loud); the radio news and voices coming through a phone keep their audio
+const throughDevice = (l) => l.id === 'st_news' || /\(phone\)/.test(l.who || '');
+const silenced = (l) => (!OPTS.voices && !throughDevice(l)) || (!OPTS.juanVoice && /^Juan/.test(l.who || ''));
 const readTime = (t) => 1.6 + t.length * 0.065;
 try { Object.assign(OPTS, JSON.parse(localStorage.getItem('lr_opts') || '{}')); } catch (e) { }
 const saveOpts = () => { try { localStorage.setItem('lr_opts', JSON.stringify(OPTS)); } catch (e) { } };
