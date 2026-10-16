@@ -1,13 +1,13 @@
 import * as THREE from 'three';
-import { AudioEngine } from './audio.js?v=1792107186';
-import { createStreet } from './street.js?v=1792107186';
-import { createRestaurant } from './restaurant.js?v=1792107186';
-import { createStore } from './store.js?v=1792107186';
-import { createHouse } from './house.js?v=1792107186';
-import { createGasStation } from './gasstation.js?v=1792107186';
-import { createSewer } from './sewer.js?v=1792107186';
-import { createPhone } from './phone.js?v=1792107186';
-import { modelsReady } from './models.js?v=1792107186';
+import { AudioEngine } from './audio.js?v=1792113053';
+import { createStreet } from './street.js?v=1792113053';
+import { createRestaurant } from './restaurant.js?v=1792113053';
+import { createStore } from './store.js?v=1792113053';
+import { createHouse } from './house.js?v=1792113053';
+import { createGasStation } from './gasstation.js?v=1792113053';
+import { createSewer } from './sewer.js?v=1792113053';
+import { createPhone } from './phone.js?v=1792113053';
+import { modelsReady } from './models.js?v=1792113053';
 
 const $ = (id) => document.getElementById(id);
 const PIX = 3; // render at 1/3 resolution, upscale with nearest-neighbour for the chunky pixel look
@@ -117,7 +117,7 @@ async function speak(l, token) {
   await sleep(dur);
 }
 const ui = {
-  objective(t) { $('objText').textContent = t; $('objective').style.visibility = t ? 'visible' : 'hidden'; if (t) ui.toast('NEW OBJECTIVE'); phone.objective(t); },
+  objective(t) { $('objText').textContent = t; $('objective').style.visibility = t ? 'visible' : 'hidden'; phone.objective(t); },
   toast(t, d = 2.2) { const e = $('toast'); e.textContent = t; e.style.opacity = 1; clearTimeout(e._t); e._t = setTimeout(() => (e.style.opacity = 0), d * 1000); },
   clock(t) { $('clock').textContent = t; phone.state.gameClock = t.replace(/ [AP]M/, ''); },
   prompt(t, prog) { $('prompt').innerHTML = t ? `${t}${prog != null ? `<div class="bar"><i style="width:${(prog * 100) | 0}%"></i></div>` : ''}` : ''; },
@@ -288,7 +288,7 @@ const CHAPTERS = [
   { key: 'night1', name: 'NIGHT 1 — The Walk Home', hud: 'NIGHT', num: 1, food: 0.45, cards: ['NIGHT 1\nThe Walk Home\n11:40 PM'], make: createStreet },
   { key: 'rosa', name: 'NIGHT 1 — Doña Rosa\'s House', hud: 'NIGHT', num: 1, food: 0.2, cards: ['DOÑA ROSA\'S HOUSE\nMott Street\n12:16 AM'], make: createHouse },
   { key: 'shift', name: 'DAY 2 — The Shift', hud: 'DAY', num: 2, food: 0.8, cards: ['DAY 2\nThe Shift\nHammerline Depot #0417 — 7:02 AM'], make: (g) => createStore(g, 'work') },
-  { key: 'lunch', name: 'DAY 2 — Lunch Break', hud: 'DAY', num: 2, food: 0.25, cards: ['LUNCH BREAK\n12:31 PM'], make: createGasStation },
+  { key: 'lunch', name: 'DAY 2 — Lunch Break', hud: 'DAY', num: 2, food: 0.25, cards: ['LUNCH BREAK\n5:14 PM'], make: createGasStation },
   { key: 'close', name: 'DAY 2 — Closing Time', hud: 'NIGHT', num: 2, food: 0.7, cards: ['CLOSING TIME\nHammerline Depot #0417 — 9:52 PM'], make: (g) => createStore(g, 'close') },
   { key: 'sewer', name: 'NIGHT 2 — Under the City', hud: 'NIGHT', num: 2, food: 0.5, cards: ['UNDER THE CITY\n10:47 PM'], make: createSewer },
 ];

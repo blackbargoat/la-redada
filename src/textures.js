@@ -171,6 +171,81 @@ const GEN = {
     for (let i = 0; i < 30; i++) { x.strokeStyle = 'rgba(15,10,8,0.7)'; x.lineWidth = 2; x.beginPath(); const px = r() * 64; x.moveTo(px, 0); x.lineTo(px + (r() - 0.5) * 10, 128); x.stroke(); }
     return c;
   },
+  // asphalt roof shingles, rows offset, sun-faded
+  shingle() {
+    const [c, x] = mk(256, 256); const r = rng(41);
+    x.fillStyle = '#2e2926'; x.fillRect(0, 0, 256, 256);
+    for (let row = 0; row < 16; row++) {
+      const y = row * 16, off = row % 2 ? 16 : 0;
+      for (let k = -1; k < 9; k++) { const v = 34 + r() * 22; x.fillStyle = `rgb(${v + 4},${v},${v - 2})`; x.fillRect(k * 32 + off + 1, y + 1, 30, 14); }
+      x.fillStyle = 'rgba(0,0,0,0.55)'; x.fillRect(0, y + 13, 256, 3);
+    }
+    speckle(x, 256, 256, r, 5000, ['#1a1716', '#5a524a'], 0.5);
+    blotches(x, 256, 256, r, 8, 'rgba(10,10,8,0.35)', 'rgba(120,110,90,0.15)', 20, 70);
+    return c;
+  },
+  // corner-store floor: white and grey vinyl squares, scuffed
+  storeTile() {
+    const [c, x] = mk(256, 256); const r = rng(43);
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { const w = (i + j) % 2 === 0; const v = w ? 226 + r() * 10 : 178 + r() * 10; x.fillStyle = `rgb(${v},${v},${v - 4})`; x.fillRect(i * 64, j * 64, 64, 64); }
+    x.strokeStyle = 'rgba(90,90,85,0.45)'; x.lineWidth = 1.5; for (let k = 0; k <= 4; k++) { x.beginPath(); x.moveTo(k * 64, 0); x.lineTo(k * 64, 256); x.stroke(); x.beginPath(); x.moveTo(0, k * 64); x.lineTo(256, k * 64); x.stroke(); }
+    speckle(x, 256, 256, r, 2500, ['#8a8880', '#b0aea6'], 0.4);
+    blotches(x, 256, 256, r, 10, 'rgba(60,55,45,0.18)', 'rgba(60,55,45,0.1)', 10, 50);
+    for (let i = 0; i < 14; i++) { x.strokeStyle = 'rgba(30,30,30,0.25)'; x.lineWidth = 1; x.beginPath(); const px = r() * 256, py = r() * 256; x.moveTo(px, py); x.lineTo(px + (r() - 0.5) * 30, py + (r() - 0.5) * 8); x.stroke(); }
+    return c;
+  },
+  // drop ceiling: 2x2 acoustic tiles in a white grid
+  ceilTile() {
+    const [c, x] = mk(128, 128); const r = rng(47);
+    x.fillStyle = '#d8d6ce'; x.fillRect(0, 0, 128, 128);
+    speckle(x, 128, 128, r, 1600, ['#bdbab0', '#e8e6de', '#a8a59c'], 0.6);
+    blotches(x, 128, 128, r, 3, 'rgba(140,110,60,0.18)', 'rgba(140,110,60,0.08)', 8, 26);
+    x.fillStyle = '#f0f0ec'; x.fillRect(0, 0, 128, 4); x.fillRect(0, 0, 4, 128);
+    return c;
+  },
+  // the corner-store fascia: orange, green and red bands on white
+  stripes() {
+    const [c, x] = mk(64, 128);
+    x.fillStyle = '#f2efe6'; x.fillRect(0, 0, 64, 128);
+    x.fillStyle = '#e8701c'; x.fillRect(0, 14, 64, 26);
+    x.fillStyle = '#1d7a3e'; x.fillRect(0, 50, 64, 26);
+    x.fillStyle = '#c4202a'; x.fillRect(0, 86, 64, 26);
+    return c;
+  },
+  // generic packaging: a white label band and a printed block on a coloured box (tinted per instance)
+  pack() {
+    const [c, x] = mk(64, 64); const r = rng(53);
+    x.fillStyle = '#ffffff'; x.fillRect(0, 0, 64, 64);
+    x.fillStyle = '#f4f0e4'; x.fillRect(0, 22, 64, 20);
+    x.fillStyle = '#c8c4b8'; x.fillRect(8, 26, 30, 4); x.fillRect(8, 33, 20, 3);
+    x.fillStyle = '#e8e4d8'; x.beginPath(); x.arc(46, 12, 7, 0, Math.PI * 2); x.fill();
+    speckle(x, 64, 64, r, 200, ['#d8d4c8', '#ffffff'], 0.4);
+    return c;
+  },
+  // clipped hedge: dense small leaves, darker hollows
+  hedge() {
+    const [c, x] = mk(128, 128); const r = rng(61);
+    x.fillStyle = '#1e2e1a'; x.fillRect(0, 0, 128, 128);
+    for (let i = 0; i < 1400; i++) { const v = r(); x.fillStyle = v < 0.3 ? '#14200f' : v < 0.7 ? '#2a3f22' : v < 0.93 ? '#36502a' : '#4a6236'; const px = r() * 128, py = r() * 128; x.beginPath(); x.ellipse(px, py, 1.5 + r() * 2.5, 1 + r() * 1.5, r() * 3, 0, Math.PI * 2); x.fill(); }
+    blotches(x, 128, 128, r, 8, 'rgba(5,10,4,0.4)', 'rgba(70,100,50,0.12)', 6, 22);
+    return c;
+  },
+  // palm frond: a midrib with leaflets, alpha-cut
+  frond() {
+    const [c, x] = mk(64, 256);
+    x.lineCap = 'round'; x.strokeStyle = '#fff';
+    x.lineWidth = 3; x.beginPath(); x.moveTo(32, 256); x.lineTo(32, 2); x.stroke();
+    x.lineWidth = 2.4;
+    for (let y = 246; y > 6; y -= 6) { const t = 1 - y / 256, len = 6 + 25 * Math.sin(Math.min(1, t * 1.15) * Math.PI * 0.92); for (const s of [-1, 1]) { x.beginPath(); x.moveTo(32, y); x.lineTo(32 + s * len, y - 10 - len * 0.25); x.stroke(); } }
+    return c;
+  },
+  palmBark() {
+    const [c, x] = mk(64, 128); const r = rng(59);
+    x.fillStyle = '#6a5a48'; x.fillRect(0, 0, 64, 128);
+    for (let y = 0; y < 128; y += 8) { x.fillStyle = 'rgba(30,22,16,0.55)'; x.fillRect(0, y, 64, 2); x.fillStyle = 'rgba(160,140,110,0.18)'; x.fillRect(0, y + 2, 64, 2); }
+    speckle(x, 64, 128, r, 700, ['#4a3e32', '#8a7a64'], 0.5);
+    return c;
+  },
 };
 
 export function tex(key, repeat = null, srgb = true) {

@@ -1,8 +1,8 @@
 // DAY 2 — Hammerline Depot. mode 'work': the day shift. mode 'close': closing time, the raid, the hatch.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792107186';
-import { tex, textTex, rng } from './textures.js?v=1792107186';
-import { makeHumanoid, makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, std } from './models.js?v=1792107186';
+import { Grid } from './grid.js?v=1792113053';
+import { tex, textTex, rng } from './textures.js?v=1792113053';
+import { makeHumanoid, makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, std } from './models.js?v=1792113053';
 
 const VO = {
   out: { id: 'sr_out', who: 'Agent (radio)', text: 'Back door\'s locked down. He\'s inside. Nobody leaves this building.', radio: true, agent: true },
@@ -640,11 +640,11 @@ export function createStore(G, mode = 'close', checkpoint = 0) {
       hold(null); audio.thump({ x: 38, y: 0.6, z: 11.6 }); crates++;
       const c = box(0.55, 0.38, 0.4, crateM, 37.6 + (crates % 2) * 0.6, 0.69 + Math.floor((crates - 1) / 2) * 0.38, 11.6, true); crateStack.push(c);
       if (crates < CRATES) { setStage('crates', `Move the crates from the pallet in Receiving to the display at the end of Aisle 6. (${crates}/${CRATES})`, [44, 7.4]); return; }
-      stage = 'crates2'; ui.objective(''); ui.clock('9:48 AM');
+      stage = 'crates2'; ui.objective(''); ui.clock('11:48 AM');
       at(1.5, () => ui.say([{ ...SVO.ch1, pos: chuy.group.position }]).then(() => setStage('lady', 'Help the customer in Aisle 2, Plumbing.', [13.5, 24])));
     } });
     it({ x: 13.5, z: 24, r: 2.0, label: 'Help her', enabled: () => stage === 'lady', action: () => {
-      stage = 'lady2'; ui.objective(''); ui.clock('11:20 AM');
+      stage = 'lady2'; ui.objective(''); ui.clock('2:20 PM');
       say('cu1', 'jw1').then(() => { setStage('ring', 'Find a toilet wax ring. Aisle 2, bottom shelf.', [12.4, 29]); ringGlow.visible = true; });
     } });
     const ringMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.05, 12), std(0xe8d48a)); ringMesh.position.set(11.75, 0.33, 29); scene.add(ringMesh);
@@ -667,7 +667,7 @@ export function createStore(G, mode = 'close', checkpoint = 0) {
     // the power goes out in the middle of the day. It's nothing. It's an old building.
     function powerCut() {
       if (stage !== 'mop') return;
-      stage = 'cut'; ui.objective(''); spill.scale.setScalar(0.3); ui.clock('12:08 PM');
+      stage = 'cut'; ui.objective(''); spill.scale.setScalar(0.3); ui.clock('4:41 PM');
       audio.powerDown({ x: 30, y: 6, z: 20 }); setPower(false); grillL.intensity = 0; flatTop.material.emissiveIntensity = 0; grillSign.material.emissiveIntensity = 0;
       audio.setLoop('chatter', 0.07, 0.4); audio.setLoop('sizzle', 0, 1); ui.shake(0.02, 0.3);
       npcs.forEach((n) => { n.walk = null; if (n.wander) n.wander.wait = 99; });

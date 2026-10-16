@@ -1,6 +1,6 @@
 // Low-poly (PS3-era) procedural models.
 import * as THREE from 'three';
-import { jacketTex } from './textures.js?v=1792107186';
+import { jacketTex, tex } from './textures.js?v=1792113053';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
@@ -250,5 +250,28 @@ export function makeTree(seed = 1) {
     s.position.set((r(i + 10) - 0.5) * 2.2, 4.2 + r(i + 20) * 1.8, (r(i + 30) - 0.5) * 2.2); g.add(s);
   }
   g.traverse((m) => { if (m.isMesh) m.castShadow = true; });
+  return g;
+}
+
+// LA fan palm: a tall bent trunk and a drooping crown; mostly a silhouette against the sky
+export function makePalm(height = 11, seed = 1, lean = 0.8) {
+  const g = new THREE.Group();
+  const r = (n) => { const x = Math.sin(seed * 12.9898 + n * 78.233) * 43758.5453; return x - Math.floor(x); };
+  const tg = new THREE.CylinderGeometry(0.17, 0.26, height, 8, 10); tg.translate(0, height / 2, 0);
+  const p = tg.attributes.position;
+  for (let i = 0; i < p.count; i++) { const t = p.getY(i) / height; p.setX(i, p.getX(i) + lean * t * t); }
+  tg.computeVertexNormals();
+  const trunk = new THREE.Mesh(tg, std(0xffffff, { map: tex('palmBark', [1, height / 1.2]), roughness: 0.95 }));
+  trunk.castShadow = true; g.add(trunk);
+  const fg = new THREE.PlaneGeometry(1.3, 3.4, 1, 8); fg.translate(0, 1.7, 0);
+  const fp = fg.attributes.position;
+  for (let i = 0; i < fp.count; i++) { const t = fp.getY(i) / 3.4; fp.setZ(i, -t * t * 1.5); }
+  fg.rotateX(-Math.PI / 2); fg.computeVertexNormals();
+  const leafM = std(0x2e3a22, { map: tex('frond'), alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.9 });
+  const deadM = std(0x5a4a32, { map: tex('frond'), alphaTest: 0.45, side: THREE.DoubleSide, roughness: 1 });
+  const crown = new THREE.Group(); crown.position.set(lean, height, 0); g.add(crown);
+  const n = 13;
+  for (let k = 0; k < n; k++) { const f = new THREE.Mesh(fg, leafM); f.rotation.order = 'YXZ'; f.rotation.y = k / n * Math.PI * 2 + r(k) * 0.3; f.rotation.x = 0.15 + r(k + 9) * 0.45; f.castShadow = true; crown.add(f); }
+  for (let k = 0; k < 6; k++) { const f = new THREE.Mesh(fg, deadM); f.rotation.order = 'YXZ'; f.rotation.y = k / 6 * Math.PI * 2 + 0.4; f.rotation.x = -0.9 - r(k + 20) * 0.3; f.scale.setScalar(0.75); f.position.y = -0.25; crown.add(f); }
   return g;
 }

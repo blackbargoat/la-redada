@@ -1,8 +1,9 @@
 // DAY 2 — Lunch break. The gas station across from Hammerline: cumbia on the radio, a burrito, Chuy and Beto.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792107186';
-import { tex, textTex, rng, facadeTex } from './textures.js?v=1792107186';
-import { makeCharacter, makeVehicle, animateWalk, makeGlow, makeCar, std } from './models.js?v=1792107186';
+import { Grid } from './grid.js?v=1792113053';
+import { tex, textTex, rng, facadeTex } from './textures.js?v=1792113053';
+import { makeCharacter, makeVehicle, animateWalk, makeGlow, makeCar, makePalm, std } from './models.js?v=1792113053';
+import { buildCity } from './street.js?v=1792113053';
 
 const VO = {
   k1: { id: 'l_k1', who: 'Cashier', text: '¡Buenas, mijo! Burritos are fresh. The tamales are from yesterday, but don\'t tell nobody.' },
@@ -21,112 +22,77 @@ export const LUNCH_VO = Object.values(VO).map((l) => l.id);
 export function createGasStation(G) {
   const { audio, ui, P, game } = G;
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xb8c8c8);
-  scene.fog = new THREE.Fog(0xb8c8c8, 30, 110);
-  const grid = new Grid(60, 50, -20, -12);
-  grid.fillAll(1, 1);
-  grid.rect(-19, -5, 39, 37, 0, 0);
+  const HAZE = 0xe0a088;
+  scene.background = new THREE.Color(HAZE);
+  scene.fog = new THREE.Fog(HAZE, 45, 170);
+  const grid = new Grid(150, 112, -59, -11);
   const L = { scene, grid, interactables: [], allowFlashlight: false, surface: 'concrete', allowSprint: true };
   const r = rng(1231);
-  // hazy midday, a little washed out
-  ui.post.exposure.value = 1.0; ui.post.sat.value = 0.62; ui.post.contrast.value = 1.08; ui.post.tint.value.set(1.03, 1.0, 0.92); ui.post.lift.value.set(0, 0, 0); ui.post.levels.value = 30;
+  // late afternoon, sun going down over the lot: warm, a little hazy
+  ui.post.exposure.value = 1.0; ui.post.sat.value = 0.86; ui.post.contrast.value = 1.06; ui.post.tint.value.set(1.06, 0.97, 0.9); ui.post.lift.value.set(0.01, 0, 0.012); ui.post.levels.value = 30;
 
   const box = (w, h, d, mat, x, y, z, cast = true) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = cast; m.receiveShadow = true; scene.add(m); return m; };
+  const plane = (w, h, mat, x, y, z, ry = 0, rx = 0) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat); m.position.set(x, y, z); m.rotation.set(rx, ry, 0); m.receiveShadow = true; scene.add(m); return m; };
   const solid = (x0, z0, x1, z1, o = 1) => grid.rect(x0, z0, x1, z1, 1, o);
+  const lit = (t, i = 1) => std(0xffffff, { map: t, emissiveMap: t, emissive: 0xffffff, emissiveIntensity: i });
 
-  // ---------------- ground ----------------
-  const lot = new THREE.Mesh(new THREE.PlaneGeometry(60, 22), std(0xffffff, { map: tex('concrete', [8, 3]), roughness: 0.8 })); lot.rotation.x = -Math.PI / 2; lot.position.set(10, 0, 5); lot.receiveShadow = true; scene.add(lot);
-  const road = new THREE.Mesh(new THREE.PlaneGeometry(120, 10), std(0xffffff, { map: tex('asphalt', [12, 1]), roughness: 0.75 })); road.rotation.x = -Math.PI / 2; road.position.set(10, 0.005, 22); scene.add(road);
-  for (let x = -40; x < 60; x += 6) { const d = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 0.15), std(0xb8a560)); d.rotation.x = -Math.PI / 2; d.position.set(x, 0.01, 22); scene.add(d); }
-  for (const z of [16.2, 27.8]) { const sw = new THREE.Mesh(new THREE.BoxGeometry(120, 0.15, 2.4), std(0xffffff, { map: tex('sidewalk', [48, 1]) })); sw.position.set(10, 0.075, z); scene.add(sw); }
-
-  // ---------------- across the street: Hammerline ----------------
-  const hl = box(44, 9, 14, std(0xffffff, { map: tex('block', [12, 3]), roughness: 0.95 }), 10, 4.5, 37, false);
-  const signT = textTex(1024, 200, '#d2541c', [{ text: 'HAMMERLINE DEPOT', size: 120, color: '#fff', y: 108 }]);
-  const sign = new THREE.Mesh(new THREE.PlaneGeometry(16, 3.1), std(0xffffff, { map: signT })); sign.position.set(10, 7, 29.95); sign.rotation.y = Math.PI; scene.add(sign);
-  box(7, 3.2, 0.1, new THREE.MeshStandardMaterial({ color: 0x223038, transparent: true, opacity: 0.6, roughness: 0.05, metalness: 0.8 }), 10, 1.6, 29.95, false);
-  solid(-20, 29, 39, 37);
-  // a couple of shops down the block
-  for (let i = 0; i < 2; i++) { const fac = facadeTex(70 + i, 2, 4, ['#8a7a68', '#7a8a84'][i]); const b = box(12, 7, 10, [std(0x8a7a68), std(0x8a7a68), std(0x8a7a68), std(0x8a7a68), std(0xffffff, { map: fac.map }), std(0x8a7a68)], -14 + i * 48, 3.5, -7, false); }
-
-  // ---------------- pumps + canopy ----------------
-  const canopy = box(14, 0.6, 8, std(0xe8e4dc, { roughness: 0.6 }), 2, 4.6, 6, false);
-  const canopyT = textTex(512, 64, '#b02a1a', [{ text: 'QUIK-WAY  GAS', size: 44, color: '#fff' }]);
-  const cs = new THREE.Mesh(new THREE.PlaneGeometry(6, 0.55), std(0xffffff, { map: canopyT })); cs.position.set(2, 4.6, 10.02); scene.add(cs);
-  for (const x of [-3.5, 7.5]) for (const z of [3, 9]) { box(0.3, 4.3, 0.3, std(0xd8d4cc), x, 2.15, z, false); solid(Math.floor(x), Math.floor(z), Math.floor(x), Math.floor(z), 0); }
-  for (const x of [-1, 5]) {
-    box(1.0, 0.25, 4, std(0x9a9a94), x, 0.12, 6); solid(Math.floor(x) - 1, 4, Math.floor(x), 7, 0);
-    for (const z of [5, 7]) { box(0.8, 1.7, 0.55, std(0xd8d4cc, { roughness: 0.5 }), x, 1.1, z); const scr = box(0.4, 0.3, 0.02, std(0x1a2a2a, { emissive: 0x2a5a4a, emissiveIntensity: 0.6 }), x, 1.5, z + 0.29, false); }
+  // ---------------- sky: sunset gradient, sun glow, lit clouds ----------------
+  const SUN = new THREE.Vector3(-0.62, 0.16, 0.77).normalize();
+  {
+    const g = new THREE.SphereGeometry(220, 48, 24), pos = g.attributes.position, cols = [];
+    const zen = new THREE.Color(0x3c4a7c), mid = new THREE.Color(0xd88a92), hor = new THREE.Color(0xffb27a), sunC = new THREE.Color(0xfff0c0), c = new THREE.Color(), v = new THREE.Vector3();
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i).normalize();
+      const e = Math.max(0, v.y);
+      c.copy(hor).lerp(mid, Math.min(1, e / 0.22)); if (e > 0.22) c.lerp(zen, Math.min(1, (e - 0.22) / 0.6));
+      if (v.y < 0) c.copy(hor).multiplyScalar(0.85);
+      const d = Math.max(0, v.dot(SUN)); c.lerp(sunC, Math.pow(d, 24) * 0.9 + Math.pow(d, 4) * 0.25);
+      cols.push(c.r, c.g, c.b);
+    }
+    g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+    scene.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false })));
+    const sunDisc = makeGlow(0xfff2c8, 26, 1); sunDisc.position.copy(SUN).multiplyScalar(200); sunDisc.material.fog = false; scene.add(sunDisc);
+    const cc = document.createElement('canvas'); cc.width = 256; cc.height = 128; const cx = cc.getContext('2d');
+    for (let k = 0; k < 26; k++) { const x = 30 + r() * 196, y = 50 + r() * 40, rad = 14 + r() * 30; const gr = cx.createRadialGradient(x, y, 0, x, y, rad); gr.addColorStop(0, 'rgba(255,255,255,0.75)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); cx.fillStyle = gr; cx.fillRect(x - rad, y - rad, rad * 2, rad * 2); }
+    const cloudT = new THREE.CanvasTexture(cc); cloudT.colorSpace = THREE.SRGBColorSpace;
+    const clouds = [[-0.5, 0.22, 0xffc89a, 90], [-0.1, 0.3, 0xf0a0a0, 110], [0.6, 0.26, 0xf4b0a0, 80], [1.4, 0.2, 0xe89aa8, 100], [2.3, 0.28, 0xffb890, 120], [3.1, 0.18, 0xf8c0a0, 90], [4.2, 0.34, 0xd890a8, 130], [5.2, 0.24, 0xffc0a0, 100]];
+    for (const [ang, el, col, w] of clouds) { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w * 0.32), new THREE.MeshBasicMaterial({ map: cloudT, color: col, transparent: true, depthWrite: false, fog: false })); m.position.set(Math.sin(ang) * 190, 190 * el + 12, Math.cos(ang) * 190); m.lookAt(0, m.position.y * 0.6, 0); scene.add(m); }
   }
+
+  // ---------------- the neighbourhood: the same Whittier Blvd as night 1, turned so the QUIK-WAY sits at this scene's origin ----------------
+  // street (x, z) -> here (-z - 44, x + 24); Whittier runs along x at z = 24, Hammerline is across it, Mott St is down the block
+  const city = new THREE.Group(); city.rotation.y = -Math.PI / 2; city.position.set(-44, 0, 24); scene.add(city);
+  const cityGrid = { fillAll: (s2, o2) => grid.fillAll(s2, o2), rect: (x0, z0, x1, z1, s2 = 1, o2 = 1) => grid.rect(-z1 - 45, x0 + 24, -z0 - 45, x1 + 24, s2, o2) };
+  const C = buildCity(city, cityGrid, rng(4242), { day: true });
+  // daytime: streetlights, porch lights and candles off; neon barely shows in the sun
+  for (const lp of [...C.lamps, ...C.mottLamps]) { lp.light.intensity = 0; lp.headM.emissiveIntensity = 0; lp.glow.visible = false; lp.cone.visible = false; }
+  C.mottLamps.length = 0;
+  for (const pl of C.porchLights) { pl.l.intensity = 0; pl.gw.visible = false; pl.m.emissiveIntensity = 0; }
+  C.neonLights.forEach((n) => { if (n.isLight) n.intensity = 0; else n.visible = false; });
+  C.neon.forEach((m) => (m.emissiveIntensity = Math.min(m.emissiveIntensity, 0.25)));
+  C.windowMats.forEach((m) => (m.emissiveIntensity = 0.15));
+  city.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
+
+  // ---------------- the mini-mart (built by the city) ----------------
+  const MX0 = 10, MX1 = 22, MZ0 = -5, MZ1 = 3;
+  const mart = C.quik;
+  const { foodItems } = mart;
   // a car at the pump, windows down, the radio going
-  const car = makeVehicle('suv', 4.4, 0x6a1f1f, 0.3) || makeCar(0x6b1f1f); car.position.set(2, 0, 6); car.rotation.y = Math.PI / 2; scene.add(car); solid(0, 5, 3, 6, 0);
-  const parked = makeVehicle('suv', 4.3, 0x4a4a48, 0.3) || makeCar(0x4a4f55); parked.position.set(26, 0, 10); scene.add(parked); solid(25, 8, 26, 12, 0);
+  const car = makeVehicle('suv', 4.4, 0x6a1f1f, 0.3) || makeCar(0x6b1f1f); car.position.set(16.5, 0, 9.5); scene.add(car); solid(16, 7, 17, 11, 0);
 
-  // ---------------- the mini-mart ----------------
-  const MX0 = 10, MX1 = 22, MZ0 = -5, MZ1 = 3; // walls on these lines
-  const wallM = std(0xd8ccb0, { map: tex('stucco', [3, 1]), roughness: 0.95 });
-  const wall = (x0, z0, x1, z1) => { solid(x0, z0, x1, z1); box(x1 - x0 + 1, 3.4, z1 - z0 + 1, wallM, (x0 + x1 + 1) / 2, 1.7, (z0 + z1 + 1) / 2, false); };
-  wall(MX0, MZ0, MX1, MZ0); wall(MX0, MZ0 + 1, MX0, MZ1); wall(MX1, MZ0 + 1, MX1, MZ1);
-  wall(MX0 + 1, MZ1, 13, MZ1); wall(16, MZ1, MX1 - 1, MZ1); // door gap x 14..15
-  box(2, 0.9, 1, wallM, 15, 2.95, MZ1 + 0.5, false);
-  const roofM = std(0x6a6a64); box(13, 0.3, 9, roofM, 16.5, 3.55, -0.5, false);
-  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(11, 7), std(0xe8e4dc)); ceil.rotation.x = Math.PI / 2; ceil.position.set(16.5, 3.39, -0.5); scene.add(ceil);
-  const martT = textTex(512, 96, '#1a3a6a', [{ text: 'QUIK-WAY MINI MART', size: 52, color: '#f0e8d0' }]);
-  const ms = new THREE.Mesh(new THREE.PlaneGeometry(7, 1.2), std(0xffffff, { map: martT })); ms.position.set(16.5, 3.05, MZ1 + 1.02); scene.add(ms);
-  const glassM = new THREE.MeshStandardMaterial({ color: 0x9ab0b8, transparent: true, opacity: 0.3, roughness: 0.05, metalness: 0.6 });
-  box(1.8, 2.0, 0.05, glassM, 12, 1.4, MZ1 + 1.02, false); box(4, 2.0, 0.05, glassM, 19, 1.4, MZ1 + 1.02, false);
-  // window posters
-  const posters = [['TECATE 12PK $14.99', '#c02a1a'], ['TARJETAS TELEFÓNICAS', '#2a5ab0'], ['LOTTO · SCRATCHERS', '#e0a020']];
-  posters.forEach(([t, c], i) => { const pt = textTex(256, 128, c, [{ text: t, size: 22, color: '#fff' }]); const p = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.5), std(0xffffff, { map: pt })); p.position.set(18 + i * 1.1, 1.8, MZ1 + 1.06); scene.add(p); });
-  // inside: shelves, coolers, hot case, counter
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(11, 7), std(0xffffff, { map: tex('concrete', [3, 2]), roughness: 0.35 })); floor.rotation.x = -Math.PI / 2; floor.position.set(16.5, 0.01, -0.5); scene.add(floor);
-  const prodCols = [0xc02a1a, 0xe0a020, 0x2a5ab0, 0x3a8a3a, 0xd0d0c8, 0x8a2a8a];
-  for (const sx of [13, 15.5]) {
-    const shelfM = std(0x8a8a84, { metalness: 0.3, roughness: 0.5 });
-    box(0.1, 1.5, 3.4, shelfM, sx, 0.75, -1.2); solid(Math.floor(sx) - 1, -3, Math.floor(sx), 0);
-    for (const y of [0.1, 0.55, 1.0]) box(0.9, 0.04, 3.4, shelfM, sx, y, -1.2, false);
-    for (const side of [-1, 1]) for (const y of [0.12, 0.57, 1.02]) { let z = -2.8; while (z < 0.4) { const w = 0.12 + r() * 0.16, h = 0.12 + r() * 0.2; box(0.3, h, w, std(prodCols[(r() * 6) | 0], { roughness: 0.6 }), sx + side * 0.25, y + 0.02 + h / 2, z + w / 2, false); z += w + 0.03; } }
-  }
-  // coolers on the back wall
-  box(8, 2.3, 0.8, std(0x2a2a2a, { metalness: 0.4 }), 15.5, 1.15, -4.4, false); solid(11, -5, 19, -4);
-  const coolGlass = box(7.8, 1.9, 0.04, new THREE.MeshStandardMaterial({ color: 0xa8c0cc, transparent: true, opacity: 0.18, roughness: 0.05, emissive: 0x1a2a30, emissiveIntensity: 0.4 }), 15.5, 1.2, -3.98, false);
-  for (let k = 0; k < 40; k++) box(0.12, 0.3, 0.12, std(prodCols[(r() * 6) | 0], { emissive: 0x101010 }), 12 + (k % 20) * 0.37, 0.55 + Math.floor(k / 20) * 0.8, -4.3, false);
-  const coolL = new THREE.PointLight(0xd8f0ff, 1.5, 4, 1.5); coolL.position.set(15.5, 1.4, -3.4); scene.add(coolL);
-  // hot food case + counter + register + the radio
-  const counterM = std(0x5a3a22, { map: tex('plywood', [3, 1]) });
-  box(1.2, 1.0, 3.2, counterM, 20.4, 0.5, -1.4); solid(19, -3, 20, 0);
-  box(1.2, 0.05, 3.3, std(0xd8cfb8, { roughness: 0.3 }), 20.4, 1.02, -1.4, false);
-  box(0.4, 0.25, 0.35, std(0x1a1a1a), 20.2, 1.17, -0.4, false);
-  const radio = box(0.4, 0.22, 0.18, std(0x3a2a1a, { roughness: 0.5 }), 20.6, 1.15, -2.4, false);
-  const hotCase = box(1.2, 0.6, 0.7, new THREE.MeshStandardMaterial({ color: 0xffe0b0, transparent: true, opacity: 0.4, emissive: 0x804010, emissiveIntensity: 0.6 }), 18.3, 1.3, 1.6, false);
-  box(1.3, 1.0, 0.75, std(0x8a8a84, { metalness: 0.4 }), 18.3, 0.5, 1.6); solid(17, 1, 18, 2);
-  const foodItems = [];
-  for (let k = 0; k < 6; k++) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.22, 8), std(k < 3 ? 0xc8ccd0 : 0xd8b878, { metalness: k < 3 ? 0.8 : 0, roughness: 0.4 })); b.rotation.z = Math.PI / 2; b.position.set(17.9 + (k % 3) * 0.3, 1.15 + Math.floor(k / 3) * 0.18, 1.6); scene.add(b); foodItems.push(b); }
-  const hotT = textTex(256, 64, '#c02a1a', [{ text: 'BURRITOS · TAMALES', size: 28, color: '#fff' }]);
-  const hotS = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.28), std(0xffffff, { map: hotT })); hotS.position.set(18.3, 1.78, 1.24); hotS.rotation.y = Math.PI; scene.add(hotS);
-  const hotL = new THREE.PointLight(0xffb060, 2, 3, 1.6); hotL.position.set(18.3, 1.5, 1.2); scene.add(hotL);
-  for (const [x, z] of [[13, -1], [17.5, -1]]) { const l = new THREE.PointLight(0xf0f4e8, 7, 8, 1.4); l.position.set(x, 3.2, z); scene.add(l); const tube = box(0.25, 0.06, 1.8, std(0x222222, { emissive: 0xf0f4e8, emissiveIntensity: 1.6 }), x, 3.35, z, false); }
-  // the bench and the ice machine out front
-  const bench = box(2.2, 0.45, 0.6, std(0x5a3a22, { map: tex('plywood', [2, 1]) }), 19, 0.45, 5.0); solid(18, 5, 19, 5, 0);
-  box(0.1, 0.45, 0.6, std(0x333333), 18, 0.22, 5); box(0.1, 0.45, 0.6, std(0x333333), 20, 0.22, 5);
-  box(1.2, 1.6, 0.9, std(0xe8e8e8, { metalness: 0.3 }), 21.2, 0.8, 4.6); solid(21, 4, 21, 5);
-  const iceT = textTex(256, 128, '#1a5ab0', [{ text: 'ICE', size: 70, color: '#fff' }]);
-  const iceS = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.45), std(0xffffff, { map: iceT })); iceS.position.set(21.2, 1.15, 5.06); scene.add(iceS);
-
-  // ---------------- sky + light ----------------
-  const sky = new THREE.Mesh(new THREE.SphereGeometry(200, 16, 8), new THREE.MeshBasicMaterial({ color: 0xc8d4d4, side: THREE.BackSide, fog: false })); scene.add(sky);
-  scene.add(new THREE.HemisphereLight(0xe8ecf0, 0x7a6a50, 1.0));
-  const sun = new THREE.DirectionalLight(0xfff0d0, 2.6); sun.position.set(-20, 30, 25); sun.target.position.set(10, 0, 5); scene.add(sun); scene.add(sun.target);
-  sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -25, right: 25, top: 25, bottom: -25, near: 1, far: 90 }); sun.shadow.bias = -0.0008;
+  // ---------------- sun + sky light ----------------
+  scene.add(new THREE.HemisphereLight(0xf0b8a0, 0x5a4434, 0.95));
+  const sun = new THREE.DirectionalLight(0xffb070, 3.0); sun.position.set(10 + SUN.x * 60, SUN.y * 60, 5 + SUN.z * 60); sun.target.position.set(14, 0, 10); scene.add(sun); scene.add(sun.target);
+  sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -32, right: 32, top: 26, bottom: -26, near: 1, far: 140 }); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.02;
 
   // ---------------- people ----------------
   const npc = (kind, fb, h, x, z, yaw) => { const c = makeCharacter(kind, fb, h); c.group.position.set(x, 0, z); c.group.rotation.y = yaw; c.baseYaw = yaw; scene.add(c.group); animateWalk(c, 0, 0, false); return c; };
-  const cashier = npc('elena', { shirt: 0x2a5ab0, pants: 0x2a2a3a, skin: 0x8a5a3a }, 1.6, 21.4, -1.4, -Math.PI / 2);
+  const cashier = npc('elena', { shirt: 0x2a5ab0, pants: 0x2a2a3a, skin: 0x8a5a3a }, 1.6, 21.2, -1.4, -Math.PI / 2);
   const chuy = npc('chuy', { shirt: 0x5a5a5a, pants: 0x2a3a5a, skin: 0x9a6644 }, 1.74, 17.3, 6.2, Math.PI * 0.85);
   const beto = npc('beto', { shirt: 0x6a3a2a, pants: 0x5a4a3a, skin: 0x8a5a3a, mustache: true }, 1.72, 20.7, 6.3, -Math.PI * 0.85);
   const people = [cashier, chuy, beto];
   solid(17, 6, 17, 6, 0); solid(20, 6, 20, 6, 0); solid(21, -2, 21, -1, 0);
-  const pumper = npc('gus', { shirt: 0x3a5a3a, pants: 0x3a3a3a }, 1.72, 3.5, 4.6, Math.PI);
+  const pumper = npc('gus', { shirt: 0x3a5a3a, pants: 0x3a3a3a }, 1.72, 15.1, 12.2, Math.PI);
 
   // burrito in hand
   const carry = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.17, 10), std(0xc8ccd0, { metalness: 0.8, roughness: 0.35 })); carry.rotation.set(0.3, 0, Math.PI / 2.4); carry.position.set(0.3, -0.32, -0.62); carry.visible = false; G.camera.add(carry);
@@ -138,8 +104,8 @@ export function createGasStation(G) {
   audio.preloadVo(LUNCH_VO);
   audio.cityBed(); audio.setLoop('city', 0.12, 2);
   audio.startCumbia(null); audio.cumbiaLevel(0.4);
-  ui.clock('12:31 PM');
-  P.pos.set(4, 0, 27); P.yaw = 0; P.pitch = 0; P.flashlight = false;
+  ui.clock('5:14 PM');
+  P.pos.set(16.5, 0, 31); P.yaw = 0; P.pitch = 0; P.flashlight = false;
   at(1.0, () => ui.objective('Get some food. The gas station across the street.'));
   let goal = [14.5, 4.5];
   const it = (o) => { L.interactables.push(o); return o; };
@@ -153,7 +119,7 @@ export function createGasStation(G) {
     at(1.2, () => { eatT = 0; carry.position.set(0.2, -0.26, -0.55); });
     at(1.6, () => say('ch1', 'j1', 'b1', 'ch2', 'b2', 'j2', 'b3', 'ch3').then(() => {
       if (sitT >= 0) P.pos.set(19, 0, 6.1); sitT = -1; P.frozen = false; P.eye = 1.62; carry.visible = false; stage = 'back';
-      ui.objective('Back to work. Cross the street to Hammerline.'); goal = [10, 28];
+      ui.objective('Back to work. Cross the street to Hammerline.'); goal = [16.5, 31];
     }));
   } });
 
@@ -181,7 +147,7 @@ export function createGasStation(G) {
     }
     if (eatT >= 0 && eatT < 12) { const before = eatT; eatT += dt; P.food = Math.min(1, P.food + dt / 12); if (Math.floor(eatT / 2.4) !== Math.floor(before / 2.4)) audio.rustle({ x: P.pos.x, y: 1, z: P.pos.z - 0.3 }); if (eatT >= 12) { P.food = 1; game.eat(0); ui.toast('YOU ATE'); } }
     // back across the street
-    if (stage === 'back' && P.pos.z > 27) { stage = 'done'; ui.objective(''); game.nextChapter(); }
+    if (stage === 'back' && P.pos.z > 29.5) { stage = 'done'; ui.objective(''); game.nextChapter(); }
     const de = document.getElementById('dirHint');
     if (goal && !P.frozen) { de.style.opacity = 0.42; const ang = Math.atan2(goal[0] - P.pos.x, goal[1] - P.pos.z), rel = ang - (P.yaw + Math.PI); de.querySelector('i').style.transform = `rotate(${-rel}rad)`; de.querySelector('b').textContent = `${Math.round(Math.hypot(goal[0] - P.pos.x, goal[1] - P.pos.z))}m`; } else de.style.opacity = 0;
   };
