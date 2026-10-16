@@ -1,8 +1,8 @@
 // QUIK-WAY gas & mini mart: the corner store across Whittier from Hammerline. Built once here,
 // placed in the Day 2 lunch scene and on the Whittier lot in Night 1 (where you can walk in and look around).
 import * as THREE from 'three';
-import { tex, textTex } from './textures.js?v=1792114421';
-import { std } from './models.js?v=1792114421';
+import { tex, textTex } from './textures.js?v=1792114638';
+import { std } from './models.js?v=1792114638';
 
 // local frame: storefront faces +z on z = 3.5, walls on x 10..23, z -5..4; o.pos/o.rot place it in the world
 export function buildQuikWay(scene, grid, o = {}) {

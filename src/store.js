@@ -1,8 +1,8 @@
 // DAY 2 — Hammerline Depot. mode 'work': the day shift. mode 'close': closing time, the raid, the hatch.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792114421';
-import { tex, textTex, rng } from './textures.js?v=1792114421';
-import { makeHumanoid, makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeShoppingCart, makeDumpster, makeTrashBag, std } from './models.js?v=1792114421';
+import { Grid } from './grid.js?v=1792114638';
+import { tex, textTex, rng } from './textures.js?v=1792114638';
+import { makeHumanoid, makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeShoppingCart, makeDumpster, makeTrashBag, std } from './models.js?v=1792114638';
 
 const VO = {
   out: { id: 'sr_out', who: 'Agent (radio)', text: 'Back door\'s locked down. He\'s inside. Nobody leaves this building.', radio: true, agent: true },
@@ -127,8 +127,11 @@ export function createStore(G, mode = 'close', checkpoint = 0) {
   const cork = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.9), std(0xa07a50)); cork.position.set(2.6, 1.6, 8.98); cork.rotation.y = Math.PI; scene.add(cork);
   for (let i = 0; i < 5; i++) { const n = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.25), std(0xe8e4d8)); n.position.set(2.1 + i * 0.25, 1.6 + (i % 2) * 0.15, 8.96); n.rotation.y = Math.PI; scene.add(n); }
   // office
-  box(5, 0.78, 2, std(0x3a2c22), 17.5, 0.39, 4); grid.rect(15, 3, 19, 4, 1, 0);
-  const mon = box(0.7, 0.45, 0.06, std(0x111111, { emissive: 0x334455, emissiveIntensity: 0.6 }), 16.6, 1.05, 3.6);
+  { const wood = std(0x4a3626, { map: tex('plywood', [2, 1]), roughness: 0.6 }), dk = std(0x2a2018);
+    box(5, 0.06, 2, wood, 17.5, 0.75, 4); box(4.9, 0.6, 0.04, dk, 17.5, 0.42, 3.05);
+    for (const x of [15.45, 19.55]) { box(0.85, 0.72, 1.9, dk, x, 0.36, 4); for (let k = 0; k < 3; k++) { box(0.7, 0.18, 0.02, wood, x, 0.15 + k * 0.22, 4.96, false); box(0.16, 0.025, 0.03, std(0xb8b0a0, { metalness: 0.7 }), x, 0.2 + k * 0.22, 4.98, false); } } }
+  grid.rect(15, 3, 19, 4, 1, 0);
+  const mon = box(0.7, 0.45, 0.06, std(0x111111, { emissive: 0x334455, emissiveIntensity: 0.6 }), 16.6, 1.12, 3.6); box(0.06, 0.25, 0.06, std(0x1a1a1a), 16.6, 0.9, 3.55, false); box(0.3, 0.02, 0.2, std(0x1a1a1a), 16.6, 0.79, 3.55, false);
   const keyMesh = box(0.12, 0.02, 0.06, std(0xc8a040, { metalness: 0.9, roughness: 0.2 }), 18.2, 0.8, 4.5, false);
   const keyGlow = makeGlow(0xffd27a, 0.25, 0.6); keyGlow.position.set(18.2, 0.85, 4.5); scene.add(keyGlow);
   box(1.6, 1.3, 0.6, metalM, 14.2, 0.65, 1.4); grid.rect(13, 1, 14, 1);
@@ -221,15 +224,15 @@ export function createStore(G, mode = 'close', checkpoint = 0) {
   const cartAt = (x, z, ry = 0) => { const c = makeShoppingCart(); c.position.set(x, 0, z); c.rotation.y = ry; scene.add(c); return c; };
   // the cart corral: open floor between the checkouts and the front wall, steel rails, a sign on a post.
   // Carts nest in a line facing -x; returned carts slide in at the open (east) end.
-  const CORRAL = { x: 17.6, z: 43.2, step: 0.34, slot: (k) => 17.6 + k * 0.34 };
+  const CORRAL = { x: 17.6, z: 43.8, step: 0.34, slot: (k) => 17.6 + k * 0.34 };
   { const rail = std(0x9a9ea0, { metalness: 0.8, roughness: 0.35 }), yel = std(0xe0b020, { roughness: 0.5 });
-    for (const y of [0.45, 0.9]) { box(6.6, 0.05, 0.05, rail, 20.0, y, 42.45, false); box(0.05, 0.05, 1.5, rail, 16.7, y, 43.2, false); }
-    for (const x of [16.7, 18.9, 21.1, 23.3]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.95, 8), rail); p.position.set(x, 0.47, 42.45); scene.add(p); }
-    const bol = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 1.0, 12), yel); bol.position.set(23.6, 0.5, 42.45); scene.add(bol);
-    const sp = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.4, 8), rail); sp.position.set(16.7, 1.2, 42.45); scene.add(sp);
+    for (const y of [0.45, 0.9]) { box(6.6, 0.05, 0.05, rail, 20.0, y, 43.1, false); box(0.05, 0.05, 1.5, rail, 16.7, y, 43.85, false); }
+    for (const x of [16.7, 18.9, 21.1, 23.3]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.95, 8), rail); p.position.set(x, 0.47, 43.1); scene.add(p); }
+    const bol = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 1.0, 12), yel); bol.position.set(23.6, 0.5, 43.1); scene.add(bol);
+    const sp = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.4, 8), rail); sp.position.set(16.7, 1.2, 43.1); scene.add(sp);
     const sT = textTex(512, 160, '#d2541c', [{ text: 'SHOPPING CARTS', size: 64, color: '#fff', y: 62 }, { text: 'RETURN HERE · GRACIAS', size: 30, color: '#ffe8d0', y: 122, weight: 'normal' }]);
-    const sg = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.44, 0.04), [std(0xd2541c), std(0xd2541c), std(0xd2541c), std(0xd2541c), std(0xffffff, { map: sT }), std(0xffffff, { map: sT })]); sg.position.set(16.7, 2.35, 42.45); scene.add(sg);
-    grid.rect(16, 42, 23, 43, 1, 0); }
+    const sg = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.44, 0.04), [std(0xd2541c), std(0xd2541c), std(0xd2541c), std(0xd2541c), std(0xffffff, { map: sT }), std(0xffffff, { map: sT })]); sg.position.set(16.7, 2.35, 43.1); scene.add(sg);
+    grid.rect(16, 43, 23, 44, 1, 0); }
   const carts = [];
   for (let i = 0; i < 4; i++) carts.push(cartAt(CORRAL.slot(i), CORRAL.z, -Math.PI / 2));
   const rogueCart = cartAt(12, 37, Math.PI / 2);
@@ -279,9 +282,11 @@ export function createStore(G, mode = 'close', checkpoint = 0) {
   });
   const AL = [0, 1, 2, 3].map(() => { const s = new THREE.SpotLight(0xdde8ff, 0, 22, 0.34, 0.5, 1.1); s.position.set(0, -50, 0); s.castShadow = true; s.shadow.mapSize.set(512, 512); s.shadow.camera.near = 0.4; s.shadow.camera.far = 24; s.shadow.bias = -0.0005; s.shadow.normalBias = 0.04; scene.add(s); scene.add(s.target); return s; });
 
+  const roomLights = [], roomFixM = [];
   function setPower(on) {
     L.power = on;
     overhead.forEach((l) => (l.intensity = on ? 60 : 0));
+    roomLights.forEach((l) => (l.intensity = on ? 9 : 0)); roomFixM.forEach((m) => (m.emissiveIntensity = on ? 1.4 : 0));
     nightLights.forEach((n) => { n.l.intensity = on ? 0 : n.base; });
     hemi.intensity = on ? 0.45 : 0.06;
     fixM.emissiveIntensity = on ? 2.2 : 0;
@@ -591,6 +596,109 @@ export function createStore(G, mode = 'close', checkpoint = 0) {
   // time clock on the break room wall
   box(0.35, 0.45, 0.12, std(0xb8b4a8, { metalness: 0.3 }), 9.5, 1.45, 8.9, false);
   const tcScreen = box(0.22, 0.08, 0.02, std(0x1a2a1a, { emissive: 0x3a8a4a, emissiveIntensity: WORK ? 0.8 : 0.3 }), 9.5, 1.55, 8.83, false);
+  // ================= back rooms + front end, furnished =================
+  {
+    const plain = (c, o = {}) => std(c, { roughness: 0.6, ...o });
+    const steel = plain(0x9a9ea2, { metalness: 0.7, roughness: 0.35 }), blk = plain(0x1a1a1c), wht = plain(0xe8e6e0), wood = std(0x6a4a30, { map: tex('plywood', [1, 1]), roughness: 0.65 });
+    const sign = (w, h, bg, lines, x, y, z, ry = 0, lit = 0) => { const t = textTex(Math.round(w * 400), Math.round(h * 400), bg, lines); const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), lit ? std(0xffffff, { map: t, emissiveMap: t, emissive: 0xffffff, emissiveIntensity: lit }) : std(0xffffff, { map: t })); m.position.set(x, y, z); m.rotation.y = ry; scene.add(m); return m; };
+    const chair = (x, z, ry, col = 0x2a3a5a) => { const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = ry; scene.add(g);
+      const a = (w, h, d, m, px, py, pz) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(px, py, pz); o.castShadow = true; g.add(o); };
+      const seatM = plain(col); a(0.44, 0.05, 0.42, seatM, 0, 0.45, 0); a(0.44, 0.38, 0.04, seatM, 0, 0.68, -0.2);
+      for (const [lx, lz] of [[-0.19, -0.18], [0.19, -0.18], [-0.19, 0.18], [0.19, 0.18]]) a(0.025, 0.45, 0.025, steel, lx, 0.22, lz); return g; };
+    const tube = (x, y, z, w, h, d, c = 0x1a1a1a) => box(w, h, d, plain(c, { metalness: 0.4 }), x, y, z, false);
+    const fixture = (x, z, len = 1.2) => { box(0.32, 0.06, len, plain(0xd8d8d0), x, BH - 0.03, z, false); const fm = std(0x222222, { emissive: 0xf0f4e8, emissiveIntensity: L.power ? 1.4 : 0 }); roomFixM.push(fm); box(0.24, 0.02, len - 0.1, fm, x, BH - 0.07, z, false); };
+    for (const [lx, lz] of [[6.5, 5], [17.5, 4.8], [28.5, 4.5]]) { const l = new THREE.PointLight(0xf0f4e8, L.power ? 9 : 0, 10, 1.4); l.position.set(lx, BH - 0.3, lz); scene.add(l); roomLights.push(l); }
+
+    // ---- break room: kitchenette, fridge, table + chairs, vending, notices ----
+    box(0.62, 0.86, 3.4, wood, 1.32, 0.43, 4.8); box(0.68, 0.04, 3.5, plain(0xc8c0a8), 1.34, 0.88, 4.8); grid.rect(1, 3, 1, 6, 1, 0);
+    for (let k = 0; k < 4; k++) box(0.02, 0.7, 0.8, plain(0x5a3e28), 1.64, 0.43, 3.4 + k * 0.85, false);
+    box(0.4, 0.04, 0.5, steel, 1.32, 0.905, 5.6, false); box(0.04, 0.25, 0.04, steel, 1.12, 1.03, 5.6, false); box(0.18, 0.03, 0.03, steel, 1.2, 1.15, 5.6, false); // sink + faucet
+    box(0.5, 0.3, 0.38, plain(0xd8d8d0), 1.3, 1.06, 3.6); box(0.02, 0.2, 0.26, std(0x101010, { emissive: 0x203020, emissiveIntensity: 0.4 }), 1.56, 1.06, 3.55, false); // microwave
+    box(0.24, 0.36, 0.26, blk, 1.3, 1.08, 4.4); box(0.14, 0.14, 0.14, std(0x3a2a1a, { transparent: true, opacity: 0.7 }), 1.38, 0.97, 4.4, false); // coffee maker
+    box(0.12, 0.28, 0.12, wht, 1.3, 1.04, 6.2, false); // paper towels
+    box(0.78, 1.8, 0.72, plain(0xe0e0d8, { metalness: 0.2 }), 1.45, 0.9, 7.6); box(0.03, 0.5, 0.04, steel, 1.86, 1.2, 7.3, false); box(0.03, 0.3, 0.04, steel, 1.86, 0.55, 7.3, false); grid.rect(1, 7, 1, 7, 1, 0);
+    for (let k = 0; k < 4; k++) box(0.08, 0.1, 0.01, plain([0xc02a1a, 0x2a5ab0, 0xe0b020, 0x3a8a3a][k]), 1.86, 1.3 + (k % 2) * 0.12, 7.5 + k * 0.08, false); // fridge magnets
+    // table: top on legs, four chairs, a napkin holder and somebody's thermos
+    for (const [lx, lz] of [[5.15, 5.1], [7.85, 5.1], [5.15, 6.9], [7.85, 6.9]]) box(0.06, 0.74, 0.06, steel, lx, 0.37, lz, false);
+    chair(5.6, 4.6, 0); chair(7.4, 4.6, 0); chair(5.6, 7.4, Math.PI); chair(7.4, 7.4, Math.PI, 0x5a2a2a);
+    for (const [cx2, cz2] of [[5, 4], [7, 4], [5, 7], [7, 7]]) grid.rect(cx2, cz2, cx2, cz2, 1, 0);
+    box(0.14, 0.12, 0.07, steel, 6.5, 0.88, 6, false); box(0.1, 0.24, 0.1, plain(0x2a5a3a), 7.2, 0.94, 5.7, false);
+    // vending: lit product window, coin panel; and a drink machine beside it
+    const vend = (x, z, col, label, rows) => {
+      const c = document.createElement('canvas'); c.width = 128; c.height = 192; const x2 = c.getContext('2d'); x2.fillStyle = '#101418'; x2.fillRect(0, 0, 128, 192);
+      for (let j = 0; j < rows; j++) for (let i = 0; i < 5; i++) { x2.fillStyle = ['#d02a1a', '#f0b020', '#2a5ab0', '#3a9a3a', '#e86a1a', '#f4f0e6', '#8a2a8a'][(i * 3 + j * 5) % 7]; x2.fillRect(8 + i * 23, 10 + j * (172 / rows), 16, 172 / rows - 12); x2.fillStyle = '#888'; x2.fillRect(6 + i * 23, 10 + j * (172 / rows) + 172 / rows - 10, 20, 2); }
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+      const win = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 1.3), std(0xffffff, { map: t, emissiveMap: t, emissive: 0xffffff, emissiveIntensity: WORK ? 0.75 : 0.25 })); win.position.set(x - 0.41, 1.1, z - 0.08); win.rotation.y = -Math.PI / 2; scene.add(win);
+      box(0.02, 0.5, 0.18, plain(0x2a2a2a), x - 0.41, 1.3, z + 0.28, false); box(0.02, 0.18, 0.5, blk, x - 0.41, 0.3, z - 0.08, false);
+      sign(0.7, 0.18, col, [{ text: label, size: 48, color: '#fff' }], x - 0.415, 1.9, z, -Math.PI / 2, WORK ? 0.6 : 0.2);
+    };
+    vend(11.5, 5.5, '#c02a1a', 'SNACKS', 5);
+    box(0.85, 1.95, 0.8, plain(0x1a4a8a, { metalness: 0.3 }), 11.5, 0.97, 3.75); grid.rect(11, 3, 11, 4, 1, 1); vend(11.5, 3.75, '#1a4a8a', 'COLD DRINKS', 3);
+    box(0.4, 0.55, 0.4, plain(0x3a3a3a), 11.4, 0.27, 8.3); grid.rect(11, 8, 11, 8, 1, 0); // trash can
+    sign(0.9, 0.6, '#1d5a3a', [{ text: '214', size: 120, color: '#fff', y: 100 }, { text: 'DAYS WITHOUT AN ACCIDENT', size: 30, color: '#e8e4d0', y: 190 }], 11.99, 1.9, 7.2, -Math.PI / 2);
+    sign(0.6, 0.8, '#f0ece0', [{ text: 'DERECHOS DEL', size: 30, color: '#222', y: 40 }, { text: 'TRABAJADOR', size: 30, color: '#222', y: 76 }, { text: 'EMPLOYEE RIGHTS', size: 22, color: '#a02020', y: 120 }, { text: 'MINIMUM WAGE · OVERTIME', size: 14, color: '#444', y: 170 }, { text: 'BREAKS · SAFETY', size: 14, color: '#444', y: 196 }, { text: 'CALL 1-866-NO-SE-LO', size: 13, color: '#444', y: 240 }], 8.3, 1.65, 8.97, Math.PI);
+    sign(0.32, 0.32, '#f0ece0', [{ text: '12', size: 40, color: '#111', y: 30 }, { text: '·  3', size: 34, color: '#111', x: 100 }, { text: '6', size: 40, color: '#111', y: 100 }], 6, 2.95, 8.97, Math.PI);
+    fixture(6.5, 3.5, 1.4); fixture(6.5, 6.8, 1.4);
+
+    // ---- office: chair, keyboard, phone, papers, shelf of binders, whiteboard, water cooler, guest chairs ----
+    { const g = new THREE.Group(); g.position.set(16.7, 0, 5.6); g.rotation.y = Math.PI; scene.add(g); const seat = plain(0x1a1a1a);
+      const a = (w, h, d, m, px, py, pz) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(px, py, pz); o.castShadow = true; g.add(o); };
+      a(0.5, 0.08, 0.48, seat, 0, 0.5, 0); a(0.48, 0.58, 0.07, seat, 0, 0.86, -0.24); a(0.05, 0.38, 0.05, steel, 0, 0.27, 0);
+      for (let k = 0; k < 5; k++) { const ang = k / 5 * Math.PI * 2; const o = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.03, 0.3), steel); o.position.set(Math.sin(ang) * 0.15, 0.06, Math.cos(ang) * 0.15); o.rotation.y = ang; g.add(o); } }
+    box(0.5, 0.02, 0.16, plain(0x1a1a1a), 16.6, 0.79, 4.5, false); box(0.06, 0.02, 0.1, plain(0x1a1a1a), 17.05, 0.79, 4.55, false);
+    box(0.22, 0.08, 0.18, plain(0x2a2a2a), 19.3, 0.82, 3.7, false); box(0.2, 0.04, 0.06, plain(0x2a2a2a), 19.3, 0.88, 3.65, false); // desk phone
+    for (let k = 0; k < 6; k++) { const pp = box(0.22, 0.004, 0.3, wht, 18.6 + (k % 3) * 0.05, 0.785 + k * 0.006, 3.9 + (k % 2) * 0.04, false); pp.rotation.y = (k - 3) * 0.1; }
+    box(0.08, 0.1, 0.08, plain(0xc02a1a), 19.9, 0.83, 4.4, false); // mug
+    box(0.32, 2.0, 1.6, wood, 13.2, 1.0, 6.4); grid.rect(13, 6, 13, 7, 1, 0);
+    for (let j = 0; j < 4; j++) { box(0.3, 0.02, 1.56, wood, 13.25, 0.25 + j * 0.48, 6.4, false); for (let k = 0; k < 9; k++) box(0.24, 0.32, 0.08, plain([0x1a3a6a, 0xc8c0a0, 0x8a2a1a, 0x2a5a3a, 0x1a1a1a][(j + k) % 5]), 13.27, 0.43 + j * 0.48, 5.75 + k * 0.15, false); }
+    { const c = document.createElement('canvas'); c.width = 512; c.height = 256; const x2 = c.getContext('2d'); x2.fillStyle = '#f2f2ee'; x2.fillRect(0, 0, 512, 256); x2.strokeStyle = '#888'; x2.lineWidth = 2; for (let k = 1; k < 7; k++) { x2.beginPath(); x2.moveTo(k * 73, 30); x2.lineTo(k * 73, 250); x2.stroke(); } x2.beginPath(); x2.moveTo(0, 40); x2.lineTo(512, 40); x2.stroke();
+      x2.font = 'bold 18px Oswald, Arial'; x2.fillStyle = '#1a3a8a'; ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].forEach((d, i) => x2.fillText(d, 18 + i * 73, 26));
+      x2.font = '15px Arial'; const names = ['REYES', 'CHUY', 'BETO', 'ELENA', 'REYES', 'BETO', 'CHUY']; names.forEach((n, i) => { x2.fillStyle = n === 'REYES' ? '#b02020' : '#222'; x2.fillText(n, 12 + i * 73, 80); x2.fillText('7-CLOSE', 8 + i * 73, 100); });
+      x2.fillStyle = '#b02020'; x2.font = 'bold 20px Arial'; x2.fillText('NO OVERTIME.  — D.', 150, 200);
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; const wb = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.1), std(0xffffff, { map: t })); wb.position.set(18.2, 1.75, 1.03); scene.add(wb); box(2.3, 1.2, 0.03, steel, 18.2, 1.75, 1.0, false); box(2.2, 0.04, 0.08, steel, 18.2, 1.17, 1.06, false); }
+    box(0.36, 0.9, 0.36, wht, 21.6, 0.45, 7.9); { const jug = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.45, 12), std(0x6aa8d8, { transparent: true, opacity: 0.6, roughness: 0.1 })); jug.position.set(21.6, 1.13, 7.9); scene.add(jug); } grid.rect(21, 7, 21, 7, 1, 0);
+    chair(16.0, 7.4, Math.PI, 0x4a4a4a); chair(18.8, 7.4, Math.PI, 0x4a4a4a); grid.rect(16, 7, 16, 7, 1, 0); grid.rect(18, 7, 18, 7, 1, 0); grid.rect(16, 5, 16, 5, 1, 0);
+    for (let k = 0; k < 3; k++) box(1.5, 0.02, 0.03, plain(0x1a1a1a), 14.2, 0.35 + k * 0.42, 1.71, false); // filing cabinet drawer lines
+    sign(0.5, 0.65, '#d2541c', [{ text: 'EMPLOYEE', size: 30, color: '#fff', y: 40 }, { text: 'OF THE MONTH', size: 26, color: '#fff', y: 76 }, { text: 'D. PRUITT', size: 34, color: '#ffe8a0', y: 200 }], 22.99, 1.8, 6.4, -Math.PI / 2);
+    fixture(17.5, 3, 1.4); fixture(17.5, 6.5, 1.4);
+
+    // ---- electrical: conduit into the main panel, sub-panels, disconnect, cable tray, signs, hazard stripes ----
+    for (const dx of [-0.4, -0.13, 0.13, 0.4]) tube(28.5 + dx, 2.95, 1.12, 0.07, 1.1, 0.07, 0x8a8e90);
+    box(6.5, 0.06, 0.4, steel, 28.4, 3.2, 1.25, false); // cable tray along the wall
+    for (let k = 0; k < 7; k++) tube(25.4 + k * 0.95, 3.25, 1.25, 0.05, 0.04, 0.4, 0x111111);
+    for (let k = 0; k < 5; k++) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 6.4, 5).rotateZ(Math.PI / 2), plain([0x111111, 0x1a1a1a, 0x8a1a1a, 0x1a1a1a, 0x2a4a2a][k])); w.position.set(28.4, 3.26, 1.1 + k * 0.07); scene.add(w); }
+    for (const [x, w, h] of [[26.6, 0.6, 0.9], [30.6, 0.7, 1.0]]) { box(w, h, 0.18, plain(0x8a8e90, { metalness: 0.6 }), x, 1.7, 1.1); box(w - 0.1, h - 0.1, 0.01, plain(0x6a6e70, { metalness: 0.6 }), x, 1.7, 1.2, false); tube(x, 2.6, 1.08, 0.06, 1.1, 0.06, 0x8a8e90); }
+    box(0.35, 0.5, 0.2, plain(0x5a6a5a, { metalness: 0.4 }), 31.8, 1.4, 1.1); box(0.05, 0.25, 0.05, plain(0xc02a1a), 31.99, 1.4, 1.2, false); // disconnect + handle
+    sign(0.6, 0.4, '#f0c020', [{ text: '⚠ DANGER', size: 60, color: '#111', y: 60 }, { text: 'HIGH VOLTAGE', size: 44, color: '#111', y: 125 }], 28.5, 2.6, 1.31, 0);
+    sign(0.5, 0.18, '#1a1a1a', [{ text: 'MAIN 480V', size: 50, color: '#f0c020' }], 28.5, 2.35, 1.3, 0);
+    sign(0.45, 0.3, '#f0c020', [{ text: 'AUTHORIZED', size: 34, color: '#111', y: 45 }, { text: 'PERSONNEL ONLY', size: 34, color: '#111', y: 90 }], 29, 2.0, 8.98, Math.PI);
+    { const c = document.createElement('canvas'); c.width = 128; c.height = 32; const x2 = c.getContext('2d'); for (let k = -2; k < 10; k++) { x2.fillStyle = k % 2 ? '#e0b020' : '#111'; x2.beginPath(); x2.moveTo(k * 16, 32); x2.lineTo(k * 16 + 16, 0); x2.lineTo(k * 16 + 32, 0); x2.lineTo(k * 16 + 16, 32); x2.fill(); }
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.RepeatWrapping; t.repeat.set(3, 1); const hz = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.15), std(0xffffff, { map: t })); hz.rotation.x = -Math.PI / 2; hz.position.set(28.5, 0.006, 1.95); scene.add(hz); }
+    tube(25.5, 2.4, 2.5, 0.06, 1.5, 0.06, 0xb87a3a); tube(25.8, 2.6, 2.5, 0.06, 1.1, 0.06, 0xb87a3a); // water heater pipes
+    fixture(28.4, 4.5, 1.4);
+
+    // ---- checkouts: belt, scanner, register, card reader, bagging, lane light, impulse rack ----
+    [8, 14, 20, 26, 38, 44].forEach((x, i) => {
+      const cx = x + 0.5;
+      box(0.82, 0.03, 2.0, plain(0x151515, { roughness: 0.8 }), cx, 1.015, 41.0, false); // belt
+      for (const sx of [-0.43, 0.43]) box(0.04, 0.05, 2.0, steel, cx + sx, 1.03, 41.0, false);
+      box(0.06, 0.08, 0.5, plain(0x2a2a2a), cx, 1.06, 41.6, false); // divider bar
+      box(0.5, 0.012, 0.4, std(0x101418, { emissive: 0x6a1a1a, emissiveIntensity: WORK ? 0.6 : 0 }), cx, 1.006, 39.75, false); // scanner glass
+      box(0.04, 0.42, 0.04, steel, cx - 0.15, 1.33, 39.35, false); const scr = box(0.38, 0.28, 0.04, std(0x111111, { emissive: 0x1a3a5a, emissiveIntensity: WORK ? 0.7 : 0.05 }), cx - 0.15, 1.6, 39.35, false); scr.rotation.y = Math.PI / 2 + 0.3;
+      box(0.36, 0.12, 0.36, plain(0x2a2a2a), cx - 0.1, 0.82, 39.35, false); // cash drawer
+      box(0.14, 0.12, 0.18, plain(0x2a2a2a), cx + 0.25, 1.07, 39.3, false); // receipt printer
+      box(0.03, 0.3, 0.03, steel, cx + 0.48, 1.15, 39.8, false); box(0.12, 0.18, 0.06, std(0x1a1a1a, { emissive: 0x2a8a4a, emissiveIntensity: WORK ? 0.4 : 0 }), cx + 0.48, 1.36, 39.8, false); // card reader
+      // bagging carousel at the head of the lane
+      box(0.04, 0.9, 0.04, steel, cx, 0.45, 38.75, false); for (let k = 0; k < 3; k++) { const ang = k / 3 * Math.PI * 2; const bg = box(0.3, 0.45, 0.02, std(0xf0f0ec, { transparent: true, opacity: 0.85 }), cx + Math.sin(ang) * 0.2, 0.85, 38.75 + Math.cos(ang) * 0.2, false); bg.rotation.y = ang; }
+      // lane light with its number
+      box(0.05, 2.0, 0.05, steel, cx - 0.4, 1.0, 42.0, false);
+      const nt = textTex(128, 128, '#d2541c', [{ text: String(i + 1), size: 96, color: '#fff' }]);
+      const lb = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.32, 0.32), std(0xffffff, { map: nt, emissiveMap: nt, emissive: 0xffffff, emissiveIntensity: WORK ? 0.8 : 0.08 })); lb.position.set(cx - 0.4, 2.15, 42.0); scene.add(lb);
+      // candy / gum rack at the lane entrance
+      box(0.5, 1.1, 0.04, plain(0x2a2a2a), cx + 0.25, 0.55, 42.25, false);
+      for (let j = 0; j < 4; j++) for (let k = 0; k < 4; k++) box(0.1, 0.12, 0.05, plain([0xd02a1a, 0xf0b020, 0x2a5ab0, 0x3a9a3a, 0xe86a1a, 0x8a2a8a][(i + j * 4 + k) % 6]), cx + 0.08 + k * 0.11, 0.3 + j * 0.24, 42.29, false);
+    });
+  }
   // the floor hatch in receiving, behind the last pallet rack
   box(1.2, 0.03, 1.2, std(0x1a1a1a, { metalness: 0.5 }), 62, 0.015, 6.2, false);
   const hatch = box(1.0, 0.05, 1.0, std(0x8a7a62, { metalness: 0.6, roughness: 0.55, map: tex('shutter', [2, 2]) }), 62, 0.03, 6.2, false);
