@@ -1,10 +1,10 @@
 // LEVEL 1 — "The Walk Home". Juan follows Santiago home → the street feels wrong → ICE → run, hide, get to Rosa's.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792117344';
-import { tex, textTex, facadeTex, rng } from './textures.js?v=1792117344';
-import { makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeCar, makePalm, makeDumpster, std } from './models.js?v=1792117344';
-import { addSkyline, glowMaterial, glowMats } from './skyline.js?v=1792117344';
-import { buildQuikWay, makePump } from './quikway.js?v=1792117344';
+import { Grid } from './grid.js?v=1792150493';
+import { tex, textTex, facadeTex, rng } from './textures.js?v=1792150493';
+import { makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeCar, makePalm, makeDumpster, makeAuto, CIV_KINDS, CIV_COLORS, std } from './models.js?v=1792150493';
+import { addSkyline, glowMaterial, glowMats } from './skyline.js?v=1792150493';
+import { buildQuikWay, makePump } from './quikway.js?v=1792150493';
 
 const LINES = {
   u1: { id: 'st_u1', who: 'Santiago', text: '...Hey. That car. It\'s been behind us since the bus stop.' },
@@ -63,12 +63,10 @@ export function createStreet(G, opts = {}) {
   // ICE vehicles: textured GLB SUV (falls back to the box car)
   const iceLights = [];
   function makeICE() {
-    const v = makeVehicle('suv', 4.8, 0x161616, 0.6);
-    if (!v) return makeCar(0x0a0b0c, true);
-    const hl = [];
-    for (const sx of [-0.72, 0.72]) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.12, 0.04), std(0x222222, { emissive: 0x000000 })); m.position.set(sx, 1.05, 2.62); v.add(m); hl.push(m); }
-    for (const [sx, col] of [[-0.3, 0x2040ff], [0.3, 0xff2020]]) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.05, 0.03), new THREE.MeshBasicMaterial({ color: 0x111111 })); m.position.set(sx, 0.95, 2.64); m.userData.col = col; v.add(m); iceLights.push(m); }
-    v.userData.headlights = hl; return v;
+    const v = makeAuto('suv', 0x15171a, { ice: true, tint: true, dirt: 0.15 });
+    // red and blue strobes hidden in the grille
+    for (const [sx, col] of [[-0.3, 0x2040ff], [0.3, 0xff2020]]) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.05, 0.03), new THREE.MeshBasicMaterial({ color: 0x111111 })); m.position.set(sx, 0.87, v.userData.front + 0.04); m.userData.col = col; v.add(m); iceLights.push(m); }
+    return v;
   }
   // ---- sky glow + rain ----
   const sky = new THREE.Mesh(new THREE.SphereGeometry(300, 16, 8), new THREE.MeshBasicMaterial({ color: 0x15211f, side: THREE.BackSide, fog: false })); scene.add(sky);
@@ -114,7 +112,7 @@ export function createStreet(G, opts = {}) {
   const traffic = [];
   function spawnTraffic() {
     const dir = Math.random() < 0.5 ? -1 : 1;
-    const c = makeCar(carCols[(Math.random() * carCols.length) | 0]);
+    const c = makeAuto(CIV_KINDS[(Math.random() * CIV_KINDS.length) | 0], CIV_COLORS[(Math.random() * CIV_COLORS.length) | 0], { chrome: Math.random() < 0.5 });
     c.position.set(dir < 0 ? -2.2 : 2.2, 0, dir < 0 ? 40 : -125); c.rotation.y = dir < 0 ? Math.PI : 0;
     c.userData.headlights.forEach((m) => { m.material.emissive.setHex(0xffffff); m.material.emissiveIntensity = 3; });
     const l = new THREE.PointLight(0xfff2d8, 30, 18, 1.4); l.position.set(0, 1, dir < 0 ? -3.5 : 3.5); c.add(l);
@@ -136,7 +134,7 @@ export function createStreet(G, opts = {}) {
   const block = makeICE(); block.position.set(-0.5, 0, -121); block.rotation.y = Math.PI / 2; block.visible = false; scene.add(block);
   const blockL = new THREE.SpotLight(0xf0f4ff, 0, 40, 0.5, 0.4, 1.1); blockL.position.set(2.2, 1.0, -121); blockL.target.position.set(4, 0.3, -104); scene.add(blockL); scene.add(blockL.target);
   // ---- the build-up: things that are wrong on this street ----
-  const followCar = makeVehicle('suv', 4.3, 0x1a1c20, 0.5) || makeCar(0x1a1c20);
+  const followCar = makeICE();
   followCar.position.set(1.8, 0, 40); followCar.rotation.y = Math.PI; followCar.visible = false; scene.add(followCar);
   const followL = [-1, 1].map(() => { const sl = new THREE.SpotLight(0xf0f4ff, 0, 55, 0.4, 0.4, 1.1); scene.add(sl); scene.add(sl.target); return sl; });
   let followOn = false, followLit = false;
@@ -862,7 +860,7 @@ export function buildCity(scene, grid, r, o = {}) {
   mottLamp(54, -111.9, 1, 0xffaa58, { i: 28 });
   mottLamp(70, -111.9, 1, 0xd6f0dc, { dead: true });
   // a car under the light, telephone poles and sagging lines down the south side
-  { const c = makeVehicle('suv', 4.3, 0x3a4658, 0.3) || makeCar(0x3a4658); c.position.set(66, 0, -104.8); c.rotation.y = Math.PI / 2; scene.add(c); grid.rect(63, -106, 68, -104, 1, 0); }
+  { const c = makeAuto('pickup', 0x3a4658); c.position.set(66, 0, -104.8); c.rotation.y = Math.PI / 2; scene.add(c); grid.rect(63, -106, 68, -104, 1, 0); }
   { let prev = null; const wm = new THREE.LineBasicMaterial({ color: 0x050505 });
     for (const x of [24, 44, 64]) {
       const tp = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, 9, 6), std(0x2b231c)); tp.position.set(x, 4.5, -112.2); scene.add(tp);
@@ -880,10 +878,10 @@ export function buildCity(scene, grid, r, o = {}) {
   const parked = [[-3.8, 2], [-3.8, -12], [-3.8, -24], [-3.8, -45], [3.8, -8], [3.8, -20], [3.8, -38], [3.8, -68], [-3.8, -98], [3.8, -88], [-3.8, -82]];
   const civTints = [0x6a6a66, 0x3a4658, 0x5a3434, 0x3a4a3c, 0x4a4a48, 0x2e2e36];
   for (const [x, z] of parked) {
-    const c = makeVehicle('suv', 4.3, civTints[(r() * civTints.length) | 0], 0.3) || makeCar(carCols[(r() * carCols.length) | 0]); c.position.set(x, 0, z); c.rotation.y = x < 0 ? 0 : Math.PI; scene.add(c);
+    const c = makeAuto(CIV_KINDS[(r() * CIV_KINDS.length) | 0], CIV_COLORS[(r() * CIV_COLORS.length) | 0], { seed: x * 7 + z, dirt: r(), chrome: r() < 0.4 }); c.position.set(x, 0, z); c.rotation.y = x < 0 ? 0 : Math.PI; scene.add(c);
     grid.rect(Math.floor(x - 1), Math.floor(z - 2.3), Math.floor(x + 0.9), Math.floor(z + 2.2), 1, 0);
   }
-  for (const [x, z] of [[35, -110.2], [55, -104.8]]) { const c = makeVehicle('suv', 4.3, civTints[(r() * civTints.length) | 0], 0.3) || makeCar(carCols[0]); c.position.set(x, 0, z); c.rotation.y = Math.PI / 2; scene.add(c); grid.rect(Math.floor(x - 2.2), Math.floor(z - 1), Math.floor(x + 2.1), Math.floor(z + 0.9), 1, 0); }
+  for (const [x, z] of [[35, -110.2], [55, -104.8]]) { const c = makeAuto(['sedan', 'van'][(r() * 2) | 0], CIV_COLORS[(r() * CIV_COLORS.length) | 0], { seed: x, dirt: r() }); c.position.set(x, 0, z); c.rotation.y = Math.PI / 2; scene.add(c); grid.rect(Math.floor(x - 2.2), Math.floor(z - 1), Math.floor(x + 2.1), Math.floor(z + 0.9), 1, 0); }
   // streetlights
   const lamps = [];
   const lampZ = [6, -12, -30, -48, -66, -84, -102, -120];

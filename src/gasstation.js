@@ -1,9 +1,9 @@
 // DAY 2 — Lunch break. The gas station across from Hammerline: cumbia on the radio, a burrito, Chuy and Beto.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792117344';
-import { tex, textTex, rng, facadeTex } from './textures.js?v=1792117344';
-import { makeCharacter, makeVehicle, animateWalk, makeGlow, makeCar, makePalm, makeBurrito, std } from './models.js?v=1792117344';
-import { buildCity } from './street.js?v=1792117344';
+import { Grid } from './grid.js?v=1792150493';
+import { tex, textTex, rng, facadeTex } from './textures.js?v=1792150493';
+import { makeCharacter, makeVehicle, animateWalk, makeGlow, makeCar, makePalm, makeBurrito, makeAuto, std } from './models.js?v=1792150493';
+import { buildCity } from './street.js?v=1792150493';
 
 const VO = {
   k1: { id: 'l_k1', who: 'Cashier', text: '¡Buenas, mijo! Burritos are fresh. The tamales are from yesterday, but don\'t tell nobody.' },
@@ -78,7 +78,7 @@ export function createGasStation(G) {
   const mart = C.quik;
   const { foodItems } = mart;
   // a car at the pump, windows down, the radio going
-  const car = makeVehicle('suv', 4.4, 0x6a1f1f, 0.3) || makeCar(0x6b1f1f); car.position.set(16.5, 0, 9.5); scene.add(car); solid(16, 7, 17, 11, 0);
+  const car = makeAuto('sedan', 0x6a1f1f, { chrome: true, dirt: 0.5 }); car.position.set(16.5, 0, 9.5); scene.add(car); solid(16, 7, 17, 11, 0);
 
   // ---------------- sun + sky light ----------------
   scene.add(new THREE.HemisphereLight(0xf0b8a0, 0x5a4434, 0.95));

@@ -1,8 +1,8 @@
 // DAY 2 — Hammerline Depot. mode 'work': the day shift. mode 'close': closing time, the raid, the hatch.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792117344';
-import { tex, textTex, rng } from './textures.js?v=1792117344';
-import { makeHumanoid, makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeShoppingCart, makeDumpster, makeTrashBag, std } from './models.js?v=1792117344';
+import { Grid } from './grid.js?v=1792150493';
+import { tex, textTex, rng } from './textures.js?v=1792150493';
+import { makeHumanoid, makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeShoppingCart, makeDumpster, makeTrashBag, makeAuto, std } from './models.js?v=1792150493';
 
 const VO = {
   out: { id: 'sr_out', who: 'Agent (radio)', text: 'Back door\'s locked down. He\'s inside. Nobody leaves this building.', radio: true, agent: true },
@@ -752,7 +752,7 @@ export function createStore(G, mode = 'close', checkpoint = 0) {
     }
     // something is wrong: a man in a windbreaker who never buys anything, a black SUV in the lot
     const w0 = makeStatic('watcher', 1.82); if (w0) { watcher = { group: w0, gone: false }; w0.position.set(32.5, 0, 20); w0.rotation.y = -Math.PI / 2; scene.add(w0); }
-    const suvLot = makeVehicle('suv', 4.8, 0x161616, 0.6); if (suvLot) { suvLot.position.set(24, 0, 51); suvLot.rotation.y = Math.PI / 2; scene.add(suvLot); }
+    const suvLot = makeAuto('suv', 0x15171a, { ice: true, tint: true, dirt: 0.2 }); if (suvLot) { suvLot.position.set(24, 0, 51); suvLot.rotation.y = Math.PI / 2; scene.add(suvLot); }
     // daylight: the front doors stand open on the parking lot
     const lot = new THREE.Mesh(new THREE.PlaneGeometry(80, 30), std(0x8a8a84, { map: tex('asphalt', [10, 4]), emissive: 0x6a6a64, emissiveIntensity: 0.6 })); lot.rotation.x = -Math.PI / 2; lot.position.set(32, -0.01, 61); scene.add(lot);
     const skyWall = new THREE.Mesh(new THREE.PlaneGeometry(120, 30), new THREE.MeshBasicMaterial({ color: 0xc8d8dc, fog: false })); skyWall.position.set(32, 10, 80); skyWall.rotation.y = Math.PI; scene.add(skyWall);
