@@ -295,7 +295,7 @@ export function jacketTex(side) {
 }
 
 // Building facade: upper windows (some lit) for street buildings. Returns {map, emissive}
-export function facadeTex(seed, floors, cols, wallColor) {
+export function facadeTex(seed, floors, cols, wallColor, litP = 0.18) {
   const r = rng(seed);
   const W = 256, H = 256 * Math.max(1, floors) / 2;
   const [c, x] = mk(W, H); const [e, ex] = mk(W, H);
@@ -307,7 +307,7 @@ export function facadeTex(seed, floors, cols, wallColor) {
   for (let f = 0; f < floors; f++) for (let k = 0; k < cols; k++) {
     const wx = k * cw + cw * 0.22, wy = f * fh + fh * 0.22, ww = cw * 0.56, wh = fh * 0.5;
     x.fillStyle = 'rgba(40,36,30,0.85)'; x.fillRect(wx - 2, wy - 2, ww + 4, wh + 4);
-    const lit = r() < 0.18;
+    const lit = r() < litP;
     const warm = r() < 0.7;
     x.fillStyle = lit ? (warm ? '#e8c27a' : '#9fd6c0') : '#141a1c';
     x.fillRect(wx, wy, ww, wh);

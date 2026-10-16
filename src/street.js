@@ -1,9 +1,10 @@
 // LEVEL 1 — "The Walk Home". Juan follows Santiago home → the street feels wrong → ICE → run, hide, get to Rosa's.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792113053';
-import { tex, textTex, facadeTex, rng } from './textures.js?v=1792113053';
-import { makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeCar, makePalm, std } from './models.js?v=1792113053';
-import { buildQuikWay, makePump } from './quikway.js?v=1792113053';
+import { Grid } from './grid.js?v=1792113425';
+import { tex, textTex, facadeTex, rng } from './textures.js?v=1792113425';
+import { makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeCar, makePalm, std } from './models.js?v=1792113425';
+import { addSkyline, glowMaterial, glowMats } from './skyline.js?v=1792113425';
+import { buildQuikWay, makePump } from './quikway.js?v=1792113425';
 
 const LINES = {
   u1: { id: 'st_u1', who: 'Santiago', text: '...Hey. That car. It\'s been behind us since the bus stop.' },
@@ -624,6 +625,43 @@ export function buildCity(scene, grid, r, o = {}) {
   const hlSign = new THREE.Mesh(new THREE.BoxGeometry(0.5, 3, 6), [hlM, hlM, std(0x222222), std(0x222222), std(0x222222), std(0x222222)]);
   hlSign.position.set(5.8, 10.5, -46.5); scene.add(hlSign); neon.push(hlM);
 
+  const backMats = []; // the rest of the city keeps its power when Whittier goes dark
+  // ---- behind the storefronts: back buildings, a block wall behind the QUIK-WAY, apartments; then the rest of the city ----
+  {
+    const backCols = ['#6a5a4c', '#5a5650', '#74624e', '#5e544e', '#6e6458'];
+    const backBox = (x0, x1, z0, z1, h, seed) => {
+      const w = x1 - x0, len = z0 - z1, fac = facadeTex(2000 + seed, Math.max(2, Math.round(h / 3.4)), Math.max(2, Math.round(len / 3.5)), backCols[seed % backCols.length], o.day ? 0.22 : 0.4);
+      const face = std(0xffffff, { map: fac.map, emissiveMap: fac.emissive, emissive: 0xffffff, emissiveIntensity: o.day ? 0.6 : 1.5, roughness: 0.9 }); backMats.push(face);
+      const side = std(0xffffff, { map: tex(seed % 2 ? 'brick' : 'stucco', [3, 2]), roughness: 0.95 });
+      const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, len), [face, face, std(0x2a2624), side, face, face]); b.position.set((x0 + x1) / 2, h / 2, (z0 + z1) / 2); b.receiveShadow = true; scene.add(b);
+      // at night the lit windows glow through the fog
+      if (!o.day) { const gl = new THREE.Mesh(b.geometry, glowMats(glowMaterial(fac.emissive, 1.3))); gl.position.copy(b.position); gl.renderOrder = 2; scene.add(gl); }
+      const cap = new THREE.Mesh(new THREE.BoxGeometry(w + 0.3, 0.35, len + 0.3), std(0x3a3430)); cap.position.set((x0 + x1) / 2, h + 0.17, (z0 + z1) / 2); scene.add(cap);
+      if (r() < 0.5) { const ac = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.9, 1.1), std(0x8a8a86, { metalness: 0.4 })); ac.position.set((x0 + x1) / 2 + (r() - 0.5) * w * 0.5, h + 0.6, (z0 + z1) / 2 + (r() - 0.5) * len * 0.5); scene.add(ac); }
+    };
+    // west side: behind the shops (x -21..-35), skipping the QUIK-WAY lot
+    let seed = 0;
+    for (const [za, zb] of [[14, -51], [-70, -134]]) { let z = za; while (z > zb) { const len = Math.min(z - zb, 10 + Math.floor(r() * 10)); backBox(-35, -21.5, z, z - len, 11 + r() * 12, seed++); z -= len; } }
+    // east side: behind the shops (x 21..35), north of Hammerline and between it and Mott St
+    for (const [za, zb] of [[14, -49], [-73, -85]]) { let z = za; while (z > zb) { const len = Math.min(z - zb, 10 + Math.floor(r() * 10)); backBox(21.5, 35, z, z - len, 11 + r() * 12, seed++); z -= len; } }
+    for (const [za, zb] of [[-132.5, -140]]) backBox(21.5, 35, za, zb, 9, seed++);
+    // behind the QUIK-WAY: a painted cinder-block wall, then a two-storey apartment block
+    const cbM = std(0xffffff, { map: tex('block', [8, 1]), color: 0xc8beb0, roughness: 0.95 });
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.3, 2.4, 19.6), cbM); wall.position.set(-30.2, 1.2, -60.5); scene.add(wall);
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.1, 19.6), std(0x8a8478)); cap.position.set(-30.2, 2.45, -60.5); scene.add(cap);
+    for (const zz of [-51, -70]) { const sw = new THREE.Mesh(new THREE.BoxGeometry(9, 2.4, 0.3), cbM); sw.position.set(-25.5, 1.2, zz); scene.add(sw); }
+    backBox(-45, -32, -50.5, -60.5, 12, 40); backBox(-45, -32, -60.5, -70.5, 10, 41);
+    // Mott St: back rows behind the houses on both sides, and past the dead end
+    for (let x = 22; x < 76; x += 10) { backBox(x, x + 9, -77, -86, 7 + r() * 6, seed++); backBox(x, x + 9, -128, -137, 7 + r() * 6, seed++); }
+    backBox(84, 96, -90, -124, 8, seed++);
+    // both ends of Whittier: a cross street, then a solid row of buildings, so the road never runs into nothing
+    for (const [zr, zb0, zb1] of [[19.5, 24, 38], [-139.5, -144, -158]]) {
+      const cr = new THREE.Mesh(new THREE.PlaneGeometry(90, 9), std(0xffffff, { map: tex('asphalt', [9, 1]), roughness: 0.6 })); cr.rotation.x = -Math.PI / 2; cr.position.set(0, 0.004, zr); scene.add(cr);
+      for (let x = -45; x < 45;) { const w = 9 + Math.floor(r() * 8); backBox(x, Math.min(45, x + w), Math.max(zb0, zb1), Math.min(zb0, zb1), 12 + r() * 14, seed++); x += w; }
+    }
+    // the rest of the city out to the horizon
+    addSkyline(scene, { day: !!o.day, exclude: [[-50, -160, 46, 40], [20, -141, 98, -74]], center: [20, -60] });
+  }
   // ---- Hammerline Depot #0417: the big box on the east side, where Juan works ----
   {
     const D = 30, Z0 = -49, Z1 = -73, len = Z0 - Z1, zc = (Z0 + Z1) / 2;
@@ -660,8 +698,6 @@ export function buildCity(scene, grid, r, o = {}) {
     const pT = textTex(512, 640, '#f2efe6', [{ text: 'QUIK', size: 130, color: '#c4202a', y: 100 }, { text: 'WAY', size: 100, color: '#1d7a3e', y: 210 }, { text: 'REG  4.89', size: 70, color: '#111', y: 340 }, { text: 'DSL  5.19', size: 70, color: '#111', y: 430 }, { text: 'OPEN 24 HRS', size: 48, color: '#e8701c', y: 560 }], { border: '#e8701c', borderW: 18 });
     const pM = std(0xffffff, { map: pT, emissiveMap: pT, emissive: 0xffffff, emissiveIntensity: 1.1 }); neon.push(pM);
     const ps = new THREE.Mesh(new THREE.BoxGeometry(0.4, 4.0, 3.2), [pM, pM, std(0x333333), std(0x333333), std(0x333333), std(0x333333)]); ps.position.set(-11.2, 10.4, -53); scene.add(ps);
-    const palm = makePalm(13, 7, 0.9); palm.position.set(-31, 0, -51); scene.add(palm);
-    const palm2 = makePalm(11, 8, -0.7); palm2.position.set(-30, 0, -70.5); scene.add(palm2);
     return m;
   })();
   // ---- Mott St: little stucco bungalows, bars on the windows, porch lights, bins at the curb ----
@@ -866,5 +902,5 @@ export function buildCity(scene, grid, r, o = {}) {
   const busSign = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.45, 0.9), [std(0xffffff, { map: busT }), std(0xffffff, { map: busT }), std(0x20262a), std(0x20262a), std(0x20262a), std(0x20262a)]); busSign.position.set(6.2, 2.55, 10.5); scene.add(busSign);
   for (const z of [6.4, 9.6]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.5, 6), std(0x3a3d3e, { metalness: 0.6 })); leg.position.set(7.2, 1.25, z); scene.add(leg); }
 
-  return { neon, neonLights, windowMats, lamps, mottLamps, rosaLight, rosaGlow, rosaWin, quik, tvWinM, carCols, porchLights };
+  return { neon, neonLights, windowMats, backMats, lamps, mottLamps, rosaLight, rosaGlow, rosaWin, quik, tvWinM, carCols, porchLights };
 }

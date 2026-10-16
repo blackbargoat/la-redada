@@ -1,9 +1,9 @@
 // DAY 2 — Lunch break. The gas station across from Hammerline: cumbia on the radio, a burrito, Chuy and Beto.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792113053';
-import { tex, textTex, rng, facadeTex } from './textures.js?v=1792113053';
-import { makeCharacter, makeVehicle, animateWalk, makeGlow, makeCar, makePalm, std } from './models.js?v=1792113053';
-import { buildCity } from './street.js?v=1792113053';
+import { Grid } from './grid.js?v=1792113425';
+import { tex, textTex, rng, facadeTex } from './textures.js?v=1792113425';
+import { makeCharacter, makeVehicle, animateWalk, makeGlow, makeCar, makePalm, std } from './models.js?v=1792113425';
+import { buildCity } from './street.js?v=1792113425';
 
 const VO = {
   k1: { id: 'l_k1', who: 'Cashier', text: '¡Buenas, mijo! Burritos are fresh. The tamales are from yesterday, but don\'t tell nobody.' },
@@ -24,7 +24,7 @@ export function createGasStation(G) {
   const scene = new THREE.Scene();
   const HAZE = 0xe0a088;
   scene.background = new THREE.Color(HAZE);
-  scene.fog = new THREE.Fog(HAZE, 45, 170);
+  scene.fog = new THREE.Fog(HAZE, 28, 150); // sunset haze swallows the far end of the street
   const grid = new Grid(150, 112, -59, -11);
   const L = { scene, grid, interactables: [], allowFlashlight: false, surface: 'concrete', allowSprint: true };
   const r = rng(1231);
