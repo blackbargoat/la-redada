@@ -1,8 +1,8 @@
 // QUIK-WAY gas & mini mart: the corner store across Whittier from Hammerline. Built once here,
 // placed in the Day 2 lunch scene and on the Whittier lot in Night 1 (where you can walk in and look around).
 import * as THREE from 'three';
-import { tex, textTex } from './textures.js?v=1792116359';
-import { std, makeBurrito } from './models.js?v=1792116359';
+import { tex, textTex } from './textures.js?v=1792116464';
+import { std, makeBurrito } from './models.js?v=1792116464';
 
 // local frame: storefront faces +z on z = 3.5, walls on x 10..23, z -5..4; o.pos/o.rot place it in the world
 export function buildQuikWay(scene, grid, o = {}) {
@@ -146,22 +146,24 @@ export function buildQuikWay(scene, grid, o = {}) {
   for (const y of [1.1, 1.38, 1.66, 1.94, 2.22]) { box(0.38, 0.02, 3.6, std(0x888888, { metalness: 0.5 }), rackX - 0.02, y, -1.2, false); stockZ(rackX - 0.06, y + 0.01, -2.95, 0.55, 0.2, 0.18, [0xd02a1a, 0xf4f0e6, 0x2a5ab0, 0xe8d040, 0x3a9a3a, 0x1a1a1a]); }
   const heads = [['MONTERO', '#c4202a'], ['DIAMANTE', '#2a5ab0'], ['PHONE CARDS', '#1d7a3e'], ['LOTTO', '#e0a020']];
   heads.forEach(([t, c], i) => { const ht = textTex(256, 72, c, [{ text: t, size: 36, color: '#fff' }]); plane(0.88, 0.3, lit(ht, 0.7), rackX - 0.19, 2.82, -2.6 + i * 0.92, -Math.PI / 2); });
-  // the burrito stand: a heated case on its own cabinet in the open corner between the counter and the front window, facing into the store
-  const WX = 21.0, WZ = 1.75;
-  box(0.62, 1.0, 1.0, std(0x6a3a26, { map: tex('plywood', [1, 1]) }), WX + 0.02, 0.5, WZ); box(0.66, 0.04, 1.04, std(0xd8cfb8, { roughness: 0.3 }), WX + 0.02, 1.02, WZ, false);
-  box(0.02, 0.5, 0.9, std(0xc02a1a), WX - 0.3, 0.55, WZ, false); solid(20, 1, 21, 2);
-  box(0.5, 0.06, 0.9, std(0xb8b8b2, { metalness: 0.5, roughness: 0.4 }), WX, 1.075, WZ, false);
-  box(0.5, 0.05, 0.9, std(0xb8b8b2, { metalness: 0.5, roughness: 0.4 }), WX, 1.47, WZ, false);
-  for (const dz of [-0.44, 0.44]) for (const dx of [-0.23, 0.23]) box(0.03, 0.4, 0.03, std(0x8a8a86, { metalness: 0.6 }), WX + dx, 1.27, WZ + dz, false);
-  box(0.46, 0.015, 0.86, std(0xc8c8c0, { metalness: 0.6 }), WX, 1.27, WZ, false); // middle rack
-  const hotCase = box(0.5, 0.4, 0.9, new THREE.MeshStandardMaterial({ color: 0xffe8c8, transparent: true, opacity: 0.18, roughness: 0.05, emissive: 0x804010, emissiveIntensity: 0.35, depthWrite: false }), WX, 1.27, WZ, false);
+  // the counter runs on toward the front window; the burrito case sits at that end of it, big, lit from inside
+  box(1.2, 1.0, 2.2, counterM, 20.4, 0.5, 1.3); box(1.3, 0.05, 2.2, std(0xd8cfb8, { roughness: 0.3 }), 20.4, 1.02, 1.35, false); // butts up to the old top, no overlap solid(19, 1, 20, 2);
+  const WX = 20.35, WZ = 1.55, CW = 1.3, CD = 0.85, CH = 0.62, CY = 1.045; // case footprint on the counter
+  const steelM = std(0xb8b8b2, { metalness: 0.55, roughness: 0.35 });
+  box(CD, 0.07, CW, steelM, WX, CY + 0.035, WZ, false);                 // base pan
+  box(CD, 0.06, CW, steelM, WX, CY + CH - 0.03, WZ, false);            // roof
+  for (const dz of [-CW / 2 + 0.02, CW / 2 - 0.02]) for (const dx of [-CD / 2 + 0.02, CD / 2 - 0.02]) box(0.035, CH, 0.035, std(0x8a8a86, { metalness: 0.6 }), WX + dx, CY + CH / 2, WZ + dz, false);
+  box(CD - 0.06, 0.015, CW - 0.06, std(0xc8c8c0, { metalness: 0.6 }), WX, CY + 0.32, WZ, false); // middle rack
+  const hotCase = box(CD, CH - 0.1, CW, new THREE.MeshStandardMaterial({ color: 0xffe8c8, transparent: true, opacity: 0.14, roughness: 0.05, emissive: 0x804010, emissiveIntensity: 0.25, depthWrite: false }), WX, CY + CH / 2, WZ, false);
+  // heat lamp strip under the roof, glowing, and a real warm light pooling on the food
+  box(CD - 0.1, 0.02, CW - 0.1, std(0x222222, { emissive: 0xffb050, emissiveIntensity: 2.2 }), WX, CY + CH - 0.065, WZ, false);
   const foodItems = [];
-  for (let k = 0; k < 3; k++) { const bu = makeBurrito(0.1); bu.rotation.y = Math.PI / 2; bu.position.set(WX - 0.05, 1.15, WZ - 0.25 + k * 0.25); g.add(bu); foodItems.push(bu); }
-  for (let k = 0; k < 3; k++) { const t = new THREE.Mesh(new THREE.CapsuleGeometry(0.03, 0.11, 4, 8).rotateX(Math.PI / 2), std(0xc8b07a, { roughness: 0.9 })); t.position.set(WX - 0.05, 1.31, WZ - 0.25 + k * 0.25); g.add(t); foodItems.push(t); }
-  const hotT = textTex(256, 64, '#c02a1a', [{ text: 'BURRITOS · TAMALES', size: 28, color: '#fff' }]);
-  const hotS = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 0.2), lit(hotT, 0.4)); hotS.position.set(WX - 0.255, 1.6, WZ); hotS.rotation.y = -Math.PI / 2; g.add(hotS);
-  box(0.02, 0.13, 0.86, std(0xc02a1a), WX, 1.6, WZ, false);
-  const hotL = new THREE.PointLight(0xffb060, 1.6, 1.6, 1.6); hotL.position.set(WX, 1.42, WZ); g.add(hotL); lights.push(hotL);
+  for (let k = 0; k < 4; k++) { const bu = makeBurrito(0.1); bu.scale.setScalar(1.35); bu.rotation.y = Math.PI / 2; bu.position.set(WX - 0.08, CY + 0.13, WZ - 0.45 + k * 0.3); g.add(bu); foodItems.push(bu); }
+  for (let k = 0; k < 4; k++) { const t = new THREE.Mesh(new THREE.CapsuleGeometry(0.04, 0.15, 4, 8).rotateX(Math.PI / 2), std(0xc8b07a, { roughness: 0.9 })); t.position.set(WX - 0.08, CY + 0.38, WZ - 0.45 + k * 0.3); g.add(t); foodItems.push(t); }
+  const hotT = textTex(512, 96, '#c02a1a', [{ text: 'BURRITOS · TAMALES', size: 52, color: '#fff' }]);
+  const hotS = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.24), lit(hotT, 0.5)); hotS.position.set(WX - CD / 2 - 0.005, CY + CH + 0.13, WZ); hotS.rotation.y = -Math.PI / 2; g.add(hotS);
+  box(0.03, 0.26, CW, std(0xc02a1a), WX - CD / 2 + 0.02, CY + CH + 0.13, WZ, false);
+  const hotL = new THREE.PointLight(0xffb060, 3.2, 2.2, 1.6); hotL.position.set(WX, CY + CH - 0.12, WZ); g.add(hotL); lights.push(hotL);
   // build the stock
   { const im = new THREE.InstancedMesh(packG, packM, packs.length);
     packs.forEach(([x, y, z, w, h, d, col], i) => { m4.compose(pv.set(x, y, z), q, sv.set(w, h, d)); im.setMatrixAt(i, m4); im.setColorAt(i, cc.setHex(col)); });

@@ -1,9 +1,9 @@
 // DAY 2 — Lunch break. The gas station across from Hammerline: cumbia on the radio, a burrito, Chuy and Beto.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792116359';
-import { tex, textTex, rng, facadeTex } from './textures.js?v=1792116359';
-import { makeCharacter, makeVehicle, animateWalk, makeGlow, makeCar, makePalm, makeBurrito, std } from './models.js?v=1792116359';
-import { buildCity } from './street.js?v=1792116359';
+import { Grid } from './grid.js?v=1792116464';
+import { tex, textTex, rng, facadeTex } from './textures.js?v=1792116464';
+import { makeCharacter, makeVehicle, animateWalk, makeGlow, makeCar, makePalm, makeBurrito, std } from './models.js?v=1792116464';
+import { buildCity } from './street.js?v=1792116464';
 
 const VO = {
   k1: { id: 'l_k1', who: 'Cashier', text: '¡Buenas, mijo! Burritos are fresh. The tamales are from yesterday, but don\'t tell nobody.' },
@@ -111,7 +111,7 @@ export function createGasStation(G) {
   at(1.0, () => ui.objective('Get some food. The gas station across the street.'));
   let goal = [14.5, 4.5];
   const it = (o) => { L.interactables.push(o); return o; };
-  it({ x: 19.7, z: 1.75, r: 1.5, label: 'Take a burrito', enabled: () => stage === 'food', action: () => { audio.rustle({ x: 21, y: 1.2, z: 1.75 }); foodItems[0].visible = false; carry.visible = true; stage = 'pay'; ui.objective('Pay at the counter.'); goal = [19.3, -0.6]; } });
+  it({ x: 19.1, z: 1.55, r: 1.5, label: 'Take a burrito', enabled: () => stage === 'food', action: () => { audio.rustle({ x: 20.3, y: 1.2, z: 1.55 }); foodItems[0].visible = false; carry.visible = true; stage = 'pay'; ui.objective('Pay at the counter.'); goal = [19.3, -0.6]; } });
   it({ x: 19.2, z: -0.8, r: 1.6, label: 'Pay', enabled: () => stage === 'pay', action: () => {
     stage = 'paying'; ui.objective(''); audio.beep({ x: 20.2, y: 1.2, z: -0.4 });
     say('k2').then(() => { stage = 'bench'; ui.objective('Eat with Chuy and Beto. The bench outside.'); goal = [19, 5.9]; });
@@ -141,7 +141,7 @@ export function createGasStation(G) {
     if (!audio.songRadio && audio.ctx) audio.startRadio(SONGS); // audio wasn't unlocked yet when the scene loaded
     // the radio on the counter: clear inside, muffled through the glass out front, barely there across the street
     { const d = Math.hypot(P.pos.x - 16, P.pos.z - (-0.5)); if (inside) audio.radioMix(0.42, 16000); else audio.radioMix(0.16 * Math.max(0, 1 - d / 38), 520 - Math.min(380, d * 10)); }
-    if (stage === 'go' && inside) { stage = 'food'; ui.objective('Grab a burrito from the hot case.'); goal = [19.7, 1.75]; say('k1'); }
+    if (stage === 'go' && inside) { stage = 'food'; ui.objective('Grab a burrito from the hot case.'); goal = [19.1, 1.55]; say('k1'); }
     // people face you when you're close
     for (const c of people) { const g = c.group.position, dx = P.pos.x - g.x, dz = P.pos.z - g.z; const want = Math.hypot(dx, dz) < 5 ? Math.atan2(dx, dz) : c.baseYaw; let df = want - c.group.rotation.y; df = Math.atan2(Math.sin(df), Math.cos(df)); c.group.rotation.y += df * Math.min(1, dt * 3); }
     // sitting on the bench
