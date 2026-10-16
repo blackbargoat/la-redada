@@ -1,8 +1,8 @@
 // DAY 2 — Hammerline Depot. mode 'work': the day shift. mode 'close': closing time, the raid, the hatch.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792114638';
-import { tex, textTex, rng } from './textures.js?v=1792114638';
-import { makeHumanoid, makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeShoppingCart, makeDumpster, makeTrashBag, std } from './models.js?v=1792114638';
+import { Grid } from './grid.js?v=1792115024';
+import { tex, textTex, rng } from './textures.js?v=1792115024';
+import { makeHumanoid, makeCharacter, makeVehicle, makeStatic, animateWalk, makeBeam, makeGlow, makeShoppingCart, makeDumpster, makeTrashBag, std } from './models.js?v=1792115024';
 
 const VO = {
   out: { id: 'sr_out', who: 'Agent (radio)', text: 'Back door\'s locked down. He\'s inside. Nobody leaves this building.', radio: true, agent: true },
@@ -689,7 +689,12 @@ export function createStore(G, mode = 'close', checkpoint = 0) {
       box(0.14, 0.12, 0.18, plain(0x2a2a2a), cx + 0.25, 1.07, 39.3, false); // receipt printer
       box(0.03, 0.3, 0.03, steel, cx + 0.48, 1.15, 39.8, false); box(0.12, 0.18, 0.06, std(0x1a1a1a, { emissive: 0x2a8a4a, emissiveIntensity: WORK ? 0.4 : 0 }), cx + 0.48, 1.36, 39.8, false); // card reader
       // bagging carousel at the head of the lane
-      box(0.04, 0.9, 0.04, steel, cx, 0.45, 38.75, false); for (let k = 0; k < 3; k++) { const ang = k / 3 * Math.PI * 2; const bg = box(0.3, 0.45, 0.02, std(0xf0f0ec, { transparent: true, opacity: 0.85 }), cx + Math.sin(ang) * 0.2, 0.85, 38.75 + Math.cos(ang) * 0.2, false); bg.rotation.y = ang; }
+      // a little glass-door drink cooler at the head of the lane
+      box(0.6, 0.95, 0.5, plain(0xc02a1a, { metalness: 0.3 }), cx, 0.475, 38.65); grid.rect(Math.floor(cx), 38, Math.floor(cx), 38, 1, 0);
+      { const c = document.createElement('canvas'); c.width = 64; c.height = 96; const x2 = c.getContext('2d'); x2.fillStyle = '#d8eef4'; x2.fillRect(0, 0, 64, 96); for (let j = 0; j < 3; j++) { x2.fillStyle = '#9a9a9a'; x2.fillRect(0, 30 + j * 30, 64, 3); for (let k = 0; k < 5; k++) { x2.fillStyle = ['#c02a1a', '#2a5ab0', '#f0b020', '#3a9a3a', '#e86a1a'][(k + j + i) % 5]; x2.fillRect(4 + k * 12, 8 + j * 30, 8, 22); } }
+        const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; const gl = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.72), std(0xffffff, { map: t, emissiveMap: t, emissive: 0xffffff, emissiveIntensity: WORK ? 0.5 : 0.08 })); gl.position.set(cx, 0.52, 38.395); gl.rotation.y = Math.PI; scene.add(gl);
+        box(0.03, 0.3, 0.03, steel, cx + 0.2, 0.55, 38.38, false); }
+      sign(0.56, 0.12, '#c02a1a', [{ text: 'ICE COLD', size: 40, color: '#fff' }], cx, 0.88, 38.395, Math.PI);
       // lane light with its number
       box(0.05, 2.0, 0.05, steel, cx - 0.4, 1.0, 42.0, false);
       const nt = textTex(128, 128, '#d2541c', [{ text: String(i + 1), size: 96, color: '#fff' }]);

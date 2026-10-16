@@ -1,9 +1,9 @@
 // DAY 2 — Lunch break. The gas station across from Hammerline: cumbia on the radio, a burrito, Chuy and Beto.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792114638';
-import { tex, textTex, rng, facadeTex } from './textures.js?v=1792114638';
-import { makeCharacter, makeVehicle, animateWalk, makeGlow, makeCar, makePalm, std } from './models.js?v=1792114638';
-import { buildCity } from './street.js?v=1792114638';
+import { Grid } from './grid.js?v=1792115024';
+import { tex, textTex, rng, facadeTex } from './textures.js?v=1792115024';
+import { makeCharacter, makeVehicle, animateWalk, makeGlow, makeCar, makePalm, makeBurrito, std } from './models.js?v=1792115024';
+import { buildCity } from './street.js?v=1792115024';
 
 const VO = {
   k1: { id: 'l_k1', who: 'Cashier', text: '¡Buenas, mijo! Burritos are fresh. The tamales are from yesterday, but don\'t tell nobody.' },
@@ -95,7 +95,8 @@ export function createGasStation(G) {
   const pumper = npc('gus', { shirt: 0x3a5a3a, pants: 0x3a3a3a }, 1.72, 15.1, 12.2, Math.PI);
 
   // burrito in hand
-  const carry = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.17, 10), std(0xc8ccd0, { metalness: 0.8, roughness: 0.35 })); carry.rotation.set(0.3, 0, Math.PI / 2.4); carry.position.set(0.3, -0.32, -0.62); carry.visible = false; G.camera.add(carry);
+  const carry = makeBurrito(0.5); carry.rotation.set(0.2, -0.5, Math.PI / 2.4); carry.position.set(0.26, -0.28, -0.6); carry.scale.setScalar(0.9); // tortilla end up, foil in your fist
+  carry.visible = false; G.camera.add(carry);
 
   // ---------------- story ----------------
   const events = []; let tl = 0, stage = 'go', sitT = -1, eatT = -1, inside = false, wasInside = false;

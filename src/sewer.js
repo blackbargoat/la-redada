@@ -1,8 +1,8 @@
 // NIGHT 2 — Under the City. The storm drain under Hammerline: a maze, green water, rats, an old man who lives down here.
 import * as THREE from 'three';
-import { Grid } from './grid.js?v=1792114638';
-import { tex, textTex, rng } from './textures.js?v=1792114638';
-import { makeCharacter, animateWalk, makeGlow, makeBeam, std } from './models.js?v=1792114638';
+import { Grid } from './grid.js?v=1792115024';
+import { tex, textTex, rng } from './textures.js?v=1792115024';
+import { makeCharacter, animateWalk, makeGlow, makeBeam, std } from './models.js?v=1792115024';
 
 const VO = {
   h1: { id: 's_h1', who: 'Old man', text: 'Easy... easy, mijo. Get that light out of my eyes. I\'m not one of them.' },
@@ -175,16 +175,26 @@ export function createSewer(G) {
   const pipeM = std(0x3a3226, { metalness: 0.5, roughness: 0.55 });
   const pipes = [], grates = [];
   for (const [x, z, ew] of cellV) {
-    if (r() < 0.45) { const side = r() < 0.5 ? -1 : 1; pipes.push(ew ? [x, z + side * 2.8, true] : [x + side * 2.8, z, false]); }
+    const straight = !isChamber((x - 4) / CS, (z - 4) / CS);
+    if (straight && r() < 0.5) { const side = r() < 0.5 ? -1 : 1; pipes.push(ew ? [x, z + side * 2.78, true, side] : [x + side * 2.78, z, false, side]); }
     if (r() < 0.18) { const side = r() < 0.5 ? -1 : 1; grates.push(ew ? [x + (r() - 0.5) * 3, z + side * 2.99, true, side] : [x + side * 2.99, z + (r() - 0.5) * 3, false, side]); }
   }
-  const pipeIM = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.12, 0.12, 6, 8).rotateZ(Math.PI / 2), pipeM, pipes.length);
-  pipes.forEach(([x, z, ew], k) => { m4.compose(v3.set(x, 2.25, z), ew ? q0 : qY, s3.set(1, 1, 1)); pipeIM.setMatrixAt(k, m4); }); scene.add(pipeIM);
+  // pipes run along the wall just under the springline, held on by brackets bolted into the brick
+  const PIPE_Y = 2.15;
+  const pipeIM = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.11, 0.11, 7, 10).rotateZ(Math.PI / 2), pipeM, pipes.length);
+  pipes.forEach(([x, z, ew], k) => { m4.compose(v3.set(x, PIPE_Y, z), ew ? q0 : qY, s3.set(1, 1, 1)); pipeIM.setMatrixAt(k, m4); }); scene.add(pipeIM);
+  const brIM = new THREE.InstancedMesh(new THREE.BoxGeometry(0.08, 0.3, 0.26), std(0x2a241c, { metalness: 0.6, roughness: 0.6 }), pipes.length * 4);
+  const collarIM = new THREE.InstancedMesh(new THREE.TorusGeometry(0.12, 0.025, 5, 10), std(0x2a241c, { metalness: 0.6, roughness: 0.6 }), pipes.length * 4);
+  pipes.forEach(([x, z, ew, side], k) => { for (let b = 0; b < 4; b++) { const t = -2.4 + b * 1.6, bx = ew ? x + t : x + side * 0.13, bz = ew ? z + side * 0.13 : z + t;
+    m4.compose(v3.set(bx, PIPE_Y, bz), ew ? q0 : qY, s3.set(1, 1, 1)); brIM.setMatrixAt(k * 4 + b, m4);
+    m4.compose(v3.set(ew ? x + t : x, PIPE_Y, ew ? z : z + t), ew ? qY : q0, s3.set(1, 1, 1)); collarIM.setMatrixAt(k * 4 + b, m4); } });
+  scene.add(brIM); scene.add(collarIM);
   const grateT = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); g.fillStyle = '#050605'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#4a3c2a'; for (let k = 0; k < 7; k++) g.fillRect(4 + k * 9, 0, 4, 64); g.fillRect(0, 0, 64, 5); g.fillRect(0, 59, 64, 5); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
   for (const [x, z, ew, side] of grates) { const g = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.8), std(0xffffff, { map: grateT, roughness: 0.7 })); g.position.set(x, 0.45, z); g.rotation.y = ew ? (side > 0 ? Math.PI : 0) : (side > 0 ? -Math.PI / 2 : Math.PI / 2); scene.add(g); }
 
   // ---------------- sewer lights: caged box lamps on the walls, weak, a lot of them dead ----------------
   const fixtures = [];
+  const splashT = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); const gr = x.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
   const housingM = std(0x2a2a22, { metalness: 0.6, roughness: 0.5 });
   const barM = std(0x1a1a14, { metalness: 0.7 });
   for (const [cx, cz, ew] of cellV) {
@@ -196,30 +206,37 @@ export function createSewer(G) {
     const x = cx + ox, z = cz + oz, ry = ew ? (side > 0 ? Math.PI : 0) : (side > 0 ? -Math.PI / 2 : Math.PI / 2);
     const g = new THREE.Group(); g.position.set(x, 2.05, z); g.rotation.y = ry; scene.add(g);
     const housing = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.3, 0.18), housingM); housing.position.z = 0.09; g.add(housing);
-    const lensM = std(0x222222, { emissive: 0xd8e090, emissiveIntensity: 1.5 });
+    const lensM = std(0x222222, { emissive: 0xa8f0d8, emissiveIntensity: 1.5 });
     const lens = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.22, 0.04), lensM); lens.position.z = 0.2; g.add(lens);
     for (const bx of [-0.12, 0, 0.12]) { const bar = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.28, 0.025), barM); bar.position.set(bx, 0, 0.25); g.add(bar); }
     for (const by of [-0.12, 0.12]) { const bar = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.025, 0.025), barM); bar.position.set(0, by, 0.25); g.add(bar); }
-    const gl = makeGlow(0xc8d890, 1.5, 0.6); gl.position.set(0, 0, 0.32); g.add(gl);
+    const gl = makeGlow(0x8ee0c8, 1.5, 0.6); gl.position.set(0, 0, 0.32); g.add(gl);
     const lx = x + (ew ? 0 : -side * 0.5), lz = z + (ew ? -side * 0.5 : 0);
-    fixtures.push({ x: lx, z: lz, lens: lensM, gl, f: 1, flick: r() < 0.3, on: true });
+    // a constant pool of light on the ledge below the lamp (the real lights only add to it), so nothing pops as you walk
+    const splash = new THREE.Mesh(new THREE.CircleGeometry(1.6, 16), new THREE.MeshBasicMaterial({ map: splashT, color: 0x5aa890, transparent: true, opacity: 0.32, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+    splash.rotation.x = -Math.PI / 2; splash.position.set(lx, 0.015, lz); scene.add(splash);
+    const wash = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 2.4), new THREE.MeshBasicMaterial({ map: splashT, color: 0x4a9880, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false })); wash.position.set(0, 0, 0.03); g.add(wash);
+    fixtures.push({ x: lx, z: lz, lens: lensM, gl, f: 1, flick: r() < 0.3, on: true, splash, wash });
   }
-  const pool = Array.from({ length: 7 }, () => { const l = new THREE.PointLight(0xc8d890, 0, 13, 1.4); scene.add(l); return l; });
+  const pool = Array.from({ length: 10 }, () => { const l = new THREE.PointLight(0x8ee0c8, 0, 13, 1.4); l.userData.cur = 0; scene.add(l); return l; });
   const hemi = new THREE.HemisphereLight(0x4a6a4a, 0x0a140a, 0.2); scene.add(hemi);
   let poolT = 0, lightsOn = true;
   function updatePool(dt) {
     poolT -= dt;
     if (poolT <= 0) {
       poolT = 0.25;
-      const near = fixtures.filter((f) => f.on).map((f) => [f, Math.hypot(f.x - P.pos.x, f.z - P.pos.z)]).sort((a, b) => a[1] - b[1]).slice(0, pool.length);
-      pool.forEach((l, k) => { const n = near[k]; l.userData.f = n ? n[0] : null; if (n) l.position.set(n[0].x, 2.0, n[0].z); });
+      // keep lights on fixtures that are still close; only a light that has faded out gets moved to a new fixture
+      const near = fixtures.filter((f) => f.on).map((f) => [f, Math.hypot(f.x - P.pos.x, f.z - P.pos.z)]).sort((a, b) => a[1] - b[1]).slice(0, pool.length).map((n) => n[0]);
+      for (const l of pool) if (l.userData.f && !near.includes(l.userData.f)) l.userData.leaving = true; else l.userData.leaving = false;
+      for (const f of near) if (!pool.some((l) => l.userData.f === f)) { const free = pool.find((l) => !l.userData.f || (l.userData.leaving && l.userData.cur < 0.05)); if (free) { free.userData.f = f; free.userData.leaving = false; free.userData.cur = 0; free.position.set(f.x, 2.0, f.z); } }
     }
     for (const f of fixtures) if (f.on && f.flick) {
       f.f = Math.random() < 0.05 ? Math.random() * 0.25 : Math.min(1, f.f + dt * 4);
       f.gl.material.opacity = 0.5 * f.f; f.lens.emissiveIntensity = 1.5 * f.f;
       if (f.f < 0.3 && Math.random() < 0.25 && Math.hypot(f.x - P.pos.x, f.z - P.pos.z) < 12) audio.flicker({ x: f.x, y: 2.0, z: f.z }, 0.7);
     }
-    pool.forEach((l) => { const f = l.userData.f; l.intensity = f && f.on && lightsOn ? 17 * f.f : 0; });
+    pool.forEach((l) => { const f = l.userData.f; const want = f && f.on && lightsOn && !l.userData.leaving ? 1 : 0; l.userData.cur += (want - l.userData.cur) * Math.min(1, dt * 2.5); l.intensity = f ? 15 * f.f * l.userData.cur : 0; });
+    for (const f of fixtures) { const k = f.on && lightsOn ? f.f : 0; f.splash.material.opacity = 0.32 * k; f.wash.material.opacity = 0.22 * k; }
   }
 
   // ---------------- start: under the hatch ----------------
@@ -266,6 +283,45 @@ export function createSewer(G) {
     // no corner to hide behind: he comes in from the side, just outside your light
     const sx = P.pos.x + ux * 1.8 - uz * 2.6, sz = P.pos.z + uz * 1.8 + ux * 2.6;
     return { x: sx, z: sz, fx: P.pos.x + ux * 1.8, fz: P.pos.z + uz * 1.8 };
+  }
+
+  // ---------------- the burst pipe: a rusted joint that lets go right beside you in a blast of steam ----------------
+  const burst = (() => {
+    const target = solve[Math.max(2, Math.floor(solve.length * 0.3))];
+    let best = null, bd = 1e9; for (const p of pipes) { const d = Math.hypot(p[0] - cc(target[0]), p[1] - cc(target[1])); if (d < bd) { bd = d; best = p; } }
+    if (!best) return null;
+    const [x, z, ew, side] = best, jx = ew ? x + 0.8 : x, jz = ew ? z : z + 0.8;
+    // the split joint: a rusty flange, and a crack facing out into the tunnel
+    const fl = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.12, 10).rotateZ(Math.PI / 2), std(0x5a3418, { metalness: 0.4, roughness: 0.9 })); fl.position.set(jx, PIPE_Y, jz); if (!ew) fl.rotation.y = Math.PI / 2; scene.add(fl);
+    const outX = ew ? 0 : -side, outZ = ew ? -side : 0;
+    const puffT = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); const gr = g.createRadialGradient(32, 32, 2, 32, 32, 30); gr.addColorStop(0, 'rgba(255,255,255,0.9)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
+    const puffs = Array.from({ length: 70 }, () => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: puffT, color: 0xd8ece4, transparent: true, opacity: 0, depthWrite: false })); sp.visible = false; scene.add(sp); return { sp, life: 0, vx: 0, vy: 0, vz: 0 }; });
+    return { x: jx, z: jz, outX, outZ, puffs, fired: false, t: 0, emit: 0 };
+  })();
+  function updateSteam(dt) {
+    if (!burst) return;
+    const d = Math.hypot(P.pos.x - burst.x, P.pos.z - burst.z);
+    if (!burst.fired && d < 3.2) {
+      burst.fired = true; burst.t = 0;
+      audio.noise({ dur: 2.8, type: 'highpass', freq: 2500, gain: 0.9, attack: 0.01, pos: { x: burst.x, y: PIPE_Y, z: burst.z } });
+      audio.noise({ dur: 1.2, type: 'lowpass', freq: 400, gain: 0.7, attack: 0.005, pos: { x: burst.x, y: PIPE_Y, z: burst.z } });
+      audio.clunk({ x: burst.x, y: PIPE_Y, z: burst.z }, 1); audio.hit(0.9); ui.shake(0.08, 0.6); ui.flash(0.25);
+    }
+    if (!burst.fired) return;
+    burst.t += dt;
+    // a hard blast for a second and a half, then it settles into a steady hissing leak
+    const rate = burst.t < 1.5 ? 70 : 16; burst.emit += dt * rate;
+    if (burst.t > 1.5 && Math.random() < dt * 0.6) audio.noise({ dur: 1.2, type: 'highpass', freq: 3000, gain: 0.12, attack: 0.2, pos: { x: burst.x, y: PIPE_Y, z: burst.z } });
+    while (burst.emit >= 1) { burst.emit -= 1; const p = burst.puffs.find((q) => q.life <= 0); if (!p) break;
+      const sp = burst.t < 1.5 ? 6 + Math.random() * 3 : 1.6 + Math.random();
+      p.life = 1; p.vx = burst.outX * sp + (Math.random() - 0.5) * 1.2; p.vz = burst.outZ * sp + (Math.random() - 0.5) * 1.2; p.vy = (Math.random() - 0.3) * 1.2;
+      p.sp.position.set(burst.x + burst.outX * 0.15, PIPE_Y, burst.z + burst.outZ * 0.15); p.sp.visible = true; }
+    for (const p of burst.puffs) if (p.life > 0) {
+      p.life -= dt * 0.7; p.vx *= 1 - dt * 1.8; p.vz *= 1 - dt * 1.8; p.vy += dt * 0.6;
+      p.sp.position.x += p.vx * dt; p.sp.position.y += p.vy * dt; p.sp.position.z += p.vz * dt;
+      const s2 = 0.35 + (1 - p.life) * 2.6; p.sp.scale.set(s2, s2, s2); p.sp.material.opacity = Math.max(0, p.life) * (burst.t < 2 ? 0.8 : 0.5);
+      if (p.life <= 0) p.sp.visible = false;
+    }
   }
 
   // ---------------- rats: little bodies with a little brain. They keep to the dry ledges, nose around,
@@ -359,7 +415,7 @@ export function createSewer(G) {
   L.update = (dt) => {
     tl += dt;
     for (let i = events.length - 1; i >= 0; i--) if (tl >= events[i].t) { const e = events[i]; events.splice(i, 1); e.fn(); }
-    updatePool(dt);
+    updatePool(dt); updateSteam(dt);
     waterT.offset.x += dt * 0.012; waterT.offset.y += dt * 0.006; waterN.offset.x -= dt * 0.025; waterN.offset.y += dt * 0.018;
     fireL.intensity = 4.2 + Math.random() * 1.6; fire.material.opacity = 0.75 + Math.random() * 0.2;
     // wading slows you down and splashes
@@ -396,7 +452,7 @@ export function createSewer(G) {
     if (stage === 'walk' && dExit < 5) {
       stage = 'cut'; cutT = 0; P.frozen = true; ui.objective(''); lightsOn = false;
       audio.powerDown({ x: P.pos.x, y: 3, z: P.pos.z }); holeL.intensity = 0; hemi.intensity = 0.03; holeBeam.visible = false; fireL.visible = false; fire.visible = false;
-      fixtures.forEach((f, k) => { setTimeout(() => { f.on = false; f.gl.visible = false; f.lens.emissiveIntensity = 0; if (Math.hypot(f.x - P.pos.x, f.z - P.pos.z) < 14) audio.flicker({ x: f.x, y: 2.8, z: f.z }, 1); }, Math.min(900, Math.hypot(f.x - P.pos.x, f.z - P.pos.z) * 25)); });
+      fixtures.forEach((f, k) => { setTimeout(() => { f.on = false; f.gl.visible = false; f.lens.emissiveIntensity = 0; f.splash.visible = false; f.wash.visible = false; if (Math.hypot(f.x - P.pos.x, f.z - P.pos.z) < 14) audio.flicker({ x: f.x, y: 2.8, z: f.z }, 1); }, Math.min(900, Math.hypot(f.x - P.pos.x, f.z - P.pos.z) * 25)); });
       audio.setLoop('water', 0.12, 1); audio.setLoop('drone', 0.5, 2);
       // he steps out of the dark between you and the ladder
       // he's already down here, hiding just around the corner between you and the ladder

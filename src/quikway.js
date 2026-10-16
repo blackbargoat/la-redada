@@ -1,8 +1,8 @@
 // QUIK-WAY gas & mini mart: the corner store across Whittier from Hammerline. Built once here,
 // placed in the Day 2 lunch scene and on the Whittier lot in Night 1 (where you can walk in and look around).
 import * as THREE from 'three';
-import { tex, textTex } from './textures.js?v=1792114638';
-import { std } from './models.js?v=1792114638';
+import { tex, textTex } from './textures.js?v=1792115024';
+import { std, makeBurrito } from './models.js?v=1792115024';
 
 // local frame: storefront faces +z on z = 3.5, walls on x 10..23, z -5..4; o.pos/o.rot place it in the world
 export function buildQuikWay(scene, grid, o = {}) {
@@ -84,19 +84,19 @@ export function buildQuikWay(scene, grid, o = {}) {
   const stockX = (z, y, x0, x1, depth, maxH, pal) => { let x = x0; while (x < x1 - 0.08) { const w = 0.08 + r() * 0.14, h = 0.12 + r() * (maxH - 0.12); if (x + w > x1) break; pack(x + w / 2, y + h / 2, z, w, h, depth, pal[(r() * pal.length) | 0]); x += w + 0.03; } };
   // two gondola runs with end caps; an aisle between them
   const shelfM = std(0xd8d6d0, { metalness: 0.3, roughness: 0.5 }), pegM = std(0xe8e6e0, { roughness: 0.7 });
-  for (const gx of [12.9, 16.0]) {
+  for (const gx of [13.5, 16.5]) { // 0.9 m wide, one grid cell each: clean 2 m aisles either side
     const z0 = -2.0, z1 = 0.8, zc = (z0 + z1) / 2, len = z1 - z0;
-    box(0.08, 1.75, len, pegM, gx, 0.88, zc); box(1.1, 0.14, len, std(0x3a3a3a), gx, 0.07, zc);
-    for (const y of [0.14, 0.55, 0.95, 1.35]) { box(1.1, 0.03, len, shelfM, gx, y, zc, false); box(1.12, 0.07, len, std(0xf0ece0), gx, y - 0.02, zc, false); }
-    for (const side of [-1, 1]) for (const y of [0.16, 0.57, 0.97, 1.37]) stockZ(gx + side * 0.27, y, z0 + 0.04, z1 - 0.04, 0.5, y > 1.3 ? 0.3 : 0.36, prodCols);
+    box(0.06, 1.75, len, pegM, gx, 0.88, zc); box(0.88, 0.14, len, std(0x3a3a3a), gx, 0.07, zc);
+    for (const y of [0.14, 0.55, 0.95, 1.35]) { box(0.88, 0.03, len, shelfM, gx, y, zc, false); box(0.9, 0.07, len, std(0xf0ece0), gx, y - 0.025, zc, false); }
+    for (const side of [-1, 1]) for (const y of [0.16, 0.57, 0.97, 1.37]) stockZ(gx + side * 0.22, y + 0.012, z0 + 0.04, z1 - 0.04, 0.4, y > 1.3 ? 0.3 : 0.36, prodCols);
     // end cap toward the door: a stack of cases and a price header
-    box(1.1, 0.9, 0.5, std(0xffffff, { map: tex('cardboard') }), gx, 0.45, z1 + 0.27);
+    box(0.86, 0.9, 0.46, std(0xffffff, { map: tex('cardboard') }), gx, 0.45, z1 + 0.25);
     const capT = textTex(256, 96, ['#c4202a', '#1d7a3e'][gx > 14 ? 1 : 0], [{ text: gx > 14 ? '2 x $3' : '99¢', size: 54, color: '#fff' }]);
-    plane(1.0, 0.36, std(0xffffff, { map: capT }), gx, 1.82, z1 + 0.02);
-    solid(Math.floor(gx - 0.5), -2, Math.floor(gx + 0.5), 0);
+    plane(0.86, 0.32, std(0xffffff, { map: capT }), gx, 1.82, z1 + 0.02);
+    solid(Math.floor(gx), -2, Math.floor(gx), 0);
   }
   // hanging aisle signs
-  for (const [x, t] of [[11.6, 'CANDY · SNACKS'], [14.45, 'GROCERY · AUTO'], [17.9, 'HOT FOOD']]) {
+  for (const [x, t] of [[12.0, 'CANDY · SNACKS'], [15.0, 'GROCERY · AUTO'], [18.0, 'HOT FOOD']]) {
     const at = textTex(256, 64, '#1d7a3e', [{ text: t, size: 30, color: '#fff' }]);
     const hs = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.36, 0.03), [std(0x1d7a3e), std(0x1d7a3e), std(0x1d7a3e), std(0x1d7a3e), std(0xffffff, { map: at }), std(0xffffff, { map: at })]); hs.position.set(x, 2.5, -0.6); g.add(hs);
     for (const s of [-0.6, 0.6]) box(0.01, 0.48, 0.01, std(0x222222), x + s, 2.75, -0.6, false);
@@ -143,7 +143,9 @@ export function buildQuikWay(scene, grid, o = {}) {
   const hotCase = box(1.2, 0.6, 0.7, new THREE.MeshStandardMaterial({ color: 0xffe0b0, transparent: true, opacity: 0.4, emissive: 0x804010, emissiveIntensity: 0.6 }), 18.3, 1.3, 1.6, false);
   box(1.3, 1.0, 0.75, std(0xb8b8b2, { metalness: 0.4 }), 18.3, 0.5, 1.6); solid(17, 1, 18, 2);
   const foodItems = [];
-  for (let k = 0; k < 6; k++) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.22, 8), std(k < 3 ? 0xc8ccd0 : 0xd8b878, { metalness: k < 3 ? 0.8 : 0, roughness: 0.4 })); b.rotation.z = Math.PI / 2; b.position.set(17.9 + (k % 3) * 0.3, 1.15 + Math.floor(k / 3) * 0.18, 1.6); g.add(b); foodItems.push(b); }
+  // top row: foil burritos; bottom row: tamales in their husks
+  for (let k = 0; k < 3; k++) { const b = makeBurrito(0.1); b.position.set(17.9 + k * 0.3, 1.33, 1.6); b.rotation.y = Math.PI / 2 + (k - 1) * 0.15; g.add(b); foodItems.push(b); }
+  for (let k = 0; k < 3; k++) { const t = new THREE.Mesh(new THREE.CapsuleGeometry(0.035, 0.12, 4, 8).rotateZ(Math.PI / 2), std(0xc8b07a, { roughness: 0.9 })); t.position.set(17.9 + k * 0.3, 1.14, 1.6); t.rotation.y = Math.PI / 2; g.add(t); foodItems.push(t); }
   const hotT = textTex(256, 64, '#c02a1a', [{ text: 'BURRITOS · TAMALES', size: 28, color: '#fff' }]);
   const hotS = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.28), lit(hotT, 0.4)); hotS.position.set(18.3, 1.78, 1.24); hotS.rotation.y = Math.PI; g.add(hotS);
   const hotL = new THREE.PointLight(0xffb060, 2, 3, 1.6); hotL.position.set(18.3, 1.5, 1.2); g.add(hotL); lights.push(hotL);

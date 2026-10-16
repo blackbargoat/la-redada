@@ -1,6 +1,6 @@
 // Low-poly (PS3-era) procedural models.
 import * as THREE from 'three';
-import { jacketTex, tex } from './textures.js?v=1792114638';
+import { jacketTex, tex } from './textures.js?v=1792115024';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
@@ -336,5 +336,17 @@ export function makeTrashBag(scale = 1, seed = 1) {
   const g = new THREE.Group(); g.add(bag);
   for (const s of [-1, 1]) { const ear = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.12, 5), bag.material); ear.position.set(s * 0.03, 0.6, 0); ear.rotation.z = -s * 0.7; g.add(ear); }
   g.scale.setScalar(scale); g.traverse((m) => { if (m.isMesh) m.castShadow = true; });
+  return g;
+}
+
+// a burrito, low-poly like everything else: an 8-sided tortilla roll with flat folded ends and a plain foil band. Long axis = local x.
+export function makeBurrito(unwrapped = 0.5) {
+  const g = new THREE.Group();
+  const tort = std(0xd8b47a, { roughness: 0.9, flatShading: true }), end = std(0xc8a068, { roughness: 0.9, flatShading: true }), foil = std(0xc8ccd0, { metalness: 0.7, roughness: 0.4, flatShading: true });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.2, 8).rotateZ(Math.PI / 2), tort); g.add(body);
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.042, 0.02, 8).rotateZ(-Math.PI / 2), end); cap.position.x = 0.11; g.add(cap);
+  const fl = 0.2 * (1 - unwrapped) + 0.02;
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.046, 0.046, fl, 8).rotateZ(Math.PI / 2), foil); band.position.x = -0.1 + fl / 2 - 0.01; g.add(band);
+  g.traverse((m) => { if (m.isMesh) m.castShadow = true; });
   return g;
 }
