@@ -1,8 +1,8 @@
 // QUIK-WAY gas & mini mart: the corner store across Whittier from Hammerline. Built once here,
 // placed in the Day 2 lunch scene and on the Whittier lot in Night 1 (where you can walk in and look around).
 import * as THREE from 'three';
-import { tex, textTex } from './textures.js?v=1792116290';
-import { std, makeBurrito } from './models.js?v=1792116290';
+import { tex, textTex } from './textures.js?v=1792116359';
+import { std, makeBurrito } from './models.js?v=1792116359';
 
 // local frame: storefront faces +z on z = 3.5, walls on x 10..23, z -5..4; o.pos/o.rot place it in the world
 export function buildQuikWay(scene, grid, o = {}) {
@@ -130,9 +130,6 @@ export function buildQuikWay(scene, grid, o = {}) {
   box(1.3, 0.05, 3.3, std(0xd8cfb8, { roughness: 0.3 }), 20.4, 1.02, -1.4, false);
   box(0.3, 0.75, 2.6, std(0xd8d6d0, { metalness: 0.3 }), 19.65, 0.45, -1.4, false);
   for (const y of [0.2, 0.45, 0.7]) stockZ(19.55, y, -2.6, -0.2, 0.18, 0.14, prodCols);
-  box(0.4, 0.25, 0.35, std(0x1a1a1a), 20.2, 1.17, -0.4, false); box(0.3, 0.2, 0.04, std(0x102a20, { emissive: 0x30a070, emissiveIntensity: 0.6 }), 20.1, 1.36, -0.4, false);
-  box(0.35, 0.35, 0.6, new THREE.MeshStandardMaterial({ color: 0xd8e0e0, transparent: true, opacity: 0.3, roughness: 0.05 }), 20.25, 1.22, -1.9, false);
-  for (let k = 0; k < 5; k++) box(0.02, 0.25, 0.1, std([0xf0b020, 0xd02a1a, 0x2a5ab0, 0x3a9a3a, 0xe86a1a][k]), 20.25, 1.2, -2.1 + k * 0.1, false);
   // the boombox the music comes out of: two speakers, a tape deck, a lit display, a carry handle, the antenna up
   const radio = new THREE.Group(); radio.position.set(20.55, 1.045, -2.55); radio.rotation.y = -Math.PI / 2; g.add(radio);
   { const bodyM = std(0x1c1c1e, { roughness: 0.5, metalness: 0.2 }), grill = std(0x3a3a3c, { roughness: 0.8 }), chrome = std(0xb8bcc0, { metalness: 0.85, roughness: 0.3 });
@@ -149,8 +146,10 @@ export function buildQuikWay(scene, grid, o = {}) {
   for (const y of [1.1, 1.38, 1.66, 1.94, 2.22]) { box(0.38, 0.02, 3.6, std(0x888888, { metalness: 0.5 }), rackX - 0.02, y, -1.2, false); stockZ(rackX - 0.06, y + 0.01, -2.95, 0.55, 0.2, 0.18, [0xd02a1a, 0xf4f0e6, 0x2a5ab0, 0xe8d040, 0x3a9a3a, 0x1a1a1a]); }
   const heads = [['MONTERO', '#c4202a'], ['DIAMANTE', '#2a5ab0'], ['PHONE CARDS', '#1d7a3e'], ['LOTTO', '#e0a020']];
   heads.forEach(([t, c], i) => { const ht = textTex(256, 72, c, [{ text: t, size: 36, color: '#fff' }]); plane(0.88, 0.3, lit(ht, 0.7), rackX - 0.19, 2.82, -2.6 + i * 0.92, -Math.PI / 2); });
-  // a countertop warmer right beside the register: burritos lying lengthwise toward you, tamales on the shelf above
-  const WX = 20.22, WZ = -1.2;
+  // the burrito stand: a heated case on its own cabinet in the open corner between the counter and the front window, facing into the store
+  const WX = 21.0, WZ = 1.75;
+  box(0.62, 1.0, 1.0, std(0x6a3a26, { map: tex('plywood', [1, 1]) }), WX + 0.02, 0.5, WZ); box(0.66, 0.04, 1.04, std(0xd8cfb8, { roughness: 0.3 }), WX + 0.02, 1.02, WZ, false);
+  box(0.02, 0.5, 0.9, std(0xc02a1a), WX - 0.3, 0.55, WZ, false); solid(20, 1, 21, 2);
   box(0.5, 0.06, 0.9, std(0xb8b8b2, { metalness: 0.5, roughness: 0.4 }), WX, 1.075, WZ, false);
   box(0.5, 0.05, 0.9, std(0xb8b8b2, { metalness: 0.5, roughness: 0.4 }), WX, 1.47, WZ, false);
   for (const dz of [-0.44, 0.44]) for (const dx of [-0.23, 0.23]) box(0.03, 0.4, 0.03, std(0x8a8a86, { metalness: 0.6 }), WX + dx, 1.27, WZ + dz, false);
